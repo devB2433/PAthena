@@ -1,0 +1,35 @@
+{
+  "id": "finding_reviewer",
+  "version": "0.1.0",
+  "sha256": "39ebfcabef0793bc8b43d812a7dec7f60f56d0246916328b8facdf961b8a6eea",
+  "mandatory_rules": [
+    "SNAPSHOT",
+    "EVIDENCE",
+    "UNKNOWN",
+    "BOUNDARY",
+    "INVENTORY",
+    "STATIC",
+    "OUTPUT",
+    "FINDING_REVIEWER-01",
+    "FINDING_REVIEWER-02",
+    "FINDING_REVIEWER-03",
+    "FINDING_REVIEWER-04",
+    "FINDING_REVIEWER-05",
+    "FINDING_REVIEWER-06",
+    "FINDING_REVIEWER-07",
+    "FINDING_REVIEWER-08",
+    "FINDING_REVIEWER-09",
+    "FINDING_REVIEWER-10",
+    "FINDING_REVIEWER-11",
+    "FINDING_REVIEWER-12",
+    "FINDING_REVIEWER-13"
+  ],
+  "source": {
+    "repository": "google/mantis",
+    "commit": "17348b24179d8a29e33141927153d48ef3b96546",
+    "skill": "mantis-review",
+    "license": "Apache-2.0"
+  },
+  "profile": "static",
+  "output_schema": "StageOutput"
+}

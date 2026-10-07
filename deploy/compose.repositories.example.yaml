@@ -1,0 +1,8 @@
+# Copy to deploy/local/repositories.yaml and change the paths for your machine.
+# Run with: docker compose --env-file .env -f deploy/compose.yaml -f deploy/local/repositories.yaml up -d
+services:
+  analysis-service:
+    environment:
+      AUDITOR_REPOSITORIES: '{"project":"/repositories/project"}'
+    volumes:
+      - ${AUDITOR_REPOSITORY_DIR:?Set AUDITOR_REPOSITORY_DIR to your repository path}:/repositories/project:ro

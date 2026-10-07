@@ -1,0 +1,210 @@
+{
+  "contract_version": "0.2-mantis-native",
+  "id": "design_to_static_assurance",
+  "version": 10,
+  "standard_use_policy": "structured_library_requirement_matching_v1",
+  "source_reference_transport": "exact_task_local_handles_v1",
+  "dispatch_policy": "ready_tasks_with_bounded_concurrency",
+  "node_completion_policy": "explicit_role_bound_submission_validated_and_committed",
+  "skill_binding_policy": "registered_versioned_bundle",
+  "nodes": [
+    {
+      "id": "snapshot",
+      "kind": "service",
+      "handler": "snapshot_inputs",
+      "depends_on": [],
+      "output": "Snapshot"
+    },
+    {
+      "id": "document_ingest",
+      "kind": "service",
+      "handler": "extract_documents",
+      "depends_on": [
+        "snapshot"
+      ],
+      "output": "DocumentCorpus"
+    },
+    {
+      "id": "standard_load",
+      "kind": "service",
+      "handler": "validate_standard_pack",
+      "depends_on": [
+        "snapshot"
+      ],
+      "output": "StandardInventory"
+    },
+    {
+      "id": "code_index",
+      "kind": "service",
+      "handler": "index_code_snapshot",
+      "depends_on": [
+        "snapshot"
+      ],
+      "output": "CodeCatalog"
+    },
+    {
+      "id": "design_model",
+      "kind": "agent",
+      "role": "design_analyst",
+      "skill_id": "design_analyst",
+      "skill_version": "0.1.0",
+      "depends_on": [
+        "document_ingest"
+      ],
+      "output": "DesignModel"
+    },
+    {
+      "id": "requirements",
+      "kind": "agent",
+      "role": "requirement_generator",
+      "skill_id": "requirement_generator",
+      "skill_version": "0.1.0",
+      "depends_on": [
+        "design_model"
+      ],
+      "output": "RequirementDraftBatch",
+      "context_policy": "whole_document_when_within_context_budget"
+    },
+    {
+      "id": "pci_mapping",
+      "kind": "agent",
+      "role": "pci_mapper",
+      "skill_id": "pci_mapper",
+      "skill_version": "0.1.0",
+      "depends_on": [
+        "requirements",
+        "standard_load"
+      ],
+      "output": "RequirementStandardMatches",
+      "partition_by": ["requirement_id"],
+      "context_policy": "current_design_requirement_with_structured_standard_retrieval"
+    },
+    {
+      "id": "pci_requirements",
+      "kind": "agent",
+      "role": "pci_requirement_generator",
+      "skill_id": "pci_requirement_generator",
+      "skill_version": "0.1.0",
+      "depends_on": [
+        "pci_mapping"
+      ],
+      "output": "ComplianceRequirementBatch",
+      "dispatch_policy": "explicit_relevant_or_potentially_relevant_clause_inventory"
+    },
+    {
+      "id": "requirement_review",
+      "kind": "agent",
+      "role": "requirement_reviewer",
+      "skill_id": "requirement_reviewer",
+      "skill_version": "0.1.0",
+      "depends_on": [
+        "pci_requirements"
+      ],
+      "output": "RequirementBaseline",
+      "revision_policy": "preserve_original_requirement_and_commit_explicit_review"
+    },
+    {
+      "id": "threat_model",
+      "kind": "engine",
+      "engine": "mantis",
+      "phase": "model",
+      "depends_on": [
+        "requirement_review",
+        "code_index"
+      ],
+      "output": "NativeMantisModel"
+    },
+    {
+      "id": "requirement_check",
+      "kind": "agent",
+      "role": "requirement_checker",
+      "skill_id": "requirement_checker",
+      "skill_version": "0.1.0",
+      "depends_on": [
+        "threat_model"
+      ],
+      "output": "AssessmentBatch",
+      "partition_by": [
+        "requirement_id",
+        "snapshot"
+      ]
+    },
+    {
+      "id": "vulnerability_research",
+      "kind": "engine",
+      "engine": "mantis",
+      "phase": "audit",
+      "depends_on": [
+        "requirement_check"
+      ],
+      "output": "NativeMantisAudit"
+    },
+    {
+      "id": "report",
+      "kind": "service",
+      "handler": "render_verified_report",
+      "depends_on": [
+        "vulnerability_research"
+      ],
+      "output": "ReportBundle"
+    }
+  ],
+  "failure_policy": {
+    "budget_exceeded": "pause_and_export_partial_report",
+    "incomplete_standard_pack": "stop_compliance_claims_and_continue_security_analysis",
+    "unparsed_material": "record_evidence_gap",
+    "missing_baseline": "explicit_current_snapshot_fallback",
+    "dispatch_inventory": "persist_all_targets_before_bounded_dispatch",
+    "invalid_output": "archive_invalid_output_and_stop_queued_model_calls"
+  },
+  "modes": {
+    "code_only": {
+      "include_nodes": [
+        "snapshot",
+        "code_index",
+        "threat_model",
+        "vulnerability_research",
+        "report"
+      ],
+      "require_repository": true
+    },
+    "full": {
+      "include_nodes": "all",
+      "require_repository": true
+    },
+    "incremental": {
+      "include_nodes": "dependency_invalidated_tasks",
+      "require_repository": true,
+      "require_baseline_for_incremental_claim": true
+    },
+    "requirements_only": {
+      "include_nodes": [
+        "snapshot",
+        "document_ingest",
+        "standard_load",
+        "design_model",
+        "requirements",
+        "pci_mapping",
+        "pci_requirements",
+        "requirement_review"
+      ],
+      "terminal_node": "requirement_review",
+      "report_handler": "render_requirement_report",
+      "require_repository": false
+    },
+    "implementation_only": {
+      "include_nodes": [
+        "snapshot",
+        "code_index",
+        "threat_model",
+        "requirement_check",
+        "report"
+      ],
+      "require_repository": true,
+      "require_committed_requirement_baseline": true,
+      "terminal_node": "requirement_check",
+      "context_policy": "current_requirement_only_with_shared_mantis_model_tools"
+    }
+  },
+  "final_submission_sources": "rebind_actual_reads_before_every_model_call"
+}

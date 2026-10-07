@@ -1,0 +1,27 @@
+{
+  "id": "threat_modeler",
+  "version": "0.1.0",
+  "sha256": "72b896b9a30beff33f72d499aa712fd9a69d662e98a029fbe9e6f7d6d1f5a91e",
+  "mandatory_rules": [
+    "SNAPSHOT",
+    "EVIDENCE",
+    "UNKNOWN",
+    "BOUNDARY",
+    "INVENTORY",
+    "STATIC",
+    "OUTPUT",
+    "THREAT_MODELER-01",
+    "THREAT_MODELER-02",
+    "THREAT_MODELER-03",
+    "THREAT_MODELER-04",
+    "THREAT_MODELER-05"
+  ],
+  "source": {
+    "repository": "google/mantis",
+    "commit": "17348b24179d8a29e33141927153d48ef3b96546",
+    "skill": "mantis-threat-model",
+    "license": "Apache-2.0"
+  },
+  "profile": "static",
+  "output_schema": "StageOutput"
+}

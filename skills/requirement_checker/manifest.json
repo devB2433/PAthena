@@ -1,0 +1,30 @@
+{
+  "id": "requirement_checker",
+  "version": "0.1.0",
+  "sha256": "14476f384ab8e8f213e2977806dd8de3f0891bb6fbf1fb50aef9bcf4e00bd9c8",
+  "mandatory_rules": [
+    "SNAPSHOT",
+    "EVIDENCE",
+    "UNKNOWN",
+    "BOUNDARY",
+    "INVENTORY",
+    "STATIC",
+    "OUTPUT",
+    "REQUIREMENT_CHECKER-01",
+    "REQUIREMENT_CHECKER-02",
+    "REQUIREMENT_CHECKER-03",
+    "REQUIREMENT_CHECKER-04",
+    "REQUIREMENT_CHECKER-05",
+    "REQUIREMENT_CHECKER-06",
+    "REQUIREMENT_CHECKER-07",
+    "REQUIREMENT_CHECKER-08"
+  ],
+  "source": {
+    "repository": "google/mantis",
+    "commit": "17348b24179d8a29e33141927153d48ef3b96546",
+    "skill": "mantis-researcher",
+    "license": "Apache-2.0"
+  },
+  "profile": "static",
+  "output_schema": "StageOutput"
+}

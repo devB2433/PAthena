@@ -1,0 +1,317 @@
+{
+  "repository": "https://github.com/google/mantis",
+  "commit": "17348b24179d8a29e33141927153d48ef3b96546",
+  "license": "Apache-2.0",
+  "files": {
+    "__init__.py": {
+      "sha256": "808b3b4f877a0065763b7530e578118d2757b4884e0936df1b86533cd0fa8c8c",
+      "upstream": null,
+      "modified": true
+    },
+    "core/__init__.py": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "upstream": "reference/core/__init__.py",
+      "modified": false
+    },
+    "core/budget.py": {
+      "sha256": "ce573f962e25d9bbf1692c5d408f59b41396c59c9396de31207111d59546c978",
+      "upstream": "reference/core/budget.py",
+      "modified": false
+    },
+    "core/chains.py": {
+      "sha256": "905ce2b714e04d74192b68df30ab890efd2916506a2d601e8e791090ea3055fb",
+      "upstream": "reference/core/chains.py",
+      "modified": false
+    },
+    "core/compactor.py": {
+      "sha256": "789b7aacd7a0288ec3c2ded939ad8a52b7e8388d5e46bef545386e60ee8eb7e0",
+      "upstream": "reference/core/compactor.py",
+      "modified": false
+    },
+    "core/config.py": {
+      "sha256": "49ca7aedb44f4d2246cb7bc5392941c60708df9d585444235d51ad95427aa3e8",
+      "upstream": "reference/core/config.py",
+      "modified": false
+    },
+    "core/context.py": {
+      "sha256": "ba456135f0c33674a788e5dfa8a820336a00f55975463f8006801cd6366ee392",
+      "upstream": "reference/core/context.py",
+      "modified": false
+    },
+    "core/correlator.py": {
+      "sha256": "5bf7f845496faae175824f8df4eb921a4575be54682d3c7e89651c4f1ac1e23e",
+      "upstream": "reference/core/correlator.py",
+      "modified": false
+    },
+    "core/cost.py": {
+      "sha256": "a3aae6cfd481fbd1fa737743967926264a1045c7646f9be240f52af6d120e431",
+      "upstream": "reference/core/cost.py",
+      "modified": false
+    },
+    "core/custom_tools.py": {
+      "sha256": "4dd5035bd2b262afd8cc4352f37635d18bb4c4b65caa48f63d77f6e6f4720c45",
+      "upstream": "reference/core/custom_tools.py",
+      "modified": false
+    },
+    "core/database.py": {
+      "sha256": "74da08f988aea993bda1c142d82dce0840241bd162fb872ace97546cb27bc74a",
+      "upstream": "reference/core/database.py",
+      "modified": false
+    },
+    "core/diversity.py": {
+      "sha256": "a849c3cf6bb5bdbe18d5657e41fbd8ed1b255a9b3b29ace29ed3880c7cb5ba90",
+      "upstream": "reference/core/diversity.py",
+      "modified": false
+    },
+    "core/environments/__init__.py": {
+      "sha256": "5280d742848ba46a15757332635557d61b378602d93bba0f0f3d20c4ea31a85e",
+      "upstream": "reference/core/environments/__init__.py",
+      "modified": true
+    },
+    "core/environments/base.py": {
+      "sha256": "b7a271ba18042c7356836facdd6472b6c63579eb0c5c96a9ce8931d457923bd2",
+      "upstream": "reference/core/environments/base.py",
+      "modified": false
+    },
+    "core/environments/gce_env.py": {
+      "sha256": "4f7e719dfed51454cb0ddd14a4450cd8f3b8456ce13ed80a031d2fa1746394ac",
+      "upstream": "reference/core/environments/gce_env.py",
+      "modified": false
+    },
+    "core/environments/gvisor_env.py": {
+      "sha256": "3427bb88c687d514186adcbabab69f24178cd3036ae50a392589185a129299b1",
+      "upstream": "reference/core/environments/gvisor_env.py",
+      "modified": false
+    },
+    "core/environments/microsandbox_env.py": {
+      "sha256": "f3969d6259c394d0bac89f891354d69a07b2155cf85e6b256c08bba2526e6ab1",
+      "upstream": "reference/core/environments/microsandbox_env.py",
+      "modified": false
+    },
+    "core/environments/staging.py": {
+      "sha256": "0f37ecb48b62b9c47a6810f0092c61e9f18b63ddf6ec71b5f3e1f256d989ef1b",
+      "upstream": "reference/core/environments/staging.py",
+      "modified": false
+    },
+    "core/environments/static_env.py": {
+      "sha256": "548e856925cef94e3eaecac54616eafd608fd4833fe1a75511d56ae8d5cb17fc",
+      "upstream": "reference/core/environments/static_env.py",
+      "modified": false
+    },
+    "core/evidence.py": {
+      "sha256": "86769dde04d95f52d9d7527a72219bb07f80e7f12e4b09c6938ce8ad388fcfe9",
+      "upstream": "reference/core/evidence.py",
+      "modified": false
+    },
+    "core/graph_loader.py": {
+      "sha256": "6e92235d75b81893464f5c2da1f10211dc30e57f76191199ac667bbd5283a65c",
+      "upstream": "reference/core/graph_loader.py",
+      "modified": false
+    },
+    "core/llm_gateway.py": {
+      "sha256": "05fbef5b02bcb5c8d40ea6a9e507e67ae9cee5f9470b927b6588ba42b6d41c51",
+      "upstream": "reference/core/llm_gateway.py",
+      "modified": false
+    },
+    "core/memory.py": {
+      "sha256": "7b84bc90c064d46d9989f35371119f5913b10ff64f1b2ee3a1a801850d387b07",
+      "upstream": "reference/core/memory.py",
+      "modified": false
+    },
+    "core/paths.py": {
+      "sha256": "9a700f4fc381403b37bae053455f9129eca0e8de0c35412aa3297172eb8aaabb",
+      "upstream": "reference/core/paths.py",
+      "modified": false
+    },
+    "core/planner.py": {
+      "sha256": "5979ca74138dad92161fee8e4a8bcb49667fb21022937d2d0f47526d410a34a3",
+      "upstream": "reference/core/planner.py",
+      "modified": false
+    },
+    "core/prompts.py": {
+      "sha256": "36b8d53efd40d364448516f58fab93684a8d9f2554ee8ca25cc56be0a4f1b1ed",
+      "upstream": "reference/core/prompts.py",
+      "modified": false
+    },
+    "core/sandbox.py": {
+      "sha256": "54ae2379df46ef4f69a108d2d9798ea48b2d2fadc4ac6b532eaaef9ba2a775d0",
+      "upstream": "reference/core/sandbox.py",
+      "modified": true
+    },
+    "core/sarif.py": {
+      "sha256": "77a2b4f77685976910b070bf2744cfd30b0519bb8a7ec9b082518ee02e458966",
+      "upstream": "reference/core/sarif.py",
+      "modified": false
+    },
+    "core/schemas.py": {
+      "sha256": "c3d81bbbb6dc6b43e6558339811d4ccf263dfb04a382fd77892a9cec04621061",
+      "upstream": "reference/core/schemas.py",
+      "modified": false
+    },
+    "core/structural_index.py": {
+      "sha256": "972095969020fc3b3a57c1c00b74350700829013e9cb3968638e7455fd55d343",
+      "upstream": "reference/core/structural_index.py",
+      "modified": false
+    },
+    "core/surveyor.py": {
+      "sha256": "7db5debf9f0a757f5c36f7aab30b897126fdb95618a44c15da5273f641c7ca6b",
+      "upstream": "reference/core/surveyor.py",
+      "modified": false
+    },
+    "core/synthesizer.py": {
+      "sha256": "8f5114390ca5ff4ad34c6e5a08f461c43888b4521b525254387c9db3064a5766",
+      "upstream": "reference/core/synthesizer.py",
+      "modified": false
+    },
+    "main.py": {
+      "sha256": "48cf2284de68b762817948ca01af1bca2c323db034498c06ab9d184c3a7f4c20",
+      "upstream": "reference/main.py",
+      "modified": false
+    },
+    "skills/mantis-advise/SKILL.md": {
+      "sha256": "54346a95c066b3bb326bb5be104977a52cfda6629e5eac0be0062958b51aeadd",
+      "upstream": "mantis-advise/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-architecture/SKILL.md": {
+      "sha256": "ba3bdd4da77a1a59b369c1425c64eea6e542b068ff497fa25c220af34bb0edd0",
+      "upstream": "mantis-architecture/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-calibrate/SKILL.md": {
+      "sha256": "c4eb14c114e308ed9f0147397be8b72cb2a5bb837177918e518d83f0c8c9e29b",
+      "upstream": "mantis-calibrate/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-calibrate/references/calibration_rules.md": {
+      "sha256": "3cca579ac19e2b779531a28787369062342485165f4954643bc434e81c28a42b",
+      "upstream": "mantis-calibrate/references/calibration_rules.md",
+      "modified": false
+    },
+    "skills/mantis-chain/SKILL.md": {
+      "sha256": "0705f2b167e1159a4f7acaa7dd9132c1b9104125d08c723b535f00368215e2f3",
+      "upstream": "mantis-chain/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-critic/SKILL.md": {
+      "sha256": "7ac57e4e1bb72018880f8c6b68ffe04a57f13da15a8418ba8759ff81a9c5228c",
+      "upstream": "mantis-critic/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-dedupe/SKILL.md": {
+      "sha256": "4cc3dd33a392ca62bc6685444e6f35bb626daf058c5cc727c3eef258cb5e2d29",
+      "upstream": "mantis-dedupe/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-history/SKILL.md": {
+      "sha256": "ef777063f09b17e5c72bbc692eeaad70b436f0b9708dbb1ebc493addd459617b",
+      "upstream": "mantis-history/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-meta-agent/SKILL.md": {
+      "sha256": "7b6c7d74025924f4487dfa53b762591728537baf8e17734d6e791af2d375c79a",
+      "upstream": "mantis-meta-agent/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-patch/SKILL.md": {
+      "sha256": "c14701e02eb6c8784a19132ab1ebfab7ddcf4e408853794ac4be50faf31a6fe0",
+      "upstream": "mantis-patch/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-patch/references/patch_rebasing.md": {
+      "sha256": "dceef274b1d3788437bd22e8b0f966573c83d9817947bdd3fa31951659022752",
+      "upstream": "mantis-patch/references/patch_rebasing.md",
+      "modified": false
+    },
+    "skills/mantis-pipeline-adapter/SKILL.md": {
+      "sha256": "8297dc5e587293f9c3a72102f002311cadb267369ca14b40503133825adbd030",
+      "upstream": "mantis-pipeline-adapter/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-pipeline-adapter/references/mantis-kb-query.md": {
+      "sha256": "dd6ac10d4051f7b8ceec2c7ac119a3206c35870e4e65b92a83464cbd2d04cc62",
+      "upstream": "mantis-pipeline-adapter/references/mantis-kb-query.md",
+      "modified": false
+    },
+    "skills/mantis-pipeline-adapter/references/mantis-sast-seed.md": {
+      "sha256": "3039fbe9f354129f0803500a3050171fe2dbcc2acd023a10539751cf7e361a8a",
+      "upstream": "mantis-pipeline-adapter/references/mantis-sast-seed.md",
+      "modified": false
+    },
+    "skills/mantis-pipeline-adapter/references/mantis-structural-index.md": {
+      "sha256": "e49ed5ec9577e1e3a4488c81635b2dbb8604ffe57d0097450e6f37e5e52452c2",
+      "upstream": "mantis-pipeline-adapter/references/mantis-structural-index.md",
+      "modified": false
+    },
+    "skills/mantis-plan/SKILL.md": {
+      "sha256": "8ca2bbd05e4ceafe26411259325100965cf8f4ecdd77e6f5cc33814eff3a44e9",
+      "upstream": "mantis-plan/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-reflect/SKILL.md": {
+      "sha256": "cd9b985a9199a6848c122e1788e25525b6ba8c436be441a0fb5217356255e444",
+      "upstream": "mantis-reflect/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-report/SKILL.md": {
+      "sha256": "c80192b51c35d9f56a4953262b156a48b0fa1c3fa65b18b94359cd31b739cb5e",
+      "upstream": "mantis-report/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-reproduce/SKILL.md": {
+      "sha256": "b5b704b9cbc8131c281d7f628b37a35d956284db1d3d89a845e4154b0b57ba05",
+      "upstream": "mantis-reproduce/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-researcher/SKILL.md": {
+      "sha256": "3f8203e26347f4ecb764d009beac741d381067beca46c2e1d26257b19291418b",
+      "upstream": "mantis-researcher/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-review/SKILL.md": {
+      "sha256": "3c0a274abc317cdfcb274336a85b6f75566b92258b03c60d43fcb4562e59fe6d",
+      "upstream": "mantis-review/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-structural-index/SKILL.md": {
+      "sha256": "5a65e55890846a1592a044bd9c117579305030f4c442daf79f3b6a9b3befe9bc",
+      "upstream": "mantis-structural-index/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-summarize/SKILL.md": {
+      "sha256": "14438dbb6800e0f13986c5b49960a2a923c2c9206992a713682ce3bdaa98969a",
+      "upstream": "mantis-summarize/SKILL.md",
+      "modified": false
+    },
+    "skills/mantis-threat-model/SKILL.md": {
+      "sha256": "ced15d440489566553627a6415edaec7a8d11abef2a88a7cb204c17a31ed0a59",
+      "upstream": "mantis-threat-model/SKILL.md",
+      "modified": false
+    },
+    "tools/__init__.py": {
+      "sha256": "cf48d8eec17ca2347519c729955c29ee955f2db5e44d6a43d3217966171c3ca5",
+      "upstream": "reference/tools/__init__.py",
+      "modified": false
+    },
+    "tools/research_tools.py": {
+      "sha256": "91cc8bbe3b46275d3396919baa07fcf5cfe5c30311a9508fd272938fad26a988",
+      "upstream": "reference/tools/research_tools.py",
+      "modified": false
+    },
+    "tools/sandbox_tools.py": {
+      "sha256": "6ef0f95e30d5de3f9cfcdd3f0b7fd3721691be136ee8b74d01d5f8f250e5e88c",
+      "upstream": "reference/tools/sandbox_tools.py",
+      "modified": false
+    },
+    "tools/structural_tools.py": {
+      "sha256": "59a9cbe4e3822486356be29512c7e263d00d9d281abd110aa4f6d197db249ef9",
+      "upstream": "reference/tools/structural_tools.py",
+      "modified": false
+    },
+    "workflow.json": {
+      "sha256": "08b7026cb5cc108d421026de76ab742db9905eaf0e9a5275db5b9358ccc5b40b",
+      "upstream": "reference/workflow.json",
+      "modified": false
+    }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "risk_calibrator",
+  "version": "0.1.0",
+  "sha256": "c9acfc1f224eeb015bdbd3966ba387ca72027b47a0e061831e5897c9e9216af6",
+  "mandatory_rules": [
+    "SNAPSHOT",
+    "EVIDENCE",
+    "UNKNOWN",
+    "BOUNDARY",
+    "INVENTORY",
+    "STATIC",
+    "OUTPUT",
+    "RISK_CALIBRATOR-01",
+    "RISK_CALIBRATOR-02",
+    "RISK_CALIBRATOR-03",
+    "RISK_CALIBRATOR-04",
+    "RISK_CALIBRATOR-05",
+    "RISK_CALIBRATOR-06"
+  ],
+  "source": {
+    "repository": "google/mantis",
+    "commit": "17348b24179d8a29e33141927153d48ef3b96546",
+    "skill": "mantis-calibrate",
+    "license": "Apache-2.0"
+  },
+  "profile": "static",
+  "output_schema": "StageOutput"
+}

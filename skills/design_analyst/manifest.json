@@ -1,0 +1,27 @@
+{
+  "id": "design_analyst",
+  "version": "0.1.0",
+  "sha256": "72168f88469d55a72a84ffc0ab2641d0803aef85424cc4f023fea0a5d4dda8b9",
+  "mandatory_rules": [
+    "SNAPSHOT",
+    "EVIDENCE",
+    "UNKNOWN",
+    "BOUNDARY",
+    "INVENTORY",
+    "STATIC",
+    "OUTPUT",
+    "DESIGN_ANALYST-01",
+    "DESIGN_ANALYST-02",
+    "DESIGN_ANALYST-03",
+    "DESIGN_ANALYST-04",
+    "DESIGN_ANALYST-05"
+  ],
+  "source": {
+    "repository": "google/mantis",
+    "commit": "17348b24179d8a29e33141927153d48ef3b96546",
+    "skill": "mantis-architecture",
+    "license": "Apache-2.0"
+  },
+  "profile": "static",
+  "output_schema": "StageOutput"
+}

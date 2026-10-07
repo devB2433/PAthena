@@ -1,0 +1,30 @@
+{
+  "id": "requirement_generator",
+  "version": "0.1.0",
+  "sha256": "21af8934f1fc6f916ea9669086561897c7e8c12a9a0b75a152dab31b08b73ae2",
+  "mandatory_rules": [
+    "SNAPSHOT",
+    "EVIDENCE",
+    "UNKNOWN",
+    "BOUNDARY",
+    "INVENTORY",
+    "STATIC",
+    "OUTPUT",
+    "REQUIREMENT_GENERATOR-01",
+    "REQUIREMENT_GENERATOR-02",
+    "REQUIREMENT_GENERATOR-03",
+    "REQUIREMENT_GENERATOR-04",
+    "REQUIREMENT_GENERATOR-05",
+    "REQUIREMENT_GENERATOR-06",
+    "REQUIREMENT_GENERATOR-07",
+    "REQUIREMENT_GENERATOR-08"
+  ],
+  "source": {
+    "repository": "google/mantis",
+    "commit": "17348b24179d8a29e33141927153d48ef3b96546",
+    "skill": "mantis-threat-model",
+    "license": "Apache-2.0"
+  },
+  "profile": "static",
+  "output_schema": "StageOutput"
+}

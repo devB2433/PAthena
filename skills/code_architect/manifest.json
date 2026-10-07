@@ -1,0 +1,27 @@
+{
+  "id": "code_architect",
+  "version": "0.1.0",
+  "sha256": "378e1a943748c08b4cde388de46423241b5a9dd775c0473ac30f0dc0ebb10534",
+  "mandatory_rules": [
+    "SNAPSHOT",
+    "EVIDENCE",
+    "UNKNOWN",
+    "BOUNDARY",
+    "INVENTORY",
+    "STATIC",
+    "OUTPUT",
+    "CODE_ARCHITECT-01",
+    "CODE_ARCHITECT-02",
+    "CODE_ARCHITECT-03",
+    "CODE_ARCHITECT-04",
+    "CODE_ARCHITECT-05"
+  ],
+  "source": {
+    "repository": "google/mantis",
+    "commit": "17348b24179d8a29e33141927153d48ef3b96546",
+    "skill": "mantis-architecture",
+    "license": "Apache-2.0"
+  },
+  "profile": "static",
+  "output_schema": "StageOutput"
+}

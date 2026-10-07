@@ -1,0 +1,146 @@
+{
+  "contract_version": "0.1-design",
+  "web": {
+    "backend": "fastapi",
+    "frontend_language": "typescript",
+    "frontend_framework": "react",
+    "frontend_build": "vite",
+    "component_library": "ant_design",
+    "api_prefix": "/api/v1",
+    "progress_transport": "sse",
+    "production_asset_serving": "same_origin_fastapi",
+    "host_port_bind": "127.0.0.1:8080",
+    "api_worker_processes": 1
+  },
+  "deployment": {
+    "target": "linux_containers",
+    "compose_services": [
+      "analysis-service",
+      "model-gateway"
+    ],
+    "analysis_service_network": "internal_only",
+    "persistent_state": true,
+    "nodejs_required_at_runtime": false
+  },
+  "project": {
+    "name": "example-project",
+    "documents_dir": "./inputs/design-documents",
+    "repository_dir": "./inputs/repository",
+    "configuration_dir": "./inputs/configuration",
+    "state_dir": "./state"
+  },
+  "standard": {
+    "id": "PCI_DSS",
+    "version": "4.0.1",
+    "pack_dir": "./standards/pci-dss/4.0.1",
+    "inventory_policy": "account_for_every_requirement",
+    "scope_profile": "infer_with_unknowns",
+    "runtime_updates": false
+  },
+  "model_gateway": {
+    "ipc_transport": "private_container_network",
+    "provider": "openai_compatible",
+    "api_base": "https://api.deepseek.com",
+    "model_id": "SET_AFTER_CAPABILITY_PROBE",
+    "api_key_env": "DEEPSEEK_API_KEY",
+    "structured_output_strategy": "SET_AFTER_CAPABILITY_PROBE",
+    "thinking_mode": "SET_AFTER_CAPABILITY_PROBE",
+    "request_timeout_seconds": 180,
+    "max_transport_retries": 2,
+    "cross_host_redirects": false,
+    "cloud_telemetry": false
+  },
+  "runtime": {
+    "engine": "adk",
+    "workflow": "./design/workflow.json",
+    "max_concurrent_agent_tasks": 2,
+    "agent_session_policy": "isolated_per_task",
+    "skill_binding_policy": "registered_versioned_bundle",
+    "skill_source_policy": "trusted_local_readonly_packages",
+    "instruction_policy": "all_mandatory_rules_with_budget_check",
+    "silent_instruction_truncation": false,
+    "missing_skill_policy": "block_affected_task_and_record_reason",
+    "production_eval_loader_policy": "shared_loader_and_compiler",
+    "record_instruction_provenance": true,
+    "require_validated_commit": true,
+    "automatic_requirement_review": true,
+    "human_approval_stage": false,
+    "target_code_execution": false,
+    "arbitrary_shell_tools": false,
+    "dynamic_workflow_synthesis": false
+  },
+  "budget": {
+    "max_tokens_across_resumes": 1000000,
+    "max_run_active_seconds_across_resumes": 7200,
+    "max_total_model_requests": 300,
+    "max_model_requests_per_task": 12,
+    "max_tool_calls_per_task": 40,
+    "max_output_repair_attempts": 2,
+    "max_requirement_revision_rounds": 2,
+    "limit_action": "checkpoint_and_export_partial_report"
+  },
+  "network": {
+    "runtime_allowed_remote_hosts": [
+      "api.deepseek.com"
+    ],
+    "runtime_allowed_remote_ports": [
+      443
+    ],
+    "egress_enforcement": "external_proxy_or_host_firewall",
+    "gateway_only_remote_access": true,
+    "document_workers_network": "none",
+    "index_workers_network": "none",
+    "agent_tools_remote_access": false,
+    "dns": "controlled_resolver_or_proxy"
+  },
+  "ingestion": {
+    "parser_engine": "docling",
+    "engine_version": "PIN_AFTER_SAMPLE_EVALUATION",
+    "preserve_parser_native_json": true,
+    "parser_model_dir": "/models/docling",
+    "ocr_model_dir": "/models/ocr",
+    "runtime_model_downloads": false,
+    "enable_remote_services": false,
+    "input_source_policy": "registered_local_files_only",
+    "native_formats": [
+      "docx",
+      "pdf",
+      "pptx"
+    ],
+    "legacy_conversion_formats": [
+      "doc",
+      "ppt"
+    ],
+    "legacy_converter": "preinstalled_libreoffice",
+    "ocr": "docling_rapidocr_candidate",
+    "ocr_profile": "PRELOAD_AND_VALIDATE_CHINESE_ENGLISH_MODELS",
+    "ocr_comparison_engine": "tesseract",
+    "office_embedded_images": "explicit_local_image_or_rendered_pdf_pipeline",
+    "unparsed_diagrams": "preserve_and_report_unknown_relations",
+    "follow_external_links": false,
+    "execute_embedded_objects": false
+  },
+  "analysis": {
+    "mode": "full",
+    "baseline_revision": null,
+    "head_revision": null,
+    "first_depth_evaluation_languages": [
+      "python",
+      "java"
+    ],
+    "uncertain_impact_policy": "widen_scope_and_record_reason",
+    "missing_evidence_policy": "unknown_not_violation"
+  },
+  "reporting": {
+    "formats": [
+      "json",
+      "html",
+      "csv"
+    ],
+    "include_evidence_gaps": true,
+    "include_incomplete_tasks": true,
+    "include_applicability_unknowns": true,
+    "result_level": "static_evidence",
+    "language": "en"
+  }
+}

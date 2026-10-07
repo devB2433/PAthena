@@ -1,0 +1,29 @@
+{
+  "id": "requirement_reviewer",
+  "version": "0.1.0",
+  "sha256": "0116593cf60bcdf4a29cdb97a14d2289d9e142aa8b6259037edab22557140457",
+  "mandatory_rules": [
+    "SNAPSHOT",
+    "EVIDENCE",
+    "UNKNOWN",
+    "BOUNDARY",
+    "INVENTORY",
+    "STATIC",
+    "OUTPUT",
+    "REQUIREMENT_REVIEWER-01",
+    "REQUIREMENT_REVIEWER-02",
+    "REQUIREMENT_REVIEWER-03",
+    "REQUIREMENT_REVIEWER-04",
+    "REQUIREMENT_REVIEWER-05",
+    "REQUIREMENT_REVIEWER-06",
+    "REQUIREMENT_REVIEWER-07"
+  ],
+  "source": {
+    "repository": "google/mantis",
+    "commit": "17348b24179d8a29e33141927153d48ef3b96546",
+    "skill": "mantis-review",
+    "license": "Apache-2.0"
+  },
+  "profile": "static",
+  "output_schema": "StageOutput"
+}

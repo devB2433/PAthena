@@ -1,0 +1,30 @@
+{
+  "id": "pci_mapper",
+  "version": "0.1.0",
+  "sha256": "d75231bb82bbaba7e906a2c19dca7888ec1e6f1cba8ff1aa06faeca95ef4fc89",
+  "mandatory_rules": [
+    "SNAPSHOT",
+    "EVIDENCE",
+    "UNKNOWN",
+    "BOUNDARY",
+    "INVENTORY",
+    "STATIC",
+    "OUTPUT",
+    "PCI_MAPPER-01",
+    "PCI_MAPPER-02",
+    "PCI_MAPPER-03",
+    "PCI_MAPPER-04",
+    "PCI_MAPPER-05",
+    "PCI_MAPPER-06",
+    "PCI_MAPPER-07",
+    "PCI_MAPPER-08"
+  ],
+  "source": {
+    "repository": "google/mantis",
+    "commit": "17348b24179d8a29e33141927153d48ef3b96546",
+    "skill": "mantis-plan",
+    "license": "Apache-2.0"
+  },
+  "profile": "static",
+  "output_schema": "StageOutput"
+}

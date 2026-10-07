@@ -1,0 +1,27 @@
+Mantis
+Repository: https://github.com/google/mantis
+Source commit: 17348b24179d8a29e33141927153d48ef3b96546
+License: Apache-2.0 (licenses/mantis-APACHE-2.0.txt)
+
+src/security_auditor/vendor/mantis_llm_gateway.py is copied unchanged from
+reference/core/llm_gateway.py. It supplies SecretScrubber and untrusted-content
+wrapping. The original file and license are retained.
+
+src/security_auditor/vendor/mantis contains the pinned reference core, tools,
+main campaign driver, workflow and all top-level skills with their references.
+SOURCE.json records every file's upstream path, hash and modification status.
+The environment registry and sandbox factory are restricted to static-only;
+the remaining upstream source is retained unchanged. The application adapters
+are mantis_engine.py and mantis_worker.py, including offline grammar loading,
+literal full-skill binding, persistent budget accounting and output mapping.
+The native campaign driver, graph compiler, review branches, deduplication,
+structural index and risk calibration run directly from this source.
+
+The versioned skills adapt Mantis architecture, planning, research, independent
+review, critic and calibration methods for document requirements and static
+analysis. Each skill manifest records its upstream source and modifications
+are described in docs/mantis-skills-review.md. The new domain schemas, storage,
+task scheduler, API and frontend are independent implementations.
+
+Google ADK, LiteLLM, FastAPI, React, Ant Design and Docling are dependencies;
+their licenses and notices remain distributed by their original packages.

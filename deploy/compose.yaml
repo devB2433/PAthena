@@ -1,0 +1,60 @@
+name: security-design-auditor
+services:
+  analysis-service:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.analysis
+    environment:
+      AUDITOR_MODEL_GATEWAY: http://model-gateway:8081
+      AUDITOR_LANGUAGE: ${AUDITOR_LANGUAGE:-en}
+      AUDITOR_MODEL_ID: ${AUDITOR_MODEL_ID:-deepseek-flash}
+      AUDITOR_REPOSITORIES: ${AUDITOR_REPOSITORIES:-{}}
+      AUDITOR_STANDARD_PACK: ${AUDITOR_STANDARD_PACK:-}
+      AUDITOR_DOCLING_MODELS: ${AUDITOR_DOCLING_MODELS:-}
+      AUDITOR_MAX_REQUESTS: ${AUDITOR_MAX_REQUESTS:-500}
+      AUDITOR_MAX_TOKENS: ${AUDITOR_MAX_TOKENS:-0}
+      AUDITOR_AGENT_OUTPUT_TOKENS: ${AUDITOR_AGENT_OUTPUT_TOKENS:-16384}
+      AUDITOR_AGENT_MAX_CALLS: ${AUDITOR_AGENT_MAX_CALLS:-24}
+    volumes:
+      - auditor-state:/data
+      - ${AUDITOR_INPUTS_DIR:-../inputs}:/inputs:ro
+      - ${AUDITOR_MODELS_DIR:-../models}:/models:ro
+      - ${AUDITOR_STANDARDS_DIR:-../standards}:/standards:ro
+    networks: [internal]
+    depends_on: [model-gateway]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: [/tmp]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/v1/health')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+  model-gateway:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.gateway
+    environment:
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      AUDITOR_MODEL_ID: ${AUDITOR_MODEL_ID:-deepseek-flash}
+      AUDITOR_ANALYSIS_PROXY: http://analysis-service:8080
+      AUDITOR_MANTIS_OUTPUT_TOKENS: ${AUDITOR_MANTIS_OUTPUT_TOKENS:-16384}
+      AUDITOR_GATEWAY_DATABASE: /data/auditor.sqlite3
+      AUDITOR_PROVIDER_CONCURRENCY: ${AUDITOR_PROVIDER_CONCURRENCY:-2}
+      AUDITOR_PROVIDER_ATTEMPTS: ${AUDITOR_PROVIDER_ATTEMPTS:-3}
+    volumes:
+      - auditor-state:/data
+    ports:
+      - "127.0.0.1:${AUDITOR_HTTP_PORT:-8088}:8081"
+    networks: [internal, outbound]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: [/tmp]
+networks:
+  internal:
+    internal: true
+  outbound: {}
+volumes:
+  auditor-state: {}
