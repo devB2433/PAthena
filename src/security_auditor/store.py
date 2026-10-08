@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .domain import ALLOWED_KINDS, StageOutput, new_id
 from .skills import digest
-from .provider import BudgetExceeded, ProviderLedger
+from .provider import BudgetExceeded, ProviderLedger, budgets_enabled
 from .migrations import migrate, insert_artifact
 
 
@@ -17,9 +17,10 @@ def now() -> str:
 
 
 class Store:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, *, enforce_budgets: bool | None = None):
         path.parent.mkdir(parents=True, exist_ok=True)
         self.path = path
+        self.enforce_budgets = budgets_enabled() if enforce_budgets is None else enforce_budgets
         with self.connect() as db:
             db.executescript("""
             PRAGMA journal_mode=WAL;
@@ -55,7 +56,7 @@ class Store:
             CREATE INDEX IF NOT EXISTS idx_records_run ON records(run_id,kind);
             CREATE INDEX IF NOT EXISTS idx_events_run ON events(run_id,id);
             """)
-        self.provider = ProviderLedger(path)
+        self.provider = ProviderLedger(path, enforce_budgets=self.enforce_budgets)
         migrate(path)
 
     @contextmanager
@@ -133,6 +134,8 @@ class Store:
                     raise ValueError("幂等键已用于另一组分析输入")
                 return self.run(existing['id'])
             rid = new_id()
+            if not self.enforce_budgets:
+                max_requests = max_tokens = 0
             db.execute(
                 "INSERT INTO runs(id,project_id,mode,status,snapshot,demo,max_requests,max_tokens,created,"
                 "idempotency_key) VALUES(?,?,?,?,?,?,?,?,?,?)",
@@ -152,6 +155,8 @@ class Store:
             if physical:
                 db.execute("INSERT INTO run_controls VALUES(?,?,?,1)",
                            (rid, max_requests or None, max_tokens or None))
+            elif not self.enforce_budgets:
+                db.execute("INSERT INTO run_budget_policy VALUES(?,1)", (rid,))
         self.event(rid, "run_created", {"status": "PENDING"})
         return self.run(rid)
 
@@ -175,13 +180,17 @@ class Store:
         run["demo"] = bool(run["demo"])
         run["language"] = run["snapshot"].get("language", "en")
         policy = self.rows("SELECT unlimited FROM run_budget_policy WHERE run_id=?", (run_id,))
-        run["unlimited_budget"] = bool(policy and policy[0]["unlimited"])
+        run["unlimited_budget"] = not self.enforce_budgets or bool(policy and policy[0]["unlimited"])
+        run["budget_enforced"] = self.enforce_budgets
         run["usage"] = self.rows(
             "SELECT count(*) requests,COALESCE(SUM(COALESCE(charged_tokens,"
             "reserved_tokens)),0) tokens FROM usage WHERE run_id=?",
             (run_id,),
         )[0]
         policy = self.provider.policy(run_id)
+        run["configured_budget"] = policy
+        if policy and not self.enforce_budgets:
+            policy = {**policy, "max_requests": None, "max_tokens": None}
         run["budget"] = policy
         if policy:
             run["usage"] = self.provider.usage(run_id)
@@ -235,6 +244,8 @@ class Store:
         return self.run(run_id)
 
     def update_budget(self, project_id: str, run_id: str, requests: int | None, tokens: int | None):
+        if not self.enforce_budgets:
+            raise ValueError('当前未启用模型预算限制')
         if any(v is not None and v < 1 for v in (requests, tokens)):
             raise ValueError('预算必须为正数或明确不限额')
         with self.connect() as db:
@@ -275,7 +286,7 @@ class Store:
                 used = db.execute('SELECT count(*),COALESCE(SUM(COALESCE(charged_tokens,reserved_tokens)),0) '
                                   'FROM usage WHERE run_id=?', (run_id,)).fetchone()
                 exhausted = not (unlimited and unlimited[0]) and (used[0] >= run['max_requests'] or used[1] >= run['max_tokens'])
-            if exhausted:
+            if self.enforce_budgets and exhausted:
                 raise ValueError('累计预算已用尽；可修改预算后继续，已有用量保留')
             db.execute("UPDATE runs SET status='PENDING',pause_requested=0,error=NULL WHERE id=?", (run_id,))
             db.execute('DELETE FROM run_recovery WHERE run_id=?', (run_id,))
@@ -565,6 +576,8 @@ class Store:
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
             run = db.execute("SELECT * FROM runs WHERE id=?", (run_id,)).fetchone()
+            if run["pause_requested"] or run["status"] in {"PAUSED", "FAILED", "COMPLETED"}:
+                raise BudgetExceeded("分析已暂停或结束")
             policy = db.execute("SELECT unlimited FROM run_budget_policy WHERE run_id=?", (run_id,)).fetchone()
             unlimited = bool(policy and policy[0])
             physical = db.execute("SELECT physical FROM run_controls WHERE run_id=?", (run_id,)).fetchone()
@@ -577,9 +590,9 @@ class Store:
             wave = db.execute("SELECT wave FROM tasks WHERE id=?", (task_id,)).fetchone()[0]
             cumulative_exceeded = used[0] >= run["max_requests"] or used[1] + tokens > run["max_tokens"]
             task_exceeded = task_calls >= (run["max_requests"] if wave == "native" else 12)
-            if (not physical and not unlimited and cumulative_exceeded) or (
+            if self.enforce_budgets and ((not physical and not unlimited and cumulative_exceeded) or (
                 task_exceeded and wave != "native"
-            ) or (not physical and task_exceeded and not unlimited):
+            ) or (not physical and task_exceeded and not unlimited)):
                 raise BudgetExceeded("累计模型预算达到上限")
             request_id = new_id()
             db.execute(

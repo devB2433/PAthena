@@ -108,7 +108,9 @@ PCI DSS 原文及结构化标准包不随仓库分发。使用自己的 PCI DSS 
 
 ## 预算、返回与恢复
 
-默认每次运行最多 500 次实际请求（包括失败与重试），不设总 token 上限。页面“分析额度”可调整；留空表示不限额。API 的 `budget.max_requests` 和 `budget.max_tokens` 为 `null` 表示不限额。单角色模型轮数由 `AUDITOR_AGENT_MAX_CALLS` 控制，`0` 表示不限轮数。修改上限不会清零已累计用量。
+当前暂时关闭 API 调用次数、累计 token 和单任务模型调用轮数上限，默认 `AUDITOR_ENFORCE_BUDGETS=false`。此开关同时应用于分析服务、出站网关、ADK 和 Mantis 适配层；历史运行已保存的预算也不再阻断执行，原预算与累计用量保留。界面隐藏额度设置，新分析一律不限额，API 传入的旧额度也不生效。
+
+恢复限制时，在分析服务和网关同时设置 `AUDITOR_ENFORCE_BUDGETS=true`，再配置 `AUDITOR_MAX_REQUESTS`、`AUDITOR_MAX_TOKENS` 和 `AUDITOR_AGENT_MAX_CALLS`（默认均为 `0`，表示不限额）。此时页面可调整运行额度，API 的 `budget.max_requests` 和 `budget.max_tokens` 为 `null` 表示不限额。单次回答长度、上下文容量、并发、超时和故障重试限制继续保留；它们不属于累计消费上限。
 
 每次实际出站请求都原子预留并记账，分别显示已知供应商用量、在途预留与未知用量估算；估算不等于账单。连接、限速和临时服务错误采用有界重试与等待恢复；认证、余额、参数及结果契约问题保留明确错误。用户暂停停止自动唤醒。
 

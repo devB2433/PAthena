@@ -95,6 +95,7 @@ class MantisEngine:
                 "phase": phase, "task_id": tid, "repository": run["snapshot"]["repository"],
                 "application_db": str(self.store.path.resolve()), "gateway": self.settings.gateway,
                 "model_id": self.settings.model_id, "language": run["language"],
+                "enforce_budgets": self.settings.enforce_budgets,
             }, phase)
             output = self.map_output(run_id, tid, result)
             # Native exports are retained even when the product mapping finds missing citations.

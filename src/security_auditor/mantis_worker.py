@@ -12,6 +12,7 @@ from .mantis_paths import native_source_path
 from .skills import digest
 from .localization import tr
 from .store import BudgetExceeded, Store
+from .provider import budgets_enabled
 from .provider import ProviderUnavailable, ProviderBlocked, OutputContractError
 from .model_contract import accounted_response, validate_native_response, validate_review_inventory, typed_native_tool
 
@@ -148,7 +149,8 @@ async def execute_job(job: dict, model_factory=None) -> dict:
     from google.adk.runners import Runner
     import main as native_main
 
-    store = Store(Path(job["application_db"]))
+    enforce_budgets = job.get("enforce_budgets", budgets_enabled())
+    store = Store(Path(job["application_db"]), enforce_budgets=enforce_budgets)
     run = store.run(job["run_id"])
     phase = job["phase"]
     work = Path(job["work"])
@@ -454,7 +456,7 @@ async def execute_job(job: dict, model_factory=None) -> dict:
             db_override=str(database), model_override="openai/" + job["model_id"],
             api_base_override=job["gateway"].rstrip("/") + "/v1", sandbox_override="static-only",
             resume_run_id=native_run, enable_compaction=False, enable_context_cache=False,
-            budget_config=BudgetConfig(max_tokens=0, max_llm_calls=run["max_requests"],
+            budget_config=BudgetConfig(max_tokens=0, max_llm_calls=run["max_requests"] if enforce_budgets else 0,
                                        max_wall_clock_seconds=3600, max_graph_steps=500,
                                        max_node_visits=20, max_node_tool_calls=100),
             scan_mode_override="whole" if phase == "model" else "auto", assume_yes=True,

@@ -269,7 +269,8 @@ def test_document_tasks_default_whole_and_split_only_for_context(settings, store
 
 
 @pytest.mark.asyncio
-async def test_native_budget_pause_preserves_cumulative_usage(settings, store, tmp_path):
+@pytest.mark.parametrize('enforce_budgets', [True, False])
+async def test_native_budget_pause_preserves_cumulative_usage(settings, store, tmp_path, enforce_budgets):
     repo = tmp_path / "repo"
     repo.mkdir()
     (repo / "orders.py").write_text("def export_orders(db):\n    return db.query_all()\n")
@@ -285,7 +286,14 @@ async def test_native_budget_pause_preserves_cumulative_usage(settings, store, t
         return models.setdefault(stage, NativeScript(stage=stage))
     job = {"phase": "model", "run_id": run["id"], "task_id": task, "work": str(work),
            "repository": manifest, "application_db": str(store.path), "gateway": "http://invalid.test",
-           "model_id": "deepseek-flash", "snapshot_id": "budget-snapshot"}
+           "model_id": "deepseek-flash", "snapshot_id": "budget-snapshot",
+           "enforce_budgets": enforce_budgets}
+    if not enforce_budgets:
+        result = await execute_job(job, factory)
+        assert result['artifacts']
+        assert store.run(run['id'])['usage']['requests'] > 2
+        assert store.run(run['id'])['max_requests'] == 2  # historical configuration retained
+        return
     with pytest.raises(BudgetExceeded):
         await execute_job(job, factory)
     assert store.run(run["id"])["usage"] == {"requests": 2, "tokens": 100}

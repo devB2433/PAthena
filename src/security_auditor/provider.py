@@ -3,11 +3,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
 import uuid
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
+
+
+def budgets_enabled() -> bool:
+    """Temporary global switch; accounting and user pause remain active."""
+    return os.getenv("AUDITOR_ENFORCE_BUDGETS", "false").lower() in {"1", "true", "yes"}
 
 
 class BudgetExceeded(Exception):
@@ -110,8 +116,9 @@ def parse_model_json(text: str):
 
 
 class ProviderLedger:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, *, enforce_budgets: bool | None = None):
         self.path = path
+        self.enforce_budgets = budgets_enabled() if enforce_budgets is None else enforce_budgets
         path.parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as db:
             db.executescript("""
@@ -190,7 +197,8 @@ class ProviderLedger:
             used = db.execute("SELECT count(*),COALESCE(SUM(COALESCE(actual_tokens,"
                               "CASE WHEN status IN ('UNKNOWN','IN_FLIGHT') THEN reserved_tokens ELSE 0 END)),0) "
                               "FROM provider_requests WHERE run_id=?", (run_id,)).fetchone()
-            if ((policy["max_requests"] is not None and used[0] >= policy["max_requests"]) or
+            if self.enforce_budgets and (
+                    (policy["max_requests"] is not None and used[0] >= policy["max_requests"]) or
                     (policy["max_tokens"] is not None and used[1] + reserved > policy["max_tokens"])):
                 raise BudgetExceeded(MESSAGES["budget"])
             rid = str(uuid.uuid4())

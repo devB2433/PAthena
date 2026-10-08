@@ -46,7 +46,7 @@ class RunRequest(StrictModel):
 
 def create_app(settings: Settings | None = None, executor=None, mantis_executor=None) -> FastAPI:
     settings = settings or Settings()
-    store = Store(settings.database)
+    store = Store(settings.database, enforce_budgets=settings.enforce_budgets)
     scheduler = Scheduler(settings, store, executor, mantis_executor)
 
     @asynccontextmanager
@@ -99,11 +99,12 @@ def create_app(settings: Settings | None = None, executor=None, mantis_executor=
                                     (policy['max_tokens'] is not None and usage['tokens'] >= policy['max_tokens'])))
         if not policy and not run['unlimited_budget']:
             exhausted = usage['requests'] >= run['max_requests'] or usage['tokens'] >= run['max_tokens']
+        exhausted = settings.enforce_budgets and exhausted
         changed = any(k in run['snapshot'] and run['snapshot'][k] != v for k, v in current_versions().items()
                       if k != 'mantis_hash' or run['snapshot'].get('repository'))
         run['controls'] = {
             'can_resume': run['status'] in {'PAUSED', 'FAILED'} and not exhausted and not changed,
-            'can_update_budget': bool(policy) and run['status'] in {'PAUSED', 'FAILED', 'PENDING'},
+            'can_update_budget': settings.enforce_budgets and bool(policy) and run['status'] in {'PAUSED', 'FAILED', 'PENDING'},
             'budget_exhausted': exhausted,
             'requires_new_run': changed and run['status'] in {'PAUSED', 'FAILED'},
         }
@@ -180,7 +181,11 @@ def create_app(settings: Settings | None = None, executor=None, mantis_executor=
             "model": settings.model_id,
             "version": "0.1.0",
             "incremental_available": False,
-            "default_budget": {"max_requests": settings.max_requests or None, "max_tokens": settings.max_tokens or None},
+            "budget_enforced": settings.enforce_budgets,
+            "default_budget": {
+                "max_requests": (settings.max_requests or None) if settings.enforce_budgets else None,
+                "max_tokens": (settings.max_tokens or None) if settings.enforce_budgets else None,
+            },
         }
 
     @app.put("/api/v1/settings")

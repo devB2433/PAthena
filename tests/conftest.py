@@ -13,6 +13,8 @@ def settings(tmp_path: Path):
         skills_dir=ROOT / "skills",
         workflow=ROOT / "design/workflow.json",
         web_dist=tmp_path / "no-web",
+        enforce_budgets=True,
+        agent_max_calls=24,
         max_tokens=200000,
         max_requests=100,
         standard_pack="",  # Tests stay isolated from a user's locally imported standards.
@@ -21,7 +23,7 @@ def settings(tmp_path: Path):
 
 @pytest.fixture
 def store(settings):
-    return Store(settings.database)
+    return Store(settings.database, enforce_budgets=settings.enforce_budgets)
 
 
 @pytest.fixture

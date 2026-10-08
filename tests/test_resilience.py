@@ -19,6 +19,7 @@ def tracked(store, sample_run, monkeypatch, limit=500):
     store.provider.configure(run["id"], limit, None)
     tid = store.add_task(run["id"], "research", {})
     monkeypatch.setenv("AUDITOR_GATEWAY_DATABASE", str(store.path))
+    monkeypatch.setenv("AUDITOR_ENFORCE_BUDGETS", "true")
     monkeypatch.setenv("DEEPSEEK_API_KEY", "fixture-key")
     monkeypatch.setenv("AUDITOR_PROVIDER_RETRY_SECONDS", "0")
     monkeypatch.delenv("AUDITOR_ANALYSIS_PROXY", raising=False)

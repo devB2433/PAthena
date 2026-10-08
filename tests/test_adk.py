@@ -95,6 +95,19 @@ async def test_explicit_unbounded_adk_run_still_accounts_calls(settings, store, 
     assert store.rows('SELECT evidence_id FROM task_reads WHERE task_id=?', (unbounded,)) == [{'evidence_id': eid}]
 
 
+async def test_disabled_budget_ignores_configured_adk_call_limit(settings, store, sample_run):
+    from dataclasses import replace
+    _, run, eid = sample_run
+    bundle = SkillLoader(settings.skills_dir).resolve('finding_reviewer', 'finding_reviewer', '0.1.0')
+    tid = store.add_task(run['id'], 'finding_review', {})
+    model = ScriptedModel(evidence_id=eid)
+    output = await AdkExecutor(replace(settings, enforce_budgets=False, agent_max_calls=1), store,
+                               model_factory=lambda: model).execute(store.task(tid), bundle, {})
+    assert output.summary == 'ADK tool round trip verified'
+    assert model._calls == 2
+    assert store.run(run['id'])['usage']['requests'] == 2
+
+
 async def test_oversized_input_is_not_misreported_as_an_invalid_model_response(settings,store,sample_run):
     _,run,eid=sample_run
     task=store.add_task(run['id'],'finding_review',{})

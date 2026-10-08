@@ -75,7 +75,7 @@ def recover_reads(work: Path, phase: str, manifest: dict) -> list[dict]:
 
 
 def repair(settings: Settings, run_id: str) -> dict:
-    store = Store(settings.database)
+    store = Store(settings.database, enforce_budgets=settings.enforce_budgets)
     run = store.run(run_id)
     if run["status"] != "COMPLETED":
         raise ValueError("仅修复已完成运行，避免修改活动分析")

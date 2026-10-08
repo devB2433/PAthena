@@ -12,7 +12,7 @@ from test_api import wait_run
 
 
 def test_continuation_preserves_requirements_and_does_not_regenerate(fixture_settings, monkeypatch):
-    store = Store(fixture_settings.database)
+    store = Store(fixture_settings.database, enforce_budgets=fixture_settings.enforce_budgets)
     executor, mantis = FixtureExecutor(store), FixtureMantis(fixture_settings, store)
     app = create_app(fixture_settings, executor=executor, mantis_executor=mantis)
     with TestClient(app) as client:

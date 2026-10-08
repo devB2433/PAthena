@@ -38,8 +38,11 @@ def test_default_budget_and_idempotent_start_have_same_public_shape(fixture_sett
     from security_auditor.config import Settings
     monkeypatch.delenv('AUDITOR_MAX_REQUESTS', raising=False)
     monkeypatch.delenv('AUDITOR_MAX_TOKENS', raising=False)
+    monkeypatch.delenv('AUDITOR_AGENT_MAX_CALLS', raising=False)
+    monkeypatch.delenv('AUDITOR_ENFORCE_BUDGETS', raising=False)
     defaults = Settings()
-    assert defaults.max_requests == 500 and defaults.max_tokens == 0
+    assert defaults.max_requests == 0 and defaults.max_tokens == 0
+    assert not defaults.enforce_budgets and defaults.agent_max_calls == 0
     app = create_app(replace(fixture_settings, max_requests=500, max_tokens=0))
     p = app.state.store.create_project('idempotence')
     start = endpoint(app, '/{project_id}/runs')

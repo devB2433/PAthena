@@ -70,14 +70,15 @@
     "dynamic_workflow_synthesis": false
   },
   "budget": {
-    "max_tokens_across_resumes": 1000000,
+    "max_tokens_across_resumes": null,
     "max_run_active_seconds_across_resumes": 7200,
-    "max_total_model_requests": 300,
-    "max_model_requests_per_task": 12,
+    "max_total_model_requests": null,
+    "max_model_requests_per_task": null,
     "max_tool_calls_per_task": 40,
     "max_output_repair_attempts": 2,
     "max_requirement_revision_rounds": 2,
-    "limit_action": "checkpoint_and_export_partial_report"
+    "limit_action": "checkpoint_and_export_partial_report",
+    "enforce_model_usage_limits": false
   },
   "network": {
     "runtime_allowed_remote_hosts": [

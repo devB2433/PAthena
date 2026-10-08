@@ -495,7 +495,7 @@ class AdkExecutor:
                 new_message=types.Content(
                     role="user", parts=[types.Part(text=SecretScrubber.scrub(message))]
                 ),
-                run_config=RunConfig(max_llm_calls=self.settings.agent_max_calls),
+                run_config=RunConfig(max_llm_calls=self.settings.agent_max_calls if self.settings.enforce_budgets else 0),
             ):
                 if event.error_code:
                     # ADK can convert a raised exception to an error event. Preserve

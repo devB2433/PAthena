@@ -196,5 +196,6 @@
   "匹配依据与条件": "Match rationale and conditions",
   "已匹配 {done} / {total} 条需求": "Matched {done} / {total} requirements",
   "标准匹配": "Standard matching",
-  "分析任务输入过大，需要精简上下文；尚未调用模型": "Analysis task input is too large; no model request was made"
+  "分析任务输入过大，需要精简上下文；尚未调用模型": "Analysis task input is too large; no model request was made",
+  "当前未启用模型预算限制": "Model budget limits are currently disabled"
 }

@@ -99,11 +99,11 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [budgetTarget, setBudgetTarget] = useState<'new' | 'current'>('new');
-  const [newBudget, setNewBudget] = useState<Budget>({ max_requests: 500, max_tokens: null });
+  const [newBudget, setNewBudget] = useState<Budget>({ max_requests: null, max_tokens: null });
   const [editedBudget, setEditedBudget] = useState<Budget>(newBudget);
   const [clock, setClock] = useState(Date.now());
   const [repo, setRepo] = useState<string>();
-  const [settings, setSettings] = useState<{ repositories: string[]; language?: Language; default_budget?: Budget }>({ repositories: [] });
+  const [settings, setSettings] = useState<{ repositories: string[]; language?: Language; default_budget?: Budget; budget_enforced?: boolean }>({ repositories: [] });
   const [msg, holder] = message.useMessage();
   const refreshProjects = async () => setProjects((await api<{ items: Project[] }>('/projects')).items);
 
@@ -284,7 +284,7 @@ export default function App() {
         <Space><Button type="primary" size="large" onClick={() => setNewOpen(true)}>{t('创建项目')}</Button></Space>
       </section> : <>
         <section className="project-heading"><div><h1>{project.name}</h1></div>
-          <Space>{!!matrix.requirements.length && <Button onClick={startChecks} loading={busy} disabled={!repo || !run || ['RUNNING', 'PENDING', 'WAITING'].includes(run.status)}>{t('检查已有需求')}</Button>}<Button onClick={() => openBudget('new')}>{t('分析额度')}</Button><Button disabled={!run} onClick={() => window.open(base + '/reports/html', '_blank')}>{t('导出报告')}</Button><Button type="primary" icon={<PlayCircleOutlined />} onClick={start} loading={busy} disabled={(!assets.length && !repo) || ['RUNNING', 'PENDING', 'WAITING'].includes(run?.status || '')}>{run?.controls?.requires_new_run ? t('重新分析') : repo && !assets.length ? t('开始代码分析') : t('开始分析')}</Button></Space>
+          <Space>{!!matrix.requirements.length && <Button onClick={startChecks} loading={busy} disabled={!repo || !run || ['RUNNING', 'PENDING', 'WAITING'].includes(run.status)}>{t('检查已有需求')}</Button>}{settings.budget_enforced && <Button onClick={() => openBudget('new')}>{t('分析额度')}</Button>}<Button disabled={!run} onClick={() => window.open(base + '/reports/html', '_blank')}>{t('导出报告')}</Button><Button type="primary" icon={<PlayCircleOutlined />} onClick={start} loading={busy} disabled={(!assets.length && !repo) || ['RUNNING', 'PENDING', 'WAITING'].includes(run?.status || '')}>{run?.controls?.requires_new_run ? t('重新分析') : repo && !assets.length ? t('开始代码分析') : t('开始分析')}</Button></Space>
         </section>
         {run?.error && <Alert className="run-alert" type="warning" showIcon message={run.controls?.requires_new_run ? t('分析流程已更新，请重新分析。历史结果已保留。') : t(run.display_error || run.issue?.message || run.error)} />}
         <section className="materials-bar"><div><strong>{t('设计文档')}</strong><span>{assets.length ? assets.map(a => a.name).join('、') : t('未上传')}</span></div>

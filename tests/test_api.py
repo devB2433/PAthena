@@ -23,7 +23,7 @@ def wait_run(client, project_id, run_id):
 @pytest.mark.parametrize("selected", ["en", "zh-CN"])
 def test_full_flow_and_replay(fixture_settings, seed_run, selected):
     fixture_settings = replace(fixture_settings, language=selected)
-    fixture_store = Store(fixture_settings.database)
+    fixture_store = Store(fixture_settings.database, enforce_budgets=fixture_settings.enforce_budgets)
     app = create_app(fixture_settings, executor=FixtureExecutor(fixture_store),
                      mantis_executor=FixtureMantis(fixture_settings, fixture_store))
     with TestClient(app) as client:
@@ -142,7 +142,7 @@ def test_budget_pause_does_not_reset(fixture_settings, seed_run):
     from dataclasses import replace
 
     configured = replace(fixture_settings, max_requests=1)
-    fixture_store = Store(configured.database)
+    fixture_store = Store(configured.database, enforce_budgets=configured.enforce_budgets)
     app = create_app(configured, executor=FixtureExecutor(fixture_store),
                      mantis_executor=FixtureMantis(configured, fixture_store))
     with TestClient(app) as client:

@@ -4,6 +4,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from .provider import budgets_enabled
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -32,10 +33,11 @@ class Settings:
     standard_pack: str = field(default_factory=lambda: os.getenv("AUDITOR_STANDARD_PACK", local_standard_pack()))
     docling_models: str = field(default_factory=lambda: os.getenv("AUDITOR_DOCLING_MODELS", ""))
     language: str = field(default_factory=lambda: os.getenv("AUDITOR_LANGUAGE", "en"))
-    max_requests: int = field(default_factory=lambda: int(os.getenv("AUDITOR_MAX_REQUESTS", "500")))
+    enforce_budgets: bool = field(default_factory=budgets_enabled)
+    max_requests: int = field(default_factory=lambda: int(os.getenv("AUDITOR_MAX_REQUESTS", "0")))
     max_tokens: int = field(default_factory=lambda: int(os.getenv("AUDITOR_MAX_TOKENS", "0")))
     agent_output_tokens: int = field(default_factory=lambda: int(os.getenv("AUDITOR_AGENT_OUTPUT_TOKENS", "16384")))
-    agent_max_calls: int = field(default_factory=lambda: int(os.getenv("AUDITOR_AGENT_MAX_CALLS", "24")))
+    agent_max_calls: int = field(default_factory=lambda: int(os.getenv("AUDITOR_AGENT_MAX_CALLS", "0")))
     concurrency: int = field(default_factory=lambda: int(os.getenv("AUDITOR_CONCURRENCY", "2")))
     upload_limit: int = 25 * 1024 * 1024
     code_limit: int = 5000
