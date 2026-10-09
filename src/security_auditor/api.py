@@ -383,7 +383,7 @@ def create_app(settings: Settings | None = None, executor=None, mantis_executor=
                 rows.append([label("需求实现情况"), req["requirement_number"], req["statement"],
                              label(STATUS[req["implementation_status"]]), detail])
             for finding in matrix["findings"]:
-                rows.append([label("Findings"), "、".join(finding["requirement_numbers"]), finding["title"],
+                rows.append([label("安全风险"), "、".join(finding["requirement_numbers"]), finding["title"],
                              label(FINDING_STATUS.get(finding["review_status"], "待确认")), finding["rationale"]])
             for cells in rows:
                 writer.writerow(

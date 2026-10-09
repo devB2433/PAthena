@@ -128,9 +128,9 @@ def product_report(project_name: str, data: dict, matrix: dict, sources: list[di
                       f'{source_blocks(finding, True)}</article>')
     if excluded:
         if not rows:
-            rows.append(f'<p>{t("暂无待处理 Findings")}</p>')
+            rows.append(f'<p>{t("暂无待处理安全风险")}</p>')
         rows.append(f'<details><summary>{t("已排除的候选问题")} ({len(excluded)})</summary>' + ''.join(excluded) + '</details>')
-    sections.append(('Findings', rows))
+    sections.append(('安全风险', rows))
     code_only = data.get('run', {}).get('mode') == 'code_only'
     body = ''.join(f'<section><h2>{i}. {t(name)}</h2>' + (''.join(items) or
                    f'<p>{t("本次未检查" if code_only and i in {1, 3} else "暂无结果")}</p>') + '</section>'

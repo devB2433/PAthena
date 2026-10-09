@@ -32,7 +32,7 @@ const phaseDefinitions: { id: Phase; title: string; stages: string[] }[] = [
   { id: 'requirements', title: '安全需求', stages: ['design_model', 'requirements', 'pci_mapping', 'pci_requirements', 'requirement_review'] },
   { id: 'threats', title: '威胁建模', stages: ['threat_model'] },
   { id: 'implementation', title: '需求实现情况', stages: ['requirement_check'] },
-  { id: 'vulnerabilities', title: 'Findings', stages: ['vulnerability_research'] },
+  { id: 'vulnerabilities', title: '安全风险', stages: ['vulnerability_research'] },
 ];
 const labels: Record<string, string> = {
   PENDING: '待运行', RUNNING: '分析中', COMPLETED: '已完成', SUCCEEDED: '已完成',
@@ -341,9 +341,9 @@ export default function App() {
             { title: t('验收项'), width: 130, render: (_, row) => tf('{checked} / {total} 已检查', { checked: row.checked_criteria || 0, total: row.total_criteria || 0 }) },
           ]} />}
           {phase === 'vulnerabilities' && <>
-            {!!excludedFindings.length && <Button type="link" onClick={() => setShowExcluded(!showExcluded)}>{showExcluded ? t('返回 Findings 列表') : tf('已排除 {count} 项', { count: excludedFindings.length })}</Button>}
+            {!!excludedFindings.length && <Button type="link" onClick={() => setShowExcluded(!showExcluded)}>{showExcluded ? t('返回安全风险列表') : tf('已排除 {count} 项', { count: excludedFindings.length })}</Button>}
             <Table<Row> rowKey="id" dataSource={displayedFindings.filter(matches)} pagination={{ pageSize: 8 }} locale={{ emptyText: empty }} columns={[
-            { title: t('Findings'), dataIndex: 'title', render: (v, row) => <button className="text-link" onClick={() => open(row)}>{v}</button> },
+            { title: t('安全风险'), dataIndex: 'title', render: (v, row) => <button className="text-link" onClick={() => open(row)}>{v}</button> },
             { title: t('模块'), dataIndex: 'module', width: 120 }, { title: t('风险'), width: 90, render: (_, row) => statusTag(row.severity || 'UNKNOWN') },
             { title: t('关联需求'), width: 110, render: (_, row) => row.requirement_numbers?.length ? row.requirement_numbers.map(number => <button key={number} className="text-link source-location" onClick={() => { const req = requirements.find(r => r.requirement_number === number); if (req) open(req, 'implementation'); }}>{number}</button>) : '—' },
             { title: t('代码位置'), width: 210, render: (_, row) => locations(row, true).length ? locations(row, true).map(s => <button key={s.id} className="text-link source-location" onClick={() => open(row)}>{sourceTitle(s)}</button>) : t('未定位到代码') },
@@ -380,7 +380,7 @@ export default function App() {
         {detail.phase === 'implementation' && <><p>{detail.row.statement}</p>{statusTag(detail.row.implementation_status || 'NOT_CHECKED')}
           <Button type="link" onClick={() => { const req = requirements.find(r => r.id === detail.row.id); if (req) open(req, 'requirements'); }}>{t('查看需求来源')}</Button>
           <h3>{t('验收项检查')}</h3>{detail.row.criterion_checks?.map((check, index) => <section className="criterion-check" key={index}><h4>{check.acceptance_criterion}</h4>{statusTag(check.implementation_status || 'NOT_CHECKED')}<p>{check.rationale || t('尚未检查')}</p>{check.entrypoint && <p>{t('检查入口')}：{check.entrypoint}</p>}</section>)}
-          {!!detail.row.finding_ids?.length && <><h3>{t('关联 Findings')}</h3>{findings.filter(f => detail.row.finding_ids!.includes(f.id)).map(f => <button className="text-link source-location" key={f.id} onClick={() => open(f, 'vulnerabilities')}>{f.title}</button>)}</>}
+          {!!detail.row.finding_ids?.length && <><h3>{t('关联安全风险')}</h3>{findings.filter(f => detail.row.finding_ids!.includes(f.id)).map(f => <button className="text-link source-location" key={f.id} onClick={() => open(f, 'vulnerabilities')}>{f.title}</button>)}</>}
         </>}
         {detail.phase === 'vulnerabilities' && <>{statusTag(detail.row.severity || 'UNKNOWN')}<h3>{t('影响')}</h3><p>{detail.row.impact}</p>{!!detail.row.attack_preconditions?.length && <><h3>{t('触发条件')}</h3><ul>{detail.row.attack_preconditions.map(p => <li key={p}>{p}</li>)}</ul></>}<h3>{t('问题原因')}</h3><p>{detail.row.rationale}</p><h3>{t('修复建议')}</h3><p>{detail.row.recommendation}</p><h3>{t('相关代码')}</h3>{!locations(detail.row, true).length && <p>{t('未定位到代码')}</p>}</>}
         {detailSources.map(s => <section className="source-block" key={s.id}><h3>{sourceTitle(s)}</h3><pre>{s.content}</pre></section>)}

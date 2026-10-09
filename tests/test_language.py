@@ -99,6 +99,7 @@ def test_report_localizes_labels_without_rewriting_submitted_content(selected, t
         {'artifact_type': 'threat_model', 'data': {'key_risks': ['submitted原文']}}]}
     html = product_report('project', data, {'requirements': [], 'findings': []}, [])
     assert f'lang="{selected}"' in html and title in html
+    assert f'<h2>4. {"安全风险" if selected == "zh-CN" else "Findings"}</h2>' in html
     assert 'submitted原文' in html
 
 

@@ -48,6 +48,7 @@ def test_full_flow_and_replay(fixture_settings, seed_run, selected):
         csv_report = client.get(f"/api/v1/projects/{pid}/runs/{rid}/reports/csv").text
         assert csv_report.count(("Requirement implementation" if selected == "en" else "需求实现情况") + ",SR-001") == 1
         assert ("Supported by static review" if selected == "en" else "静态复核支持") in csv_report
+        assert ("Findings" if selected == "en" else "安全风险") + "," in csv_report
         pci = next(t for t in data["tasks"] if t["stage"] == "pci_mapping")
         assert pci["status"] == "SKIPPED"
         assert pci["id"] in data["skipped_tasks"]
@@ -57,7 +58,7 @@ def test_full_flow_and_replay(fixture_settings, seed_run, selected):
         for format in ["html", "csv", "json"]:
             assert client.get(f"/api/v1/projects/{pid}/runs/{rid}/reports/{format}").status_code == 200
         html_report = client.get(f"/api/v1/projects/{pid}/runs/{rid}/reports/html").text
-        for section in (["1. Security requirements", "2. Threat modeling", "3. Requirement implementation", "4. Findings"] if selected == "en" else ["1. 安全需求", "2. 威胁建模", "3. 需求实现情况", "4. Findings"]):
+        for section in (["1. Security requirements", "2. Threat modeling", "3. Requirement implementation", "4. Findings"] if selected == "en" else ["1. 安全需求", "2. 威胁建模", "3. 需求实现情况", "4. 安全风险"]):
             assert section in html_report
         assert "orders.py:1-5" in html_report
         assert "def export_orders" in html_report
