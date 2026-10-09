@@ -19,8 +19,8 @@ structural index and risk calibration run directly from this source.
 
 The versioned skills adapt Mantis architecture, planning, research, independent
 review, critic and calibration methods for document requirements and static
-analysis. Each skill manifest records its upstream source and modifications
-are described in docs/mantis-skills-review.md. The new domain schemas, storage,
+analysis. Each skill manifest records its upstream source and applicable rules.
+The new domain schemas, storage,
 task scheduler, API and frontend are independent implementations.
 
 Google ADK, LiteLLM, FastAPI, React, Ant Design and Docling are dependencies;

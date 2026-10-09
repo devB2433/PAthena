@@ -177,7 +177,7 @@ auditor prepare-standard --standard-pack ./standards/pci-dss-4.0.1 --model-dir .
 
 Preparation persists controls, normative-source and bilingual-control vectors, lexical indexes, model identities, and the retrieval recipe. Identical inputs reuse existing preparation. Configure `AUDITOR_STANDARD_PACK=/standards/pci-dss-4.0.1`, `AUDITOR_EMBEDDING_MODEL_DIR`, and `AUDITOR_RERANKER_MODEL_DIR`. Projects query stored vectors and embed only new queries. Dense and BM25 rankings are fused with RRF, then the first 40 candidates are reranked locally; remaining candidates are still accessible through pagination. Results are cached across projects by catalog, query, language, and section; pagination does not rerun the models. Each catalog has its own lexical index so new standard versions do not alter historical keyword rankings.
 
-Rankings and scores are candidates, not applicability decisions or compliance probabilities. The mapper reads stored controls and normative sources to assess relevance and conditions. A binding service then copies stored control text and criteria in the run language without calling a compliance requirement generator. Changing controls, models, or retrieval recipes requires explicit preparation of a new catalog; mismatched models block new runs before analysis starts. Existing catalogs and results are preserved. Source reads do not reparse the PDF. An incomplete standard catalog cannot enter new compliance runs; an unconfigured standard skips compliance steps. See [bilingual retrieval evaluation](docs/retrieval-evaluation.md) for selection and test limits.
+Rankings and scores are candidates, not applicability decisions or compliance probabilities. The mapper reads stored controls and normative sources to assess relevance and conditions. A binding service then copies stored control text and criteria in the run language without calling a compliance requirement generator. Changing controls, models, or retrieval recipes requires explicit preparation of a new catalog; mismatched models block new runs before analysis starts. Existing catalogs and results are preserved. Source reads do not reparse the PDF. An incomplete standard catalog cannot enter new compliance runs; an unconfigured standard skips compliance steps. See [Embedding and reranking evaluation](#embedding-and-reranking-evaluation) below for selection and test limits.
 
 ## Embedding and reranking evaluation
 
@@ -210,7 +210,7 @@ Performance was measured on Apple arm64 with 16 GiB RAM, CPU FP32, four threads,
 
 Two deployed-container queries took 31.46 s end to end (including first load) and 21.03 s; cached repeats took 0.40 s and 0.29 s. These two observations are not P50/P95 estimates, and host timings should not be presented as container response times.
 
-**Evaluation scope:** cases were authored for this development task from normative sources and have not undergone independent expert review. The reported 100% applies only to this dataset; it does not establish whole-standard accuracy, compliance success, or final mapper decision accuracy. Unlabeled candidates are not automatically false positives, and eight unrelated queries are insufficient to calibrate applicability thresholds. See [bilingual retrieval evaluation](docs/retrieval-evaluation.md) for pinned revisions, selection details, and performance limits. Model weights, standard originals, and per-query source data are not distributed with the repository.
+**Evaluation scope:** cases were authored for this development task from normative sources and have not undergone independent expert review. The reported 100% applies only to this dataset; it does not establish whole-standard accuracy, compliance success, or final mapper decision accuracy. Unlabeled candidates are not automatically false positives, and eight unrelated queries are insufficient to calibrate applicability thresholds. Pinned revisions are recorded in the [model download script](tools/download_retrieval_models.py). Model weights, standard originals, and per-query source data are not distributed with the repository.
 
 ## Analysis modes
 
@@ -265,7 +265,7 @@ AUDITOR_DOCLING_MODELS=./models/docling \
 .venv/bin/auditor serve --port 8088
 ```
 
-PDF tests require models prepared in advance and explicitly skip when resources are missing. Protocol tests use controlled model responses and do not establish real-world analysis accuracy. The first complete run with a real model required debugging and resumptions. Fully unattended stability and the validity of Findings have not yet passed acceptance testing. See [Current implementation status](docs/development-status.md) for other limitations.
+PDF tests require models prepared in advance and explicitly skip when resources are missing. Protocol tests use controlled model responses and do not establish real-world analysis accuracy. The first complete run with a real model required debugging and resumptions. Fully unattended stability and the validity of Findings have not yet passed acceptance testing.
 
 ## Project structure
 
@@ -276,10 +276,7 @@ skills/                    Project-defined versioned analysis skills
 design/                    Workflow and configuration examples
 deploy/                    Containers and general deployment templates
 tests/                     Automated tests and minimal test fixtures
-docs/                      Architecture, parsing, static audits, and status notes
 licenses/                  Third-party licenses
 ```
 
 The internal name `security-design-auditor` is used for the package and Compose project.
-
-Detailed design documents are available in [Implementation plan](docs/implementation-plan.md), [Frontend, backend, and deployment](docs/frontend-backend-deployment.md), [Document parser selection](docs/document-parsing-selection.md), and [Bilingual retrieval evaluation](docs/retrieval-evaluation.md). Capabilities described as targets in design documents should be read alongside the current implementation and status. Some linked design and status documents are currently in Chinese.

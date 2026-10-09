@@ -13,6 +13,7 @@ apps/web/dist/
 state/
 state-archives/
 reports/
+docs/
 inputs/
 standards/
 models/
