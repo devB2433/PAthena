@@ -93,10 +93,28 @@ PAthena's implementation verification is a **static assessment**. Code support d
 - Frontend: TypeScript, React, Vite, Ant Design.
 - Database: SQLite, WAL, FTS5; persistence for the structured standards library, tasks, raw model responses, and results.
 - Document parsing: Docling. Source navigation: structural indexes, search tools, and local tree-sitter grammars.
-- Model: DeepSeek `deepseek-flash` by default, accessed through a separate model gateway.
+- Analysis model: Currently only DeepSeek-V4.1-Flash is supported (API model name `deepseek-flash`), accessed through a separate model gateway.
 - Deployment: Two containers for the analysis service and model gateway. The analysis service serves the frontend from the same origin.
 
 English is the default output language. Selecting Chinese in system settings directly instructs subsequent analysis through skills and prompts to generate Chinese content. Existing results are not translated afterward. Each run freezes its own output language.
+
+## Analysis model support and constraints
+
+The current analysis-model support scope is limited to **DeepSeek-V4.1-Flash**, configured as `AUDITOR_MODEL_ID=deepseek-flash`. Integration and real analysis experiments use this API identifier. Other models, providers, and small local models have not passed compatibility and complete-workflow acceptance and are outside the current support scope. A configurable model name does not establish compatibility with arbitrary models.
+
+As of 2026-10-09, DeepSeek's documentation maps `deepseek-flash` to DeepSeek-V4.1-Flash, with a **1M context window** and support for JSON Output and Tool Calls. The provider may change the version behind an API alias; check the [official model documentation](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/) when deploying.
+
+| Constraint | Current requirement and reason |
+| --- | --- |
+| Model interface | The gateway currently connects to `api.deepseek.com` and accepts only the registered model name and approved parameters. Other providers require adaptations for interfaces, parameters, tool protocols, and error handling. |
+| Context window | Retain the current large-context model. **Replacing it with an 8K, 16K, or 32K small-context analysis model is not recommended.** Context includes complete skills, design and code material, tool schemas, call history, and tool results. Insufficient capacity can cause rejected requests, incomplete material inclusion, or inadequate cross-module analysis. |
+| Tools and structured output | Reliable tool calling and complete arguments conforming to strict schemas are required. Chat capability or JSON text output alone is insufficient for the full workflow. The application also validates task ownership, sources actually read, and acceptance-criterion inventory. |
+| Per-response output | The current default output budget is **16,384 tokens**. Requirements, threat models, and audit results can be large structured objects; reducing the budget can cause truncated arguments, missing inventory, or failed submissions. Provider output capacity and the application's configured response budget are separate limits. |
+| Instruction following and reasoning | The model must follow skills, source constraints, bilingual output instructions, and cross-file investigations consistently. Smaller analysis models have not passed acceptance; successful tool calling does not establish accurate security judgments. |
+
+Material grouping, on-demand code slicing, retrieval, and some context-budget checks are implemented. **Unified capability detection and end-to-end context adaptation for arbitrary models are not implemented.** A smaller window does not guarantee that all tasks will be split automatically while preserving analytical completeness. Unlimited cumulative tokens do not increase the model's context window or per-response capacity.
+
+These constraints apply to the language model performing requirement analysis, threat modeling, implementation checks, and Findings audits. Local Qwen embeddings and BGE reranking serve retrieval; their selection and evaluation are described below.
 
 ## Container deployment
 
