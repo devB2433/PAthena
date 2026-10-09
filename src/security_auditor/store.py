@@ -455,6 +455,8 @@ class Store:
                 raise ValueError('设计材料不能声明代码观察事实')
             if role == 'requirement_generator' and record.origin == 'PCI_DSS':
                 raise ValueError('设计需求角色不能声明 PCI DSS 来源')
+            if record.kind == 'requirement' and record.standard_control_id:
+                raise ValueError('预生成标准控制只能由绑定服务导入，不能由项目模型改写')
             for eid in record.evidence_ids + getattr(record, "counter_evidence_ids", []):
                 self.read_evidence(run_id, eid)
                 if eid not in read_ids:
@@ -474,6 +476,8 @@ class Store:
                     raise ValueError("检查结果不属于当前需求")
                 if record.acceptance_criterion not in requirement["acceptance_criteria"]:
                     raise ValueError("检查项不属于该需求")
+                if record.implementation_status == 'EXTERNAL_EVIDENCE_REQUIRED':
+                    raise ValueError('新检查须使用 NOT_CODE_VERIFIABLE 表示无法通过代码验证')
                 if record.implementation_status in {'STATIC_SUPPORTED', 'PARTIAL', 'VIOLATED'} and not any(
                     self.read_evidence(run_id, eid)['source_type'] == 'code' for eid in record.evidence_ids
                 ):
@@ -482,6 +486,10 @@ class Store:
                 if known.get(req_id, {}).get("kind") != "requirement":
                     raise ValueError("发现引用了不存在的需求")
         if role == "pci_mapper":
+            if task['scope'].get('compliance_scope_policy') in {'code_related_v2', 'precomputed_controls_v3'} and any(
+                r.control_scope is None for r in output.records
+            ):
+                raise ValueError('条款匹配必须明确与代码范围的关系')
             expected = task["scope"].get("clause_ids", [])
             actual = [r.clause_id for r in output.records if r.kind == "applicability"]
             requirement_id = task['scope'].get('requirement_id')
@@ -501,6 +509,22 @@ class Store:
                 raise ValueError("条款适用性库存不完整或重复")
             decisions = {r.clause_id: r for r in output.records if r.kind == 'applicability'}
             for clause_id, decision in decisions.items():
+                if task['scope'].get('compliance_scope_policy') == 'precomputed_controls_v3':
+                    from .control_catalog import control, catalog
+                    from .domain import compliance_candidate
+                    if compliance_candidate(decision.model_dump()) and not decision.control_ids:
+                        raise ValueError('相关匹配必须选择已经入库的控制需求')
+                    cid = catalog(self, run_id)['catalog_id']
+                    read_controls = {r['control_id'] for r in self.rows(
+                        'SELECT control_id FROM task_control_reads WHERE task_id=? AND catalog_id=?', (task_id, cid))}
+                    if len(decision.control_ids) != len(set(decision.control_ids)):
+                        raise ValueError('控制匹配不能重复')
+                    for control_id in decision.control_ids:
+                        c = control(self, run_id, control_id)
+                        if c['clause_id'] != clause_id or control_id not in read_controls:
+                            raise ValueError('控制匹配必须来自对应条款并已实际读取')
+                        if compliance_candidate(decision.model_dump()) and c['control_type'] == 'ORGANIZATIONAL':
+                            raise ValueError('纯组织控制不能进入当前代码需求')
                 cited_clauses = {self.read_evidence(run_id, eid)['metadata'].get('clause_id')
                                 for eid in decision.evidence_ids}
                 if clause_id not in cited_clauses:
@@ -541,6 +565,11 @@ class Store:
                 raise ValueError("验收项检查库存不完整或重复")
             if any(r.kind == "finding" and r.requirement_ids != [requirement_id] for r in output.records):
                 raise ValueError("需求检查发现必须关联当前需求")
+            if any(r.kind == 'finding' for r in output.records) and all(
+                r.implementation_status == 'NOT_CODE_VERIFIABLE'
+                for r in output.records if r.kind == 'assessment'
+            ):
+                raise ValueError('仅无法通过代码验证的需求不能生成实现缺陷')
             existing = [r for r in known.values() if r["kind"] == "assessment"
                         and r["requirement_id"] == requirement_id]
             if existing:

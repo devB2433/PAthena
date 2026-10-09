@@ -29,7 +29,7 @@ version: 0.1.0
 输出 StageOutput；不属于角色的记录不得生成；引用既有对象的确切 ID；无结论时保留 gaps。
 
 ## [PCI_MAPPER-01]
-本任务分析 scope.requirement_id 对应的唯一设计需求，将其匹配到已经入库、固定版本的结构化 PCI DSS 数据。先读取需求引用的设计原文，再用 search_standard_library 检索英文控制术语、同义词与章节。候选不是结论，必须 read_standard_clause 读取原始规范要求、适用说明、测试程序、指导和来源；按需要读取其 context_ids 对应的原始范围或父级上下文。不得将测试程序、指导或例子当作规范要求。
+本任务分析 scope.requirement_id 对应的唯一设计需求，将其匹配到已经入库、固定版本的结构化 PCI DSS 数据。先读取需求引用的设计原文，再用 search_standard_library 对当前需求、控制主题或同义表达进行语义检索。工具只为查询生成向量，标准和控制的向量已经预计算入库；不要在项目阶段重生成标准控制、再次向量化标准或改写控制验收项。候选不是结论，必须用 read_standard_control(control_id) 读取已有控制内容、适用条件及其保存的规范来源；必要时读取已保存的条款和父级范围。不得将测试程序、指导或例子当作规范要求。
 
 ## [PCI_MAPPER-02]
 APPLICABLE、NOT_APPLICABLE、UNDETERMINED 三值独立于是否已实现。
@@ -41,13 +41,15 @@ APPLICABLE、NOT_APPLICABLE、UNDETERMINED 三值独立于是否已实现。
 规范性要求、测试程序和指导分别理解，摘要不替代标准原文。
 
 ## [PCI_MAPPER-05]
-只提交 applicability 匹配记录。requirement_ids 必须等于 [scope.requirement_id]，clause_id 为固定库的确切 ID。relevance 单独记录 RELEVANT（直接相关）、POTENTIALLY_RELEVANT（条件相关）或 UNRELATED（所读候选没有合理关联）。RELEVANT 和 POTENTIALLY_RELEVANT 都进入后续合规需求生成与代码检查，不因 status=UNDETERMINED 而删除。
+只提交 applicability 匹配记录。在预计算目录模式下，相关匹配的 control_ids 必须是工具返回且已 read_standard_control 读取的确切控制 ID；同条款可选择多个控制，每个控制必须与本次需求关联，纯 ORGANIZATIONAL 控制不能进入代码相关需求。程序按匹配记录直接绑定已保存的需求，不调用需求生成模型。requirement_ids 必须等于 [scope.requirement_id]，clause_id 为固定库的确切 ID。relevance 记录 RELEVANT、POTENTIALLY_RELEVANT 或 UNRELATED。另用 control_scope 明确判断条款的规范性控制与本次设计所对应的代码子系统是否相关：CODE_RELATED 表示有具体控制对象、模块或数据流关联，NON_CODE 表示与本次代码范围无关的组织、人员、物理或业务要求，UNKNOWN 表示缺少判断相关性的材料。rationale 说明具体关联或排除理由。只有相关或条件相关且 CODE_RELATED 的条款进入控制绑定；无关及纯非代码条款自动排除，判断记录保留在数据库。UNKNOWN 留在匹配库存，不能伪装成不相关或进入代码验收。
 
 ## [PCI_MAPPER-06]
-组织流程或运行控制仍保留，明确所需外部证据。
+不能把企业整体的合规要求全部分配给当前模块，也不能把标准的访谈、观察等测试程序变成安全需求。与当前子系统存在具体关联的部署或运行控制仍属于 CODE_RELATED：例如认证日志是否在部署中启用；静态代码不能验证实际启用不代表条款无关。纯组织制度、人员培训、现场访谈等不能作为独立代码相关合规需求。
 
 ## [PCI_MAPPER-07]
 本任务仅匹配当前需求，不能复制其他需求的匹配。合理检索多个术语或相关章节，继续检索结果的分页；需要时沿父子章节扩展。每条匹配引用设计原文和标准条款原文，同一条款只提交一次。没有相关匹配时 records 可为空，但 gaps 必须写明检索范围和不足；不能把未检索到匹配描述成全标准不适用或全量覆盖。
+
+检索工具将已保存的中英文向量与关键词排名合并，按固定本地模型重排前 40 项；后续分页仍保留其他候选，分页不意味着其余候选已经重排。similarity 和 rerank_score 只是排序依据，不是适用性、合规概率或安全结论。优先读取靠前且相关的控制，但不能用分数阈值自动排除需求，也不能把前 40 项当作全部标准库存。同一查询的分页和跨项目复用由程序缓存完成。
 
 ## [PCI_MAPPER-08]
 技术相关性与正式适用性不同。设计中的认证、加密或日志可证明技术关联，但不证明属于持卡人数据环境；没有提及支付也不能证明不在范围内。缺少范围依据时 status 必须为 UNDETERMINED，missing_facts 写明部署关系与范围事实，applicability_conditions 写明适用前提；不能将未知范围当作 UNRELATED，也不能将技术关联当作 APPLICABLE。rationale 分别阐述需求与条款的关系、尚待确认的前提，不宣称合规认证通过。

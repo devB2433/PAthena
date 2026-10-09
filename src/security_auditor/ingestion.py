@@ -198,7 +198,7 @@ def ingest_run(store: Store, run_id: str, settings: Settings) -> list[str]:
     return gaps
 
 
-def standard_manifest(root: Path) -> dict:
+def standard_manifest(root: Path, *, include_prepared: bool = True) -> dict:
     manifest_raw = contained_file(root, "manifest.json").read_bytes()
     manifest = json.loads(manifest_raw)
     if manifest.get("id") != "PCI_DSS" or manifest.get("version") != "4.0.1" or manifest.get("fixture"):
@@ -239,4 +239,9 @@ def standard_manifest(root: Path) -> dict:
         ):
             raise ValueError("标准上下文引用不匹配")
         result.update({"contexts_hash": digest(context_raw), "context_ids": context_ids})
+    if include_prepared and (root / 'prepared.json').is_file():
+        prepared = json.loads(contained_file(root, 'prepared.json').read_text())
+        if any(prepared.get(k) != result.get(k) for k in ('manifest_hash', 'clauses_hash', 'contexts_hash')):
+            raise ValueError('预生成控制目录与标准版本不一致')
+        result['prepared'] = prepared
     return result

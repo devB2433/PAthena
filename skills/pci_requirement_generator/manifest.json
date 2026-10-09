@@ -1,7 +1,7 @@
 {
   "id": "pci_requirement_generator",
   "version": "0.1.0",
-  "sha256": "08697dbcd553360e141e835b7b3539a1c0fcb9604b65cc8b3b5f9bf2d8702839",
+  "sha256": "c6319c7aac96c1c0404e85d0761b388af719d664a177ac8006f356aa316be2c6",
   "mandatory_rules": [
     "SNAPSHOT",
     "EVIDENCE",

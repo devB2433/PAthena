@@ -135,7 +135,7 @@ def create_app(settings: Settings | None = None, executor=None, mantis_executor=
             "skill_hashes": {item["id"]: item["sha256"] for item in scheduler.loader.catalog()},
             "workflow_hash": digest(settings.workflow.read_bytes()),
             "mantis_hash": scheduler.mantis.fingerprint,
-            "standard_use_policy": "structured_library_requirement_matching_v1",
+            "standard_use_policy": "precomputed_controls_vector_matching_v3",
         }
         if continuation:
             from .baseline import baseline_snapshot
@@ -154,13 +154,25 @@ def create_app(settings: Settings | None = None, executor=None, mantis_executor=
                 raise ValueError("仓库没有可分析的源代码")
         if settings.standard_pack and request.mode != "code_only" and not continuation:
             result["standard"] = standard_manifest(Path(settings.standard_pack))
+            if not result['standard'].get('prepared'):
+                raise ValueError('标准尚未独立生成控制需求和预计算向量，请先准备标准库')
+            from .embeddings import encoder
+            if encoder(settings.embedding_model_dir).profile != result['standard']['prepared']['profile']:
+                raise ValueError('本地查询模型与标准向量版本不一致，请先显式重建标准目录')
+            expected_ranker = result['standard']['prepared'].get('retrieval', {}).get('reranker_profile')
+            if expected_ranker:
+                from .retrieval_models import reranker
+                if reranker(settings.reranker_model_dir).profile != expected_ranker:
+                    raise ValueError('本地重排模型与标准目录版本不一致，请先显式重建标准目录')
             from .standard_library import import_library
             result["standard"]["library_id"] = import_library(store, result["standard"])
         return result
 
     @app.get('/api/v1/standards')
     def standards():
-        return {'items': store.rows('SELECT id,standard_id,version,clause_count,context_count FROM standard_versions ORDER BY version,id')}
+        return {'items': store.rows('SELECT v.id,v.standard_id,v.version,v.clause_count,v.context_count,'
+                                   'c.catalog_id,c.control_count,c.vector_count FROM standard_versions v '
+                                   'LEFT JOIN standard_catalogs c ON c.library_id=v.id ORDER BY v.version,v.id,c.catalog_id')}
 
     @app.get("/api/v1/health")
     def health():

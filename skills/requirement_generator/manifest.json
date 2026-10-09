@@ -1,7 +1,7 @@
 {
   "id": "requirement_generator",
   "version": "0.1.0",
-  "sha256": "21af8934f1fc6f916ea9669086561897c7e8c12a9a0b75a152dab31b08b73ae2",
+  "sha256": "36a92b6f341a1715ee14739890f1935642c63bdaaa641abee5457fd19c92b080",
   "mandatory_rules": [
     "SNAPSHOT",
     "EVIDENCE",

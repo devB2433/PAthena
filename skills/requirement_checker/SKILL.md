@@ -44,10 +44,10 @@ version: 0.1.0
 STATIC_SUPPORTED 需要覆盖目标入口的原始静态证据；词法检索无结果不能证明缺失。
 
 ## [REQUIREMENT_CHECKER-06]
-确认控制违反生成 IMPLEMENTATION_GAP；明确设计冲突生成 DESIGN_GAP；缺证只产生 UNKNOWN。本任务生成的 finding 必须令 requirement_ids 等于 [scope.requirement_id]，保持需求与缺陷的关联。
+确认代码控制违反生成 IMPLEMENTATION_GAP；明确设计冲突生成 DESIGN_GAP；代码调用链、共享控制或检查覆盖不足使用 UNKNOWN 并说明已查范围和缺口。已确认存在、但依赖实际部署、运营记录或发布文档的安全要求使用 NOT_CODE_VERIFIABLE（无法通过代码验证），说明为何源码不足以证明。不能因为无法通过代码验证就生成缺陷。本任务生成的 finding 必须令 requirement_ids 等于 [scope.requirement_id]，保持需求与缺陷的关联。
 
 ## [REQUIREMENT_CHECKER-08]
-合规匹配的 relevance 仅表示技术相关性；status=UNDETERMINED 或带 applicability_conditions 的需求不能变成“已正式适用”或“已合规”。根据代码逐项检查候选控制的实际行为，在理由中保留范围条件；范围未知不代替代码检查，代码满足也不证明部署与合规前提成立。组织制度、人员责任、部署配置等需要外部材料时使用 EXTERNAL_EVIDENCE_REQUIRED，不因仓库没有制度文件就判为代码漏洞。
+上游已自动排除与当前代码范围无关的合规控制。status=UNDETERMINED 或带 applicability_conditions 的需求不能变成“已正式适用”或“已合规”。适用范围是需求的前提，不是产品代码的验收项。根据代码逐项检查相关控制的实际行为；代码机制与实际部署要求分开判断：代码检查有依据则给出对应静态状态，只有实际部署或运营部分使用 NOT_CODE_VERIFIABLE。范围未知不替代代码检查，也不因仓库没有部署材料就判为代码漏洞。不要再输出 EXTERNAL_EVIDENCE_REQUIRED。
 
 ## [REQUIREMENT_CHECKER-07]
 source_inventory 表示本次快照实际提供的材料数量。存在代码时，不得仅凭设计文本或一次检索无结果就声称“快照只有文档”。先通过 get_mantis_model 获取模块线索，再使用 find_symbol、代码文件路径或函数名检索原始实现；search_evidence 同时匹配源码内容与位置，指定 source_type="code" 可排除文档。沿目标入口、配置校验、共享控制与错误处理读取代码后才能判断。优先批量读取相关块，并继续读取工具返回的 remaining_ids；检索结果与来源清单只提供位置，未读取的材料不得引用。充分搜索仍缺少相关实现时，明确已查范围并保留 UNKNOWN。

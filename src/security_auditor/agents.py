@@ -146,7 +146,16 @@ class AdkExecutor:
                     fields.pop('requirement_id',None)
                     fields.pop('requirement_ids',None)
                 if 'implementation_status' in fields and not code_ready:
-                    fields['implementation_status']['enum'] = ['UNKNOWN','EXTERNAL_EVIDENCE_REQUIRED']
+                    fields['implementation_status']['enum'] = ['UNKNOWN','NOT_CODE_VERIFIABLE']
+                elif 'implementation_status' in fields:
+                    fields['implementation_status']['enum'] = [s for s in fields['implementation_status']['enum']
+                                                              if s != 'EXTERNAL_EVIDENCE_REQUIRED']
+                if bundle.skill_id == 'pci_mapper' and task['scope'].get('compliance_scope_policy') in {'code_related_v2', 'precomputed_controls_v3'}:
+                    if 'control_scope' in fields:
+                        fields['control_scope'] = {'type': 'string', 'enum': ['CODE_RELATED', 'NON_CODE', 'UNKNOWN']}
+                        required = definition.setdefault('required', [])
+                        if 'control_scope' not in required:
+                            required.append('control_scope')
                 if owned_provenance:
                     for key in owned_provenance:
                         fields.pop(key,None)
@@ -161,6 +170,11 @@ class AdkExecutor:
                     fields['subject_id']['enum'] = task['scope']['subject_ids']
                 if 'clause_id' in fields and task['scope'].get('clause_ids'):
                     fields['clause_id']['enum'] = task['scope']['clause_ids']
+                if 'control_ids' in fields and task['scope'].get('compliance_scope_policy') == 'precomputed_controls_v3':
+                    read_controls = [r['control_id'] for r in self.store.rows(
+                        'SELECT control_id FROM task_control_reads WHERE task_id=?', (task['id'],))]
+                    if read_controls:
+                        fields['control_ids']['items']['enum'] = sorted(read_controls)
                 if 'requirement_id' in fields and task['scope'].get('requirement_id'):
                     fields['requirement_id']['enum'] = [task['scope']['requirement_id']]
                 if 'acceptance_criterion' in fields and task['scope'].get('acceptance_criteria'):
@@ -247,10 +261,23 @@ class AdkExecutor:
                 size += length
             return {"items": result, "remaining_ids": [eid for eid in evidence_ids if eid not in result]}
 
-        def search_standard_library(query: str = '', section: str = '', limit: int = 8, offset: int = 0) -> dict:
-            """Search the fixed structured standard; use English control terms or section prefixes. Read full clauses before citing."""
+        async def search_standard_library(query: str = '', section: str = '', limit: int = 8, offset: int = 0) -> dict:
+            """Query precomputed standard/control vectors; only this new query is embedded. Read matched controls before selecting."""
             from .standard_library import search
-            return search(self.store, run_id, query, section, limit, offset)
+            from .embeddings import encoder
+            prepared = (self.store.run(run_id)['snapshot'].get('standard') or {}).get('prepared')
+            embedder = encoder(self.settings.embedding_model_dir) if prepared and query.strip() else None
+            import asyncio
+            from .retrieval_models import reranker
+            ranker = reranker(self.settings.reranker_model_dir) if prepared and prepared.get('retrieval', {}).get('reranker_profile') else None
+            return await asyncio.to_thread(search, self.store, run_id, query, section, limit, offset, embedder=embedder, reranker_model=ranker)
+
+        def read_standard_control(control_id: str) -> dict:
+            """Read an immutable bilingual control template and its stored original normative source."""
+            from .control_catalog import read_control
+            data, eid = read_control(self.store, run_id, task['id'], control_id)
+            source_ids()
+            return {'standard_control': data, 'source': read_evidence(eid)}
 
         def read_standard_clause(clause_id: str) -> dict:
             """Read original structured normative requirement, applicability notes, testing procedures, guidance and PDF source."""
@@ -392,7 +419,7 @@ class AdkExecutor:
                 'requirement_id is the existing requirement reference, never the new record id. '
                 'The program rejects duplicate IDs and does not rename returned records.')
             instruction += ('\nImplementation source gate: until original code has actually been read in this task, '
-                'the submission schema permits only UNKNOWN or EXTERNAL_EVIDENCE_REQUIRED. Use source navigation '
+                'the submission schema permits only UNKNOWN or NOT_CODE_VERIFIABLE. Use source navigation '
                 'and reading tools to inspect implementation before claiming STATIC_SUPPORTED, PARTIAL or VIOLATED. '
                 'Every such assessment must include an actual original code source handle in evidence_ids. '
                 'Design documents, standards, upstream records and the Mantis model are not code evidence. '
@@ -433,7 +460,8 @@ class AdkExecutor:
             model=model,
             instruction=instruction,
             tools=[list_evidence, read_evidence, read_evidence_batch, search_evidence, read_upstream_records, FinalStageTool(schema)] + (
-                [search_standard_library, read_standard_clause, read_standard_context]
+                [search_standard_library, read_standard_clause, read_standard_context] + (
+                    [read_standard_control] if (self.store.run(run_id)['snapshot'].get('standard') or {}).get('prepared') else [])
                 if 'standard' in allowed_sources and (self.store.run(run_id)['snapshot'].get('standard') or {}).get('library_id') else []
             ) + (
                 [find_symbol, find_callers, find_callees, get_function_boundary, get_mantis_model]

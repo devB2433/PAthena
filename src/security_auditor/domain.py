@@ -39,6 +39,11 @@ class Requirement(RecordBase):
     acceptance_criteria: list[str] = Field(min_length=1)
     origin: Literal["EXPLICIT_DESIGN", "INFERRED_SECURITY", "PCI_DSS"]
     clause_ids: list[str] = Field(default_factory=list)
+    standard_control_id: str | None = None
+    standard_catalog_id: str | None = None
+    verification_method: Literal['CODE', 'DEPLOYMENT', 'NON_CODE'] | None = None
+    matched_requirement_ids: list[str] = Field(default_factory=list)
+    applicability_conditions: list[str] = Field(default_factory=list)
 
     @field_validator("acceptance_criteria")
     @classmethod
@@ -53,12 +58,20 @@ class Applicability(RecordBase):
     clause_id: str
     status: Literal["APPLICABLE", "NOT_APPLICABLE", "UNDETERMINED"]
     requirement_ids: list[str] = Field(default_factory=list)
+    control_ids: list[str] = Field(default_factory=list)
     relevance: Literal["RELEVANT", "POTENTIALLY_RELEVANT", "UNRELATED", "UNKNOWN"] = "UNKNOWN"
+    control_scope: Literal["CODE_RELATED", "NON_CODE", "UNKNOWN"] | None = Field(
+        default=None, description="Relation to the assessed code subsystem, independent of formal PCI scope. "
+        "Relevant deployment controls are CODE_RELATED; unrelated organizational controls are NON_CODE.")
     applicability_conditions: list[str] = Field(default_factory=list)
     missing_facts: list[str] = Field(default_factory=list)
 
 
 def compliance_candidate(record: dict) -> bool:
+    # None supports archived v1 decisions only. An unknown scope stays in the
+    # mapping inventory and does not create requirements or code-check tasks.
+    if record.get('control_scope') in {'NON_CODE', 'UNKNOWN'} or record.get('status') == 'NOT_APPLICABLE':
+        return False
     relevance = record.get('relevance', 'UNKNOWN')
     return relevance in {'RELEVANT', 'POTENTIALLY_RELEVANT'} or (
         relevance == 'UNKNOWN' and record.get('status') == 'APPLICABLE')
@@ -82,8 +95,10 @@ class Assessment(RecordBase):
     entrypoint: str
     design_status: Literal["SUPPORTED", "PARTIAL", "MISSING", "UNKNOWN"]
     implementation_status: Literal[
-        "STATIC_SUPPORTED", "PARTIAL", "VIOLATED", "UNKNOWN", "EXTERNAL_EVIDENCE_REQUIRED"
-    ]
+        "STATIC_SUPPORTED", "PARTIAL", "VIOLATED", "UNKNOWN", "NOT_CODE_VERIFIABLE", "EXTERNAL_EVIDENCE_REQUIRED"
+    ] = Field(description="UNKNOWN means insufficient static investigation. NOT_CODE_VERIFIABLE means a real "
+              "requirement depends on deployment, operations or other facts unavailable from code. "
+              "EXTERNAL_EVIDENCE_REQUIRED is an archived legacy value, not permitted for new submissions.")
     counter_evidence_ids: list[str] = Field(default_factory=list)
 
 
@@ -148,7 +163,7 @@ ALLOWED_KINDS = {
 ALLOWED_SOURCES = {
     "design_analyst": {"document"},
     "requirement_generator": {"document"},
-    "pci_mapper": {"document", "standard"},
+    "pci_mapper": {"document", "standard", "code"},
     "pci_requirement_generator": {"document", "standard"},
     "requirement_reviewer": {"document", "standard"},
     "code_architect": {"code"},

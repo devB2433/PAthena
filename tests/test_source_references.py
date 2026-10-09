@@ -105,7 +105,7 @@ async def test_checker_searches_paths_filters_before_limit_and_rebinds_read_sour
                                if d.name=='set_model_response')
             status_enum=declaration.parameters_json_schema['$defs']['ScopedAssessment']['properties']['implementation_status']['enum']
             if self._calls<=3:
-                assert status_enum==['UNKNOWN','EXTERNAL_EVIDENCE_REQUIRED']
+                assert status_enum==['UNKNOWN','NOT_CODE_VERIFIABLE']
             else:
                 assert 'STATIC_SUPPORTED' in status_enum
             if self._calls in (2, 3):

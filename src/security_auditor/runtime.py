@@ -6,7 +6,7 @@ import time
 
 from .agents import AdkExecutor
 from .config import Settings
-from .domain import ALLOWED_KINDS
+from .domain import ALLOWED_KINDS, compliance_candidate
 from .ingestion import ingest_run
 from .mantis_engine import MantisEngine
 from .native_progress import reconcile_native_progress
@@ -53,10 +53,11 @@ class Scheduler:
         records = self.store.records(run_id)
         if role in {"pci_mapper", "pci_requirement_generator"}:
             if role == 'pci_mapper' and (self.store.run(run_id)['snapshot'].get('standard') or {}).get('library_id'):
-                return [{'requirement_id': r['id']} for r in records
+                policy = ('precomputed_controls_v3' if (self.store.run(run_id)['snapshot'].get('standard') or {}).get('prepared')
+                          else 'code_related_v2')
+                return [{'requirement_id': r['id'], 'compliance_scope_policy': policy} for r in records
                         if r['kind']=='requirement' and r['origin']!='PCI_DSS']
             evidence = self.store.evidence(run_id, "standard")
-            from .domain import compliance_candidate
             applicable = {r['clause_id'] for r in records if r['kind'] == 'applicability' and compliance_candidate(r)}
             contexts = {json.loads(e["metadata"]).get("context_id"): e["id"] for e in evidence}
             scopes, batch, size = [], [], 0
@@ -76,6 +77,8 @@ class Scheduler:
                     for cid in json.loads(entry["metadata"]).get("context_ids", []) if cid in contexts))
                 generated = {"clause_ids": [json.loads(e["metadata"])["clause_id"] for e in batch],
                              "evidence_ids": [e["id"] for e in batch], "context_evidence_ids": context_ids}
+                if role == 'pci_mapper':
+                    generated['compliance_scope_policy'] = 'code_related_v2'
                 scopes.append(existing.get(generated['clause_ids'][0], generated) if atomic else generated)
             for entry in evidence:
                 if not json.loads(entry["metadata"]).get("clause_id"):
@@ -164,7 +167,7 @@ class Scheduler:
             # Association inventories can contain many repetitions of a long
             # rationale. Keep IDs and all declared conditions in the initial
             # input; exact full upstream outputs remain available through a tool.
-            fields = ('id', 'kind', 'clause_id', 'status', 'relevance', 'requirement_ids',
+            fields = ('id', 'kind', 'clause_id', 'status', 'relevance', 'control_scope', 'control_ids', 'requirement_ids',
                       'applicability_conditions', 'missing_facts', 'evidence_ids')
             if role == 'pci_requirement_generator':
                 fields = tuple(key for key in fields if key != 'missing_facts')
@@ -225,8 +228,37 @@ class Scheduler:
                     kind: sum(e['source_type'] == kind for e in evidence)
                     for kind in ('document', 'standard', 'code')}
                 context['repository_id'] = (self.store.run(run_id)['snapshot'].get('repository') or {}).get('id')
+            if node['role'] == 'pci_mapper':
+                code_sources = self.store.evidence(run_id, 'code')
+                paths = sorted({json.loads(e['metadata']).get('path', e['locator'].rsplit(':', 1)[0])
+                                for e in code_sources})
+                context['code_scope'] = {
+                    'repository_id': (self.store.run(run_id)['snapshot'].get('repository') or {}).get('id'),
+                    'file_count': len(paths), 'sample_paths': paths[:64], 'paths_truncated': len(paths) > 64,
+                    'design_modules': sorted({r['module'] for r in context['upstream_records'] if r.get('module')}),
+                    'policy': 'Classify the assessed subsystem, not the whole organization. '
+                              'No repository or missing sample path is not proof of irrelevance; read sources when needed.'}
             try:
-                output = await self.executor.execute(task, bundle, context)
+                requirement = next((r for r in context['upstream_records'] if r['kind'] == 'requirement'
+                                    and r['id'] == scope.get('requirement_id')), {})
+                if node['role'] == 'requirement_checker' and requirement.get('standard_control_id') and requirement.get('verification_method') == 'DEPLOYMENT':
+                    # This is an explicit prepared verification policy, not a
+                    # second inference. Preserve every requirement and criterion.
+                    from .domain import Assessment, StageOutput
+                    from .localization import tr
+                    refs = requirement['evidence_ids']
+                    for eid in refs:
+                        self.store.note_read(tid, eid)
+                    output = StageOutput(records=[Assessment(
+                        id=tid + f'_external_{i}', title=requirement['title'],
+                        requirement_id=requirement['id'], acceptance_criterion=criterion,
+                        module=requirement['module'], entrypoint='', design_status='UNKNOWN',
+                        implementation_status='NOT_CODE_VERIFIABLE', evidence_ids=refs,
+                        rationale=tr('该安全要求依赖实际部署或运营状态，无法通过代码验证。', self.store.run(run_id)['language']))
+                        for i, criterion in enumerate(requirement['acceptance_criteria'])],
+                        summary=tr('该安全要求依赖实际部署或运营状态，无法通过代码验证。', self.store.run(run_id)['language']))
+                else:
+                    output = await self.executor.execute(task, bundle, context)
                 self.store.save_model_output(tid, output.model_dump_json())
                 read_ids = {
                     row["evidence_id"]
@@ -298,6 +330,18 @@ class Scheduler:
             mode = self.spec["modes"][run["mode"]]
             selected = mode["include_nodes"] if isinstance(mode["include_nodes"], list) else None
             for node in self.spec["nodes"]:
+                if node.get('handler') == 'bind_standard_controls' and (not selected or node['id'] in selected):
+                    tid = self.store.add_task(run_id, node['id'], {'stage': node['id']}, wave='service')
+                    if self.store.task(tid)['status'] in {'SUCCEEDED', 'SKIPPED'}:
+                        continue
+                    self.store.start_task(tid)
+                    try:
+                        from .control_catalog import bind_controls
+                        bind_controls(self.store, run_id, tid)
+                    except Exception:
+                        self.store.fail_task(tid, '预生成控制需求绑定未通过校验')
+                        raise
+                    continue
                 if node["kind"] not in {"agent", "engine"} or (selected and node["id"] not in selected):
                     continue
                 parent = self.store.add_task(run_id, node["id"], {"stage": node["id"]}, wave="stage")
@@ -421,7 +465,9 @@ def result_matrix(store: Store, run_id: str) -> dict:
             reviews = [r for r in records if r['kind'] == 'review' and r['subject_id'] == record['id']]
             verdicts = {r['verdict'] for r in reviews}
             review_status = next((s for s in ('REJECTED', 'NEEDS_EVIDENCE', 'SUPPORTED') if s in verdicts), 'NOT_REVIEWED')
-            checks = [r for r in records if r["kind"] == "assessment" and r["requirement_id"] == record["id"]]
+            checks = [{**r, 'implementation_status': 'NOT_CODE_VERIFIABLE'
+                       if r['implementation_status'] == 'EXTERNAL_EVIDENCE_REQUIRED' else r['implementation_status']}
+                      for r in records if r["kind"] == "assessment" and r["requirement_id"] == record["id"]]
             criteria = [
                 next((c for c in checks if c["acceptance_criterion"] == criterion),
                      {"acceptance_criterion": criterion, "implementation_status": "NOT_CHECKED",
@@ -438,13 +484,13 @@ def result_matrix(store: Store, run_id: str) -> dict:
                 status = ("CHECKING" if task_state == "RUNNING" else "INCOMPLETE"
                           if checked or task_state == "FAILED" else "NOT_CHECKED")
             else:
-                status = next((s for s in ("UNKNOWN", "EXTERNAL_EVIDENCE_REQUIRED", "PARTIAL")
+                status = next((s for s in ("UNKNOWN", "PARTIAL", "NOT_CODE_VERIFIABLE")
                                if s in states), "STATIC_SUPPORTED")
             number = f"SR-{len(requirements) + 1:03d}"
             linked = [r["id"] for r in records if r["kind"] == "finding"
                       and record["id"] in r.get("requirement_ids", [])]
             requirements.append({**record, "requirement_number": number, "checks": checks,
-                                 "compliance_matches": [r for r in records if r['kind']=='applicability'
+                                 "compliance_matches": [r for r in records if r['kind']=='applicability' and compliance_candidate(r)
                                                         and (record['id'] in r.get('requirement_ids', [])
                                                              or r['clause_id'] in record['clause_ids'])],
                                  "requirement_review_status": review_status, "requirement_reviews": reviews,

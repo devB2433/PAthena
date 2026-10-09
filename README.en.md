@@ -2,18 +2,20 @@
 
 [中文](README.md) | **English**
 
-PAthena is a group of security analysis agents for design reviews and code delivery. Given project design documents and source code, it extracts security requirements from the design, derives relevant compliance requirements using a structured standards library, builds a threat model from the code, checks each requirement against its implementation, and then audits for vulnerabilities and consolidates the implementation comparison.
+PAthena is a group of security analysis agents for design reviews and code delivery. Given project design documents and source code, it extracts security requirements from the design, matches and binds compliance controls prepared and stored in the standards library, builds a threat model from the code, checks each requirement against its implementation, and then audits for vulnerabilities and consolidates the implementation comparison.
 
 The workflow produces four deliverables: **security requirements, a threat model, requirement implementation assessments, and Findings**. Requirements identify their design or standard sources. Implementation checks correspond to individual requirements. Findings identify the relevant code, explain the impact, and provide recommendations.
 
 ## What it is useful for
 
 - **Design reviews**: Organize assets, roles, data flows, and security controls from Word, PDF, and PowerPoint design documents. Extract explicit requirements and additional requirements inferred from design risks, with acceptance criteria for each requirement.
-- **Compliance requirement analysis**: Match design security requirements to structured PCI DSS v4.0.1 clauses already stored in the database. Use the design context to derive relevant or potentially relevant compliance controls while preserving clause sources and applicability conditions.
+- **Compliance requirement analysis**: Match design security requirements to structured PCI DSS v4.0.1 clauses already stored in the database. Use the design context to select and bind relevant or potentially relevant stored compliance controls while preserving clause sources and applicability conditions.
 - **Delivery acceptance**: Check each security requirement against the actual source code. Identify implementation support, partial implementation, requirement violations, and controls that need configuration or other material before a conclusion can be reached.
 - **Security audits**: Investigate candidate vulnerabilities using the code architecture, trust boundaries, and attack paths. Present independent code audit results alongside requirement implementation gaps to help plan remediation and further verification.
 
 An analysis can therefore answer both “What candidate security problems exist in the code?” and “How much of the security design is implemented, and what gaps remain?” Even when a rule scan does not flag a vulnerability, an implementation check can still record a design requirement as unmet or not yet established.
+
+Compliance clauses are first filtered against the assessed design and code subsystem. Unrelated organizational, personnel, or physical controls do not become requirements or implementation checks; their exclusion reasons remain in the matching records. Relevant security requirements that depend on deployment or operations are retained as “Cannot verify from code.” Missing deployment material does not create an implementation defect. “Insufficient code evidence” means the static investigation cannot yet reach a conclusion. Standard testing procedures such as interviews and on-site observations are not code acceptance criteria.
 
 ## How the agents work together
 
@@ -23,7 +25,7 @@ Roles run through a shared Google ADK framework. The workflow determines stage o
 | --- | --- | --- |
 | Design analysis | `design_analyst` | Extract assets, modules, roles, data flows, and controls; distinguish document statements from analytical inferences |
 | Security requirement generation | `requirement_generator` | Turn design facts into security requirements, source explanations, and individual acceptance criteria |
-| Standard matching and compliance requirement generation | `pci_mapper`, `pci_requirement_generator` | Retrieve structured clauses, assess technical relevance and applicability conditions, and generate compliance requirements with explicit conditions |
+| Standard matching and control binding | `pci_mapper`, programmatic binding service | Query precomputed clause/control vectors, assess relevance, and bind stored bilingual control requirements |
 | Requirement review | `requirement_reviewer` | Automatically review wording, duplicates, sources, and checkability; preserve original requirements and review results |
 | Code understanding | Mantis `history`, `structural_index`, `architect` | Organize code context and structural indexes; establish the actual architecture and module relationships |
 | Threat modeling | Mantis `threat_modeler` | Analyze code entry points, assets, trust boundaries, and possible attack paths |
@@ -41,7 +43,7 @@ The current workflow generates and reviews requirements automatically, with no m
 
 | Stage | Inputs and processing | Outputs |
 | --- | --- | --- |
-| 1. Security requirements | Parse design documents; extract design facts, explicit requirements, and inferred requirements; match requirements to structured PCI DSS clauses; generate relevant compliance requirements and review them automatically | Requirements, acceptance criteria, design sources, related clauses, and applicability conditions |
+| 1. Security requirements | Parse design documents; extract design facts, explicit requirements, and inferred requirements; match requirements to structured PCI DSS clauses; bind prepared compliance requirements and review them automatically | Requirements, acceptance criteria, design sources, related clauses, and applicability conditions |
 | 2. Threat modeling | Mantis reads a fixed source snapshot and uses upstream design and requirement context to establish actual architecture, entry points, trust boundaries, and attack paths | A threat model grounded in code and specific threats |
 | 3. Requirement implementation assessments | Create an independent task for each requirement; use the code model and source navigation to investigate entry points, shared controls, and error paths; check each acceptance criterion | Static assessment results corresponding to each requirement, reasoning, and source locations |
 | 4. Findings | Mantis uses the threat model and implementation gaps for planning, research, deduplication, static review, criticism, attack chain analysis, and risk assessment; the final report consolidates the vulnerability audit and implementation comparison | Candidate vulnerabilities, implementation or design gaps, impact, causes, recommendations, and code locations; excluded candidates are retained separately |
@@ -83,7 +85,7 @@ SAST (Static Application Security Testing) and PAthena can both analyze source c
 
 This comparison describes common workflows. Individual SAST products can also support custom business rules, model-based analysis, or requirement management integrations. The tools can be used together: rule scans check the code patterns they cover, while PAthena further organizes the project's design requirements, threats, and implementation comparison. The current version does not provide a dedicated import workflow for external SAST results.
 
-PAthena's implementation verification is a **static assessment**. Code support does not establish that a deployment is correctly configured, and a requirement gap does not automatically imply an exploitable vulnerability. Organizational processes, personnel responsibilities, and actual deployment controls require external material. A related PCI DSS clause does not establish that the project formally falls within its scope, and the report does not provide compliance certification.
+PAthena's implementation verification is a **static assessment**. Code support does not establish that a deployment is correctly configured, and a requirement gap does not automatically imply an exploitable vulnerability. Unrelated organizational or personnel controls are automatically excluded. Relevant security requirements that depend on deployment are labeled “Cannot verify from code.” A related PCI DSS clause does not establish that the project formally falls within its scope, and the report does not provide compliance certification.
 
 ## Technology stack
 
@@ -165,7 +167,50 @@ The PCI DSS source document and structured standards package are not distributed
 
 The import directory must be empty. Use `--provenance /path/source.json` to include a source record. The importer preserves the original PDF, clause text, applicability notes, testing procedures, guidance, and source digests. It does not call a model to rewrite the standard.
 
-Set `AUDITOR_STANDARD_PACK=/standards/pci-dss-4.0.1` in `.env`. Each structured standard version is stored once and reused across projects; each run freezes its standard version. Requirement matching uses local retrieval and complete clause reads, recording technical relevance separately from formal applicability. Relevant or potentially relevant controls produce requirements that retain their applicability conditions. Candidate retrieval does not establish complete semantic coverage of the standard or provide compliance certification. When no standards package is configured, compliance steps record the gap and are skipped.
+Prepare control requirements independently and provide a source-grounded `controls.jsonl` in the standard directory, including control types, verification methods, and English/Chinese requirements and acceptance criteria. Retrieval uses local Qwen3-Embedding-0.6B embeddings and BGE-reranker-v2-m3 reranking. Download pinned resources during installation; analysis runs offline:
+
+```sh
+.venv/bin/python -m pip install -e '.[embeddings]'
+.venv/bin/python tools/download_retrieval_models.py --output-dir ./models
+auditor prepare-standard --standard-pack ./standards/pci-dss-4.0.1 --model-dir ./models/embeddings/qwen3-embedding-0.6b --reranker-dir ./models/rerankers/bge-reranker-v2-m3
+```
+
+Preparation persists controls, normative-source and bilingual-control vectors, lexical indexes, model identities, and the retrieval recipe. Identical inputs reuse existing preparation. Configure `AUDITOR_STANDARD_PACK=/standards/pci-dss-4.0.1`, `AUDITOR_EMBEDDING_MODEL_DIR`, and `AUDITOR_RERANKER_MODEL_DIR`. Projects query stored vectors and embed only new queries. Dense and BM25 rankings are fused with RRF, then the first 40 candidates are reranked locally; remaining candidates are still accessible through pagination. Results are cached across projects by catalog, query, language, and section; pagination does not rerun the models. Each catalog has its own lexical index so new standard versions do not alter historical keyword rankings.
+
+Rankings and scores are candidates, not applicability decisions or compliance probabilities. The mapper reads stored controls and normative sources to assess relevance and conditions. A binding service then copies stored control text and criteria in the run language without calling a compliance requirement generator. Changing controls, models, or retrieval recipes requires explicit preparation of a new catalog; mismatched models block new runs before analysis starts. Existing catalogs and results are preserved. Source reads do not reparse the PDF. An incomplete standard catalog cannot enter new compliance runs; an unconfigured standard skips compliance steps. See [bilingual retrieval evaluation](docs/retrieval-evaluation.md) for selection and test limits.
+
+## Embedding and reranking evaluation
+
+Retrieval matches project security requirements to stored standard controls. The embedding model retrieves semantic candidates, BM25 adds keyword matches, and the reranker compares each query with its candidate controls to reorder the first 40. The selected pipeline is **Qwen3-Embedding-0.6B + bilingual hybrid retrieval + BGE-reranker-v2-m3**.
+
+Comparison was completed in a separate workspace before migration into the application:
+
+1. **Freeze sources and cases.** The corpus contains 279 normative PCI DSS v4.0.1 clauses and 290 previously generated controls. The 108 queries and source-grounded labels were fixed before running candidate models: 100 positives covering 50 bilingual scenario pairs, plus 8 unrelated queries. The development set has 26 positives and the original test set has 74; both languages of a scenario always share their split.
+2. **Compare embedding retrieval.** E5-small, BGE-M3, and Qwen3-Embedding-0.6B were evaluated with bilingual vectors and with added BM25; the original English-control index serves as the baseline. Normative sources retain their original language. The bilingual catalog contains 859 vectors. Hits are aggregated by control ID so language variants do not occupy multiple candidate positions. Qwen hybrid retrieval was selected using development-set bilingual Recall@30 eligibility, Recall@10, MRR, and latency.
+3. **Compare rerankers.** Both rerankers use the same candidate pool, fixed RRF `k=60`, and the first 40 candidates. Official model revisions and inference protocols are pinned. Ranking comes from model scores without generating and interpreting prose; overlong reranking inputs fail instead of being silently truncated. Full-catalog reranking overhead was also measured on eight predefined queries.
+4. **Accept and migrate.** After selecting the production combination, ten queries targeting previously untested controls were fixed. Further checks exercised real application CPU models, SQLite retrieval, cross-project caching, pagination, and bilingual retrieval inside the container. Test databases were separate from production and added no test projects to the system. No DeepSeek or other paid model API was called.
+
+The table reports the original test set of 74 positives. Recall@10 / @30 measures labeled targets retrieved within the first 10 / 30 positions; multi-target queries receive fractional credit. MRR is the mean reciprocal rank of the first labeled target, with higher values indicating better ranking.
+
+| Pipeline | Recall@10 | Recall@30 | MRR |
+| --- | ---: | ---: | ---: |
+| E5-small, original English-control index | 97.3% | 100% | 0.874 |
+| E5-small, bilingual vectors | 95.3% | 99.3% | 0.836 |
+| E5-small, bilingual hybrid | 96.6% | 100% | 0.861 |
+| BGE-M3, bilingual vectors | 97.3% | 99.3% | 0.863 |
+| BGE-M3, bilingual hybrid | 98.0% | 100% | 0.888 |
+| Qwen3-Embedding-0.6B, bilingual vectors | 99.3% | 99.3% | 0.930 |
+| Qwen3-Embedding-0.6B, bilingual hybrid | 97.3% | 100% | 0.924 |
+| Qwen hybrid + BGE reranking (selected) | **100%** | **100%** | **0.950** |
+| Qwen hybrid + Qwen reranking | 98.6% | 98.6% | 0.949 |
+
+Qwen reranking narrowly won the predefined development-set MRR rule, but placed one Chinese target outside the first 30 on the original test set. BGE was therefore selected for observed recall and lower latency. **The original test set informed engineering selection and is not independent acceptance.** All expected targets ranked first in the ten new acceptance queries and in the application retest after migration. All 247 application tests passed.
+
+Performance was measured on Apple arm64 with 16 GiB RAM, CPU FP32, four threads, and batches of eight. Qwen query embedding P50 was approximately 0.09 s. On eight fixed queries, reranking 40 candidates took BGE CPU **P50 / P95 4.15 / 4.71 s**, versus **7.82 / 8.78 s** for Qwen. These timings cover only reranking, excluding loading, embedding, and database access. Full reranking accuracy runs used Apple GPU FP32; top-one and labeled-target positions agreed in 16 CPU/GPU comparisons across the two rerankers. GPU process-memory figures exclude driver memory.
+
+Two deployed-container queries took 31.46 s end to end (including first load) and 21.03 s; cached repeats took 0.40 s and 0.29 s. These two observations are not P50/P95 estimates, and host timings should not be presented as container response times.
+
+**Evaluation scope:** cases were authored for this development task from normative sources and have not undergone independent expert review. The reported 100% applies only to this dataset; it does not establish whole-standard accuracy, compliance success, or final mapper decision accuracy. Unlabeled candidates are not automatically false positives, and eight unrelated queries are insufficient to calibrate applicability thresholds. See [bilingual retrieval evaluation](docs/retrieval-evaluation.md) for pinned revisions, selection details, and performance limits. Model weights, standard originals, and per-query source data are not distributed with the repository.
 
 ## Analysis modes
 

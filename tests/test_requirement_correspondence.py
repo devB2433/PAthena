@@ -47,7 +47,7 @@ def test_same_named_criteria_cannot_be_assigned_to_another_requirement(store, sa
     (["STATIC_SUPPORTED", "STATIC_SUPPORTED"], "STATIC_SUPPORTED"),
     (["STATIC_SUPPORTED", "VIOLATED"], "VIOLATED"),
     (["STATIC_SUPPORTED", "UNKNOWN"], "UNKNOWN"),
-    (["STATIC_SUPPORTED", "EXTERNAL_EVIDENCE_REQUIRED"], "EXTERNAL_EVIDENCE_REQUIRED"),
+    (["STATIC_SUPPORTED", "NOT_CODE_VERIFIABLE"], "NOT_CODE_VERIFIABLE"),
     (["STATIC_SUPPORTED", "PARTIAL"], "PARTIAL"),
 ])
 def test_one_requirement_one_result_with_every_criterion(store, sample_run, states, expected):
@@ -103,6 +103,43 @@ def test_failed_check_keeps_unchecked_requirement_in_matrix(store, sample_run):
     assert row["implementation_status"] == "INCOMPLETE"
     assert row["checked_criteria"] == 0
     assert all(c["implementation_status"] == "NOT_CHECKED" for c in row["criterion_checks"])
+
+
+def test_real_non_code_requirement_is_retained_without_claiming_implementation_or_missing_control(store, sample_run):
+    _, run, _ = sample_run
+    doc = store.add_evidence(run['id'], 'document', 'design.md:1', 'Enable audit logs in the deployed cluster.', {})
+    req = baseline(store, run['id'], doc, '部署中启用审计')
+    tid = check_task(store, run['id'], req, doc)
+    checks = assessments(req, doc, ['NOT_CODE_VERIFIABLE', 'NOT_CODE_VERIFIABLE'])
+    finding = Finding(title='No deployment material is not a defect', module='订单',
+        finding_type='IMPLEMENTATION_GAP', requirement_ids=[req.id], evidence_ids=[doc],
+        rationale='Only deployment data is absent', impact='Unknown', recommendation='Check deployment')
+    with pytest.raises(ValueError, match='不能生成实现缺陷'):
+        store.commit_output(tid, 'requirement_checker', StageOutput(records=[*checks, finding], summary='Wrong'))
+    assert not store.records(run['id'], 'assessment')
+    store.commit_output(tid, 'requirement_checker', StageOutput(records=checks, summary='Not verifiable from code'))
+    row = result_matrix(store, run['id'])['requirements'][0]
+    assert row['implementation_status'] == 'NOT_CODE_VERIFIABLE'
+    assert row['id'] == req.id and not row['finding_ids']
+    assert all(c['implementation_status'] == 'NOT_CODE_VERIFIABLE' for c in store.records(run['id'], 'assessment'))
+    html = product_report('project', {'run': {'language': 'zh-CN'}, 'records': []}, {'requirements': [row], 'findings': []}, [])
+    assert '无法通过代码验证' in html and '需检查外部配置' not in html
+
+
+def test_archived_external_status_is_displayed_consistently_without_rewriting_model_records(store, sample_run):
+    import json
+    _, run, eid = sample_run
+    req = baseline(store, run['id'], eid)
+    tid = check_task(store, run['id'], req, eid)
+    archived = assessments(req, eid, ['EXTERNAL_EVIDENCE_REQUIRED', 'EXTERNAL_EVIDENCE_REQUIRED'])
+    with store.connect() as db:
+        for a in archived:
+            db.execute('INSERT INTO records VALUES(?,?,?,?,?,?)',
+                       (a.id, run['id'], tid, 'assessment', json.dumps(a.model_dump()), 'test'))
+    row = result_matrix(store, run['id'])['requirements'][0]
+    assert row['implementation_status'] == 'NOT_CODE_VERIFIABLE'
+    assert all(c['implementation_status'] == 'NOT_CODE_VERIFIABLE' for c in row['criterion_checks'])
+    assert all(c['implementation_status'] == 'EXTERNAL_EVIDENCE_REQUIRED' for c in store.records(run['id'], 'assessment'))
 
 
 @pytest.mark.parametrize('status', ['STATIC_SUPPORTED', 'PARTIAL', 'VIOLATED'])

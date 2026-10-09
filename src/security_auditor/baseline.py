@@ -53,6 +53,12 @@ def import_baseline(store: Store, run_id: str, task_id: str) -> dict:
         record_map[original['id']] = rid
         records.append({**original, 'id': rid,
                         'evidence_ids': [source_map[eid] for eid in original['evidence_ids']]})
+    for record in records:
+        matches = record.get('matched_requirement_ids', [])
+        if any(rid not in record_map for rid in matches):
+            raise ValueError('标准控制匹配引用不属于冻结需求基线')
+        if matches:
+            record['matched_requirement_ids'] = [record_map[rid] for rid in matches]
     output = StageOutput(records=records, summary='Imported immutable requirement baseline')
     receipt = {'source_run_id': baseline['source_run_id'], 'baseline_hash': expected,
                'record_id_map': record_map, 'evidence_id_map': source_map,

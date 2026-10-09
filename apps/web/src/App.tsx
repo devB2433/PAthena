@@ -19,8 +19,9 @@ type Row = {
   requirement_number?: string; requirement_numbers?: string[]; criterion_checks?: Row[];
   checked_criteria?: number; total_criteria?: number; finding_ids?: string[];
   requirement_review_status?: string; requirement_reviews?: Row[]; verdict?: string; counter_evidence_ids?: string[];
-  clause_id?: string; status?: string; missing_facts?: string[]; relevance?: string;
+  clause_id?: string; status?: string; missing_facts?: string[]; relevance?: string; control_scope?: string;
   requirement_ids?: string[]; applicability_conditions?: string[]; compliance_matches?: Row[];
+  standard_control_id?: string; standard_catalog_id?: string; matched_requirement_ids?: string[];
 };
 type Task = { stage: string; wave: string; status: string; scope?: string | { clause_ids?: string[]; requirement_id?: string } };
 type ModelArtifact = { artifact_type: string; data: { threat_actors?: string[]; trust_boundaries?: string[]; entry_points?: string[]; key_risks?: string[] } };
@@ -36,8 +37,8 @@ const phaseDefinitions: { id: Phase; title: string; stages: string[] }[] = [
 const labels: Record<string, string> = {
   PENDING: '待运行', RUNNING: '分析中', COMPLETED: '已完成', SUCCEEDED: '已完成',
   FAILED: '未完成', PAUSED: '已暂停', WAITING: '等待模型恢复', SKIPPED: '未运行', STATIC_SUPPORTED: '代码符合',
-  VIOLATED: '未实现', PARTIAL: '部分实现', UNKNOWN: '无法确认',
-  EXTERNAL_EVIDENCE_REQUIRED: '需检查外部配置', HIGH: '高', MEDIUM: '中', LOW: '低', CRITICAL: '严重',
+  VIOLATED: '未实现', PARTIAL: '部分实现', UNKNOWN: '代码检查依据不足',
+  NOT_CODE_VERIFIABLE: '无法通过代码验证', EXTERNAL_EVIDENCE_REQUIRED: '无法通过代码验证', HIGH: '高', MEDIUM: '中', LOW: '低', CRITICAL: '严重',
   NOT_CHECKED: '未检查', CHECKING: '检查中', INCOMPLETE: '检查未完成',
 };
 const colors: Record<string, string> = {
@@ -233,7 +234,8 @@ export default function App() {
   const matches = (row: Row) => !filter || [row.requirement_number, row.title, row.module, row.statement,
     row.acceptance_criteria?.join(' '), row.acceptance_criterion].join(' ').includes(filter);
   const requirements = matrix.requirements;
-  const pciDecisions = records.filter(r => r.kind === 'applicability');
+  const pciDecisions = records.filter(r => r.kind === 'applicability' && r.relevance !== 'UNRELATED'
+    && r.control_scope !== 'NON_CODE' && r.control_scope !== 'UNKNOWN' && r.status !== 'NOT_APPLICABLE');
   const pciInventory = new Set(tasks.filter(t => t.stage === 'pci_mapping').flatMap(t => {
     const scope = typeof t.scope === 'string' ? JSON.parse(t.scope) : t.scope;
     return scope?.clause_ids || [];
@@ -371,7 +373,7 @@ export default function App() {
       {detail && <><h2>{detail.row.title}</h2>
         {detail.row.requirement_number && <p className="requirement-number">{detail.row.requirement_number}</p>}
         {['requirements', 'implementation'].includes(detail.phase) && !!detail.row.compliance_matches?.length && <><h3>{t('相关条款')}</h3>{detail.row.compliance_matches.map(match => <section key={match.id}><p>PCI DSS {match.clause_id} · {t(relevanceLabels[match.relevance || 'UNKNOWN'])} · {t(pciLabels[match.status || 'UNDETERMINED'])}</p><p>{match.rationale}</p>{match.applicability_conditions?.map(condition => <p key={condition}>{condition}</p>)}{match.missing_facts?.map(fact => <p key={fact}>{fact}</p>)}</section>)}</>}
-        {detail.phase === 'requirements' && <><p>{detail.row.statement}</p><h3>{t('验收要求')}</h3><ul>{detail.row.acceptance_criteria?.map(c => <li key={c}>{c}</li>)}</ul><h3>{t('需求来源')}</h3><p>{originLabels[detail.row.origin || '']}{detail.row.clause_ids?.length ? ` · ${detail.row.clause_ids.join('、')}` : ''}</p>{detail.row.origin === 'INFERRED_SECURITY' && <p>{detail.row.rationale}</p>}</>}
+        {detail.phase === 'requirements' && <><p>{detail.row.statement}</p>{detail.row.applicability_conditions?.map(c => <p key={c}>{c}</p>)}<h3>{t('验收要求')}</h3><ul>{detail.row.acceptance_criteria?.map(c => <li key={c}>{c}</li>)}</ul><h3>{t('需求来源')}</h3><p>{originLabels[detail.row.origin || '']}{detail.row.clause_ids?.length ? ` · ${detail.row.clause_ids.join('、')}` : ''}</p>{detail.row.standard_control_id && <p>{t('标准控制')}：{detail.row.standard_control_id}</p>}{detail.row.origin === 'INFERRED_SECURITY' && <p>{detail.row.rationale}</p>}</>}
         {detail.phase === 'threats' && <><dl className="detail-fields"><dt>{t('攻击者')}</dt><dd>{detail.row.attacker}</dd><dt>{t('攻击入口')}</dt><dd>{detail.row.entrypoint}</dd><dt>{t('信任边界')}</dt><dd>{detail.row.trust_boundary}</dd></dl><h3>{t('攻击前提')}</h3><ul>{detail.row.preconditions?.map(p => <li key={p}>{p}</li>)}</ul><h3>{t('影响')}</h3><p>{detail.row.impact}</p></>}
         {detail.phase === 'requirements' && <Button onClick={() => open(detail.row, 'implementation')}>{t('查看实现情况')}</Button>}
         {detail.phase === 'requirements' && <><h3>{t('需求复核')}</h3>{requirementReviewTag(detail.row.requirement_review_status)}{detail.row.requirement_reviews?.map(r => <p key={r.id}>{r.rationale}</p>)}</>}

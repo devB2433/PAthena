@@ -15,6 +15,62 @@ from security_auditor.standard_library import import_library, read, search
 from security_auditor.provider import OutputContractError
 
 
+@pytest.mark.parametrize('scope,relevance,status,include', [
+    ('CODE_RELATED', 'RELEVANT', 'APPLICABLE', True),
+    ('CODE_RELATED', 'POTENTIALLY_RELEVANT', 'UNDETERMINED', True),
+    ('CODE_RELATED', 'UNRELATED', 'UNDETERMINED', False),
+    ('CODE_RELATED', 'RELEVANT', 'NOT_APPLICABLE', False),
+    ('NON_CODE', 'RELEVANT', 'APPLICABLE', False),
+    ('UNKNOWN', 'POTENTIALLY_RELEVANT', 'UNDETERMINED', False),
+])
+def test_code_relationship_is_independent_of_formal_compliance_scope(scope, relevance, status, include):
+    from security_auditor.domain import compliance_candidate
+    assert compliance_candidate({'control_scope': scope, 'relevance': relevance, 'status': status}) == include
+
+
+def test_excluded_controls_never_create_requirements_or_code_check_tasks(settings, store, catalog):
+    run, _, _, doc, req = catalog
+    sources = [read(store, run['id'], cid)[1] for cid in ['8.3.1', '8.3.2']]
+    task = store.add_task(run['id'], 'pci_mapping', {
+        'requirement_id': req.id, 'compliance_scope_policy': 'code_related_v2'})
+    for eid in [doc, *sources]:
+        store.note_read(task, eid)
+    decisions = [Applicability(title=title, clause_id=cid, status='UNDETERMINED',
+        relevance='RELEVANT', control_scope=scope, requirement_ids=[req.id],
+        missing_facts=['Deployment scope'], evidence_ids=[doc, eid], rationale=reason)
+        for title, cid, eid, scope, reason in [
+            ('API identity verification', '8.3.1', sources[0], 'CODE_RELATED', 'API verifies identities'),
+            ('Excluded organization control', '8.3.2', sources[1], 'NON_CODE', 'Outside assessed subsystem')]]
+    store.commit_output(task, 'pci_mapper', StageOutput(records=decisions, summary='Scoped controls'))
+    scheduler = Scheduler(settings, store)
+    assert [cid for s in scheduler.scopes(run['id'], 'pci_requirement_generator') for cid in s['clause_ids']] == ['8.3.1']
+    assert len(scheduler.scopes(run['id'], 'requirement_checker')) == 1
+    assert len(store.records(run['id'], 'applicability')) == 2  # Retain the exclusion rationale.
+    assert [m['clause_id'] for m in result_matrix(store, run['id'])['requirements'][0]['compliance_matches']] == ['8.3.1']
+    rejected_task = store.add_task(run['id'], 'pci_requirements', {'clause_ids': ['8.3.2']})
+    control = Requirement(title='Should not be generated', module='api', statement='Out-of-scope control',
+        acceptance_criteria=['Interview administrator'], origin='PCI_DSS', clause_ids=['8.3.2'],
+        rationale='Wrong target', evidence_ids=[sources[1]])
+    store.note_read(rejected_task, sources[1])
+    with pytest.raises(ValueError, match='合规需求任务'):
+        store.commit_output(rejected_task, 'pci_requirement_generator', StageOutput(records=[control], summary='Wrong'))
+
+
+def test_new_mapping_cannot_omit_code_relationship(store, catalog):
+    run, _, _, doc, req = catalog
+    eid = read(store, run['id'], '8.3.1')[1]
+    task = store.add_task(run['id'], 'pci_mapping', {
+        'requirement_id': req.id, 'compliance_scope_policy': 'code_related_v2'})
+    for source in [doc, eid]:
+        store.note_read(task, source)
+    decision = Applicability(title='Missing scope', clause_id='8.3.1', status='UNDETERMINED',
+        relevance='RELEVANT', requirement_ids=[req.id], missing_facts=['Deployment scope'],
+        evidence_ids=[doc, eid], rationale='Missing technical scope')
+    with pytest.raises(ValueError, match='代码范围'):
+        store.commit_output(task, 'pci_mapper', StageOutput(records=[decision], summary='Incomplete decision'))
+    assert not store.records(run['id'], 'applicability')
+
+
 @pytest.fixture
 def catalog(settings, store, sample_run):
     _, run, _ = sample_run
@@ -80,13 +136,14 @@ def test_catalog_version_and_content_tampering_cannot_create_sources(store,catal
 def test_related_scope_unknown_enters_code_check_inventory_without_claiming_applicable(settings,store,catalog):
     run,_,_,doc,req=catalog
     scheduler=Scheduler(settings,store)
-    assert scheduler.scopes(run['id'],'pci_mapper')==[{'requirement_id':req.id}]
+    assert scheduler.scopes(run['id'],'pci_mapper')==[{'requirement_id':req.id,'compliance_scope_policy':'code_related_v2'}]
     _,eid=read(store,run['id'],'8.3.1')
-    task=store.add_task(run['id'],'pci_mapping',{'requirement_id':req.id})
+    task=store.add_task(run['id'],'pci_mapping',{'requirement_id':req.id,
+                                             'compliance_scope_policy':'code_related_v2'})
     for source in [doc,eid]:
         store.note_read(task,source)
     match=Applicability(title='Related access control',clause_id='8.3.1',status='UNDETERMINED',
-                        relevance='POTENTIALLY_RELEVANT',requirement_ids=[req.id],
+        relevance='POTENTIALLY_RELEVANT',control_scope='CODE_RELATED',requirement_ids=[req.id],
                         applicability_conditions=['If deployed into the CDE'],missing_facts=['Deployment scope'],
                         rationale='Authentication control matches the design; CDE scope is unknown',evidence_ids=[doc,eid])
     store.commit_output(task,'pci_mapper',StageOutput(records=[match],summary='Matched'))
@@ -112,13 +169,19 @@ def test_related_scope_unknown_enters_code_check_inventory_without_claiming_appl
 @pytest.mark.parametrize('bad_source', [False, True])
 async def test_real_adk_reads_catalog_and_directly_commits_requirement_clause_match(settings,store,catalog,bad_source):
     run,_,_,doc,req=catalog
-    task=store.add_task(run['id'],'pci_mapping',{'requirement_id':req.id})
+    task=store.add_task(run['id'],'pci_mapping',{'requirement_id':req.id,
+                                             'compliance_scope_policy':'code_related_v2'})
     bundle=SkillLoader(settings.skills_dir).resolve('pci_mapper','pci_mapper','0.1.0')
     class CatalogModel(BaseLlm):
         model:str='structured-catalog-fixture'
         _calls:int=PrivateAttr(default=0)
         async def generate_content_async(self,llm_request,stream=False):
             self._calls+=1
+            declaration = next(d for tool in llm_request.config.tools for d in tool.function_declarations
+                               if d.name == 'set_model_response')
+            fields = declaration.parameters_json_schema['$defs']['Applicability']
+            assert 'control_scope' in fields['required']
+            assert fields['properties']['control_scope']['enum'] == ['CODE_RELATED', 'NON_CODE', 'UNKNOWN']
             if self._calls==1:
                 calls=[('read_evidence',{'evidence_id':doc}),('read_upstream_records',{'record_ids':[req.id]}),
                        ('search_standard_library',{'query':'authentication','section':'8','limit':8,'offset':0})]
@@ -127,7 +190,7 @@ async def test_real_adk_reads_catalog_and_directly_commits_requirement_clause_ma
             else:
                 eid=store.evidence(run['id'],'standard')[0]['id']
                 args=Applicability(id='catalog-match',title='Matched requirement',clause_id='8.3.1',
-                     status='UNDETERMINED',relevance='RELEVANT',requirement_ids=[req.id],
+                     status='UNDETERMINED',relevance='RELEVANT',control_scope='CODE_RELATED',requirement_ids=[req.id],
                      applicability_conditions=['In-scope deployment'],missing_facts=['CDE scope'],
                      evidence_ids=[doc,'8.3.1' if bad_source else eid],rationale='Related identity control; deployment unknown').model_dump()
                 calls=[('set_model_response',{'records':[args],'gaps':[],'summary':'Matched to structured data'})]

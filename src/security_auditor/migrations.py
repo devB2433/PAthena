@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .skills import digest
 
-VERSION = 3
+VERSION = 5
 SUBMISSIONS = {"record_summary": ("architect", "summary"),
                "record_threat_model": ("threat_modeler", "threat_model"),
                "record_plan": ("planner", "plan"),
@@ -101,3 +101,29 @@ def migrate(path: Path):
             db.execute('CREATE VIRTUAL TABLE IF NOT EXISTS standard_clause_search USING fts5(pack_id UNINDEXED,'
                        'clause_id UNINDEXED,content)')
             db.execute('INSERT INTO schema_migrations VALUES(3,?)', (datetime.now(timezone.utc).isoformat(),))
+        if current < 4:
+            db.execute('CREATE TABLE IF NOT EXISTS standard_catalogs(catalog_id TEXT PRIMARY KEY,'
+                       'library_id TEXT NOT NULL REFERENCES standard_versions(id),payload TEXT NOT NULL,'
+                       'sha256 TEXT NOT NULL,control_count INTEGER NOT NULL,vector_count INTEGER NOT NULL)')
+            db.execute('CREATE TABLE IF NOT EXISTS standard_controls(catalog_id TEXT NOT NULL REFERENCES standard_catalogs(catalog_id),'
+                       'control_id TEXT NOT NULL,clause_id TEXT NOT NULL,payload TEXT NOT NULL,sha256 TEXT NOT NULL,'
+                       'PRIMARY KEY(catalog_id,control_id))')
+            db.execute('CREATE TABLE IF NOT EXISTS standard_vectors(catalog_id TEXT NOT NULL REFERENCES standard_catalogs(catalog_id),'
+                       'item_type TEXT NOT NULL,item_id TEXT NOT NULL,vector TEXT NOT NULL,sha256 TEXT NOT NULL,'
+                       'text_hash TEXT NOT NULL,PRIMARY KEY(catalog_id,item_type,item_id))')
+            db.execute('CREATE TABLE IF NOT EXISTS standard_query_vectors(profile_id TEXT NOT NULL,query_hash TEXT NOT NULL,'
+                       'vector TEXT NOT NULL,sha256 TEXT NOT NULL,PRIMARY KEY(profile_id,query_hash))')
+            db.execute('CREATE TABLE IF NOT EXISTS task_control_reads(task_id TEXT NOT NULL REFERENCES tasks(id),'
+                       'catalog_id TEXT NOT NULL REFERENCES standard_catalogs(catalog_id),control_id TEXT NOT NULL,'
+                       'PRIMARY KEY(task_id,catalog_id,control_id))')
+            db.execute('CREATE TABLE IF NOT EXISTS project_control_bindings(run_id TEXT NOT NULL REFERENCES runs(id),'
+                       'catalog_id TEXT NOT NULL REFERENCES standard_catalogs(catalog_id),control_id TEXT NOT NULL,'
+                       'module TEXT NOT NULL,requirement_id TEXT NOT NULL REFERENCES records(id),'
+                       'matched_requirement_ids TEXT NOT NULL,mapping_ids TEXT NOT NULL,'
+                       'PRIMARY KEY(run_id,catalog_id,control_id,module))')
+            db.execute('INSERT INTO schema_migrations VALUES(4,?)', (datetime.now(timezone.utc).isoformat(),))
+        if current < 5:
+            db.execute('CREATE TABLE IF NOT EXISTS standard_search_cache(catalog_id TEXT NOT NULL REFERENCES standard_catalogs(catalog_id),'
+                       'query_hash TEXT NOT NULL,language TEXT NOT NULL,section TEXT NOT NULL,'
+                       'payload TEXT NOT NULL,sha256 TEXT NOT NULL,PRIMARY KEY(catalog_id,query_hash,language,section))')
+            db.execute('INSERT INTO schema_migrations VALUES(5,?)', (datetime.now(timezone.utc).isoformat(),))

@@ -32,6 +32,10 @@ class Settings:
     )
     standard_pack: str = field(default_factory=lambda: os.getenv("AUDITOR_STANDARD_PACK", local_standard_pack()))
     docling_models: str = field(default_factory=lambda: os.getenv("AUDITOR_DOCLING_MODELS", ""))
+    embedding_model_dir: str = field(default_factory=lambda: os.getenv(
+        'AUDITOR_EMBEDDING_MODEL_DIR', str(ROOT / 'models/embeddings/qwen3-embedding-0.6b')))
+    reranker_model_dir: str = field(default_factory=lambda: os.getenv(
+        'AUDITOR_RERANKER_MODEL_DIR', str(ROOT / 'models/rerankers/bge-reranker-v2-m3')))
     language: str = field(default_factory=lambda: os.getenv("AUDITOR_LANGUAGE", "en"))
     enforce_budgets: bool = field(default_factory=budgets_enabled)
     max_requests: int = field(default_factory=lambda: int(os.getenv("AUDITOR_MAX_REQUESTS", "0")))

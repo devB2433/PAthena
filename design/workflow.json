@@ -1,8 +1,8 @@
 {
   "contract_version": "0.2-mantis-native",
   "id": "design_to_static_assurance",
-  "version": 10,
-  "standard_use_policy": "structured_library_requirement_matching_v1",
+  "version": 13,
+  "standard_use_policy": "precomputed_controls_vector_matching_v3",
   "source_reference_transport": "exact_task_local_handles_v1",
   "dispatch_policy": "ready_tasks_with_bounded_concurrency",
   "node_completion_policy": "explicit_role_bound_submission_validated_and_committed",
@@ -73,23 +73,24 @@
       "skill_version": "0.1.0",
       "depends_on": [
         "requirements",
-        "standard_load"
+        "standard_load",
+        "code_index"
       ],
       "output": "RequirementStandardMatches",
-      "partition_by": ["requirement_id"],
-      "context_policy": "current_design_requirement_with_structured_standard_retrieval"
+      "partition_by": [
+        "requirement_id"
+      ],
+      "context_policy": "project_requirement_query_against_precomputed_standard_and_control_vectors"
     },
     {
       "id": "pci_requirements",
-      "kind": "agent",
-      "role": "pci_requirement_generator",
-      "skill_id": "pci_requirement_generator",
-      "skill_version": "0.1.0",
+      "kind": "service",
+      "handler": "bind_standard_controls",
       "depends_on": [
         "pci_mapping"
       ],
-      "output": "ComplianceRequirementBatch",
-      "dispatch_policy": "explicit_relevant_or_potentially_relevant_clause_inventory"
+      "output": "BoundStandardControls",
+      "dispatch_policy": "reuse_precomputed_controls_without_model_calls"
     },
     {
       "id": "requirement_review",
@@ -206,5 +207,18 @@
       "context_policy": "current_requirement_only_with_shared_mantis_model_tools"
     }
   },
-  "final_submission_sources": "rebind_actual_reads_before_every_model_call"
+  "final_submission_sources": "rebind_actual_reads_before_every_model_call",
+  "implementation_verdict_policy": "separate_code_evidence_gaps_from_not_code_verifiable_controls",
+  "standard_preparation": {
+    "execution": "independent_before_project_analysis",
+    "artifacts": [
+      "original_clauses",
+      "bilingual_controls",
+      "persisted_embeddings",
+      "catalog_scoped_lexical_index",
+      "pinned_retrieval_recipe"
+    ],
+    "project_policy": "query_embeddings_only_never_rebuild_standard_vectors_or_controls",
+    "retrieval": "bilingual_dense_bm25_rrf60_rerank40"
+  }
 }

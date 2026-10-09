@@ -1,7 +1,7 @@
 {
   "id": "requirement_reviewer",
   "version": "0.1.0",
-  "sha256": "0116593cf60bcdf4a29cdb97a14d2289d9e142aa8b6259037edab22557140457",
+  "sha256": "1ff4a4c9ae1f0a21022eacfe4f3582f996ef832fdfb54adeef3252a15beb11d8",
   "mandatory_rules": [
     "SNAPSHOT",
     "EVIDENCE",

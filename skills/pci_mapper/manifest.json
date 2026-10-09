@@ -1,7 +1,7 @@
 {
   "id": "pci_mapper",
   "version": "0.1.0",
-  "sha256": "d75231bb82bbaba7e906a2c19dca7888ec1e6f1cba8ff1aa06faeca95ef4fc89",
+  "sha256": "d4534a52d0baab38c9fcf8dcd7327f69f41b8f7bc548043808554eefc3b3dc22",
   "mandatory_rules": [
     "SNAPSHOT",
     "EVIDENCE",

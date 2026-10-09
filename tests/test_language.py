@@ -113,7 +113,7 @@ def test_v1_upgrade_only_adds_settings_and_preserves_existing_artifacts(store, s
     upgraded = Store(store.path)
     assert upgraded.language() == 'en'
     assert upgraded.rows('SELECT * FROM stage_artifacts') == before
-    assert upgraded.rows('SELECT max(version) v FROM schema_migrations')[0]['v'] == 3
+    assert upgraded.rows('SELECT max(version) v FROM schema_migrations')[0]['v'] == 5
 
 
 def test_ui_catalog_covers_all_fixed_localized_strings():

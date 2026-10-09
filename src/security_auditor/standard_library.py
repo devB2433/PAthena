@@ -9,7 +9,7 @@ from .config import contained_file
 from .skills import digest
 
 
-POLICY = 'structured_library_requirement_matching_v1'
+POLICY = 'precomputed_controls_vector_matching_v3'
 
 
 def import_library(store, manifest: dict) -> str:
@@ -19,6 +19,8 @@ def import_library(store, manifest: dict) -> str:
     if existing:
         if existing[0]['clause_count'] != len(manifest['requirement_ids']):
             raise ValueError('标准库库存与固定版本不一致')
+        from .control_catalog import import_catalog
+        import_catalog(store, key, manifest)
         return key
     root = Path(manifest['root'])
     raw = contained_file(root, 'clauses.jsonl').read_bytes()
@@ -35,8 +37,9 @@ def import_library(store, manifest: dict) -> str:
         db.execute('BEGIN IMMEDIATE')
         if db.execute('SELECT 1 FROM standard_versions WHERE id=?', (key,)).fetchone():
             return key
+        base_manifest = {k: v for k, v in manifest.items() if k != 'prepared'}
         db.execute('INSERT INTO standard_versions VALUES(?,?,?,?,?,?)',
-                   (key, 'PCI_DSS', manifest['version'], json.dumps(manifest, sort_keys=True), len(clauses), len(contexts)))
+                   (key, 'PCI_DSS', manifest['version'], json.dumps(base_manifest, sort_keys=True), len(clauses), len(contexts)))
         for clause in clauses:
             payload = json.dumps(clause, ensure_ascii=False, sort_keys=True)
             db.execute('INSERT INTO standard_clauses VALUES(?,?,?,?,?,?,?,?,?)',
@@ -49,6 +52,8 @@ def import_library(store, manifest: dict) -> str:
             payload = json.dumps(context, ensure_ascii=False, sort_keys=True)
             db.execute('INSERT INTO standard_contexts VALUES(?,?,?,?)',
                        (key, context['id'], payload, digest(payload.encode())))
+    from .control_catalog import import_catalog
+    import_catalog(store, key, manifest)
     return key
 
 
@@ -58,14 +63,18 @@ def version(store, run_id: str) -> dict:
     if not rows:
         raise ValueError('本次分析没有固定的结构化标准库')
     item = rows[0]
-    if json.loads(item['manifest']) != {k: v for k, v in snapshot.items() if k != 'library_id'}:
+    if json.loads(item['manifest']) != {k: v for k, v in snapshot.items() if k not in {'library_id', 'prepared'}}:
         raise ValueError('标准库版本与运行快照不一致')
     return item
 
 
 def overview(store, run_id: str) -> dict:
     item = version(store, run_id)
+    prepared = (store.run(run_id)['snapshot'].get('standard') or {}).get('prepared')
     return {'standard_id': item['standard_id'], 'version': item['version'],
+            'catalog_id': prepared['catalog_id'] if prepared else None,
+            'control_count': prepared['control_count'] if prepared else 0,
+            'retrieval': 'PERSISTED_VECTORS' if prepared else 'LEGACY_FULLTEXT',
             'clause_count': item['clause_count'], 'context_count': item['context_count'],
             'sections': store.rows('SELECT substr(clause_id,1,instr(clause_id,\'.\')-1) section,count(*) clause_count '
                                   'FROM standard_clauses WHERE pack_id=? GROUP BY section ORDER BY CAST(section AS INTEGER)',
@@ -73,7 +82,12 @@ def overview(store, run_id: str) -> dict:
             'coverage': 'Search candidates are not proof of exhaustive semantic coverage'}
 
 
-def search(store, run_id: str, query: str, section: str = '', limit: int = 8, offset: int = 0) -> dict:
+def search(store, run_id: str, query: str, section: str = '', limit: int = 8, offset: int = 0, *, embedder=None, reranker_model=None) -> dict:
+    if (store.run(run_id)['snapshot'].get('standard') or {}).get('prepared'):
+        if not query.strip():
+            return overview(store, run_id)
+        from .control_catalog import search as semantic_search
+        return semantic_search(store, run_id, query, section, limit, offset, embedder=embedder, reranker_model=reranker_model)
     item = version(store, run_id)
     if len(query) > 200 or (section and not re.fullmatch(r'\d+(?:\.\d+)*', section)):
         raise ValueError('标准库查询或章节无效')

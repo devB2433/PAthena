@@ -3,10 +3,12 @@ from html import escape
 import json
 
 from .localization import tr
+from .domain import compliance_candidate
 
 STATUS = {
     'STATIC_SUPPORTED': '代码符合', 'VIOLATED': '未实现', 'PARTIAL': '部分实现',
-    'UNKNOWN': '无法确认', 'EXTERNAL_EVIDENCE_REQUIRED': '需检查外部配置',
+    'UNKNOWN': '代码检查依据不足', 'NOT_CODE_VERIFIABLE': '无法通过代码验证',
+    'EXTERNAL_EVIDENCE_REQUIRED': '无法通过代码验证',
     'NOT_CHECKED': '未检查', 'CHECKING': '检查中', 'INCOMPLETE': '检查未完成',
 }
 ORIGIN = {'EXPLICIT_DESIGN': '设计文档', 'INFERRED_SECURITY': '安全分析', 'PCI_DSS': 'PCI DSS'}
@@ -56,7 +58,8 @@ def product_report(project_name: str, data: dict, matrix: dict, sources: list[di
         counts = ' · '.join(f'{t(label)} {sum(r["status"] == state for r in decisions)}' for state, label in labels.items())
         items = ''.join(f'<li>PCI DSS {text(r["clause_id"])}: {t(relevance_labels.get(r.get("relevance", "UNKNOWN"), "待确定"))} · {t(labels[r["status"]])}<p>{text(r["rationale"])}</p>'
                         + ''.join(f'<p>{text(f)}</p>' for f in r.get('applicability_conditions', []))
-                        + ''.join(f'<p>{text(f)}</p>' for f in r['missing_facts']) + '</li>' for r in decisions)
+                        + ''.join(f'<p>{text(f)}</p>' for f in r['missing_facts']) + '</li>' for r in decisions if r.get('control_scope') not in {'NON_CODE', 'UNKNOWN'}
+                        and r.get('relevance') != 'UNRELATED' and r['status'] != 'NOT_APPLICABLE')
         progress = (f'{t("标准匹配")} {sum(task["status"]=="SUCCEEDED" for task in matching)} / {len(matching)}'
                     if matching else f'{len(decisions)} / {len(clauses)} · {counts}')
         rows.append(f'<details><summary>PCI DSS · {progress}</summary><ul>{items}</ul></details>')
@@ -69,7 +72,8 @@ def product_report(project_name: str, data: dict, matrix: dict, sources: list[di
             f'<p>PCI DSS {text(r["clause_id"])} · {t(relevance_labels.get(r.get("relevance", "UNKNOWN"), "待确定"))}'
             f' · {t(labels[r["status"]])}</p><p>{text(r["rationale"])}</p>'
             + ''.join(f'<p>{text(condition)}</p>' for condition in r.get('applicability_conditions', []))
-            + ''.join(f'<p>{text(fact)}</p>' for fact in r.get('missing_facts', [])) for r in matches)
+                        + ''.join(f'<p>{text(fact)}</p>' for fact in r.get('missing_facts', [])) for r in matches
+                        if compliance_candidate(r))
     for req in matrix['requirements']:
         criteria = ''.join(f'<li>{text(c)}</li>' for c in req['acceptance_criteria'])
         review = f'<h4>{t("需求复核")}</h4><p>{t(REQUIREMENT_REVIEW[req.get("requirement_review_status", "NOT_REVIEWED")])}</p>'
@@ -78,6 +82,9 @@ def product_report(project_name: str, data: dict, matrix: dict, sources: list[di
         rows.append(
             f'<article id="requirement-{text(req["id"])}"><h3>{text(req["requirement_number"])} '
             f'{text(req["title"])}</h3><p>{text(req["statement"])}</p>'
+            + ''.join(f'<p>{text(c)}</p>' for c in req.get('applicability_conditions', []))
+            + (f'<p>{t("标准控制")}: {text(req["standard_control_id"])}</p>' if req.get('standard_control_id') else '')
+            +
             f'<h4>{t("验收要求")}</h4><ul>{criteria}</ul><h4>{t("需求来源")}</h4>'
             f'<p>{t(ORIGIN.get(req["origin"], req["origin"]))} {text(", ".join(req["clause_ids"]))}</p>'
             f'{source_blocks(req)}{matched_clauses(req)}{review}</article>')

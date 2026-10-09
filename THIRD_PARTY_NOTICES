@@ -25,3 +25,11 @@ task scheduler, API and frontend are independent implementations.
 
 Google ADK, LiteLLM, FastAPI, React, Ant Design and Docling are dependencies;
 their licenses and notices remain distributed by their original packages.
+
+Optional local retrieval models (weights are not distributed with this repository):
+Qwen/Qwen3-Embedding-0.6B, revision 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3
+https://huggingface.co/Qwen/Qwen3-Embedding-0.6B
+BAAI/bge-reranker-v2-m3, revision 953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e
+https://huggingface.co/BAAI/bge-reranker-v2-m3
+Both official model cards identify Apache-2.0 licensing. Their upstream model
+cards and any license files are retained next to separately downloaded weights.
