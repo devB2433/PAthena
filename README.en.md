@@ -27,15 +27,15 @@ Roles run through a shared Google ADK framework. The workflow determines stage o
 | Security requirement generation | `requirement_generator` | Turn design facts into security requirements, source explanations, and individual acceptance criteria |
 | Standard matching and control binding | `pci_mapper`, programmatic binding service | Query precomputed clause/control vectors, assess relevance, and bind stored bilingual control requirements |
 | Requirement review | `requirement_reviewer` | Automatically review wording, duplicates, sources, and checkability; preserve original requirements and review results |
-| Code understanding | Mantis `history`, `structural_index`, `architect` | Organize code context and structural indexes; establish the actual architecture and module relationships |
-| Threat modeling | Mantis `threat_modeler` | Analyze code entry points, assets, trust boundaries, and possible attack paths |
+| Code understanding | `history`, `structural_index`, `architect` | Organize code context and structural indexes; establish the actual architecture and module relationships |
+| Threat modeling | `threat_modeler` | Analyze code entry points, assets, trust boundaries, and possible attack paths |
 | Requirement implementation checks | `requirement_checker` | Investigate source code independently for each requirement and return results and code locations for every acceptance criterion |
-| Vulnerability planning and research | Mantis `planner`, `researcher` | Plan investigations using the threat model and requirement gaps; research candidate security problems along code paths |
-| Findings deduplication and review | Mantis `deduplicator`, `reviewer`, `critic` | Merge duplicates, review static conclusions, seek counterexamples, and retain excluded findings |
-| Attack chains and risk analysis | Mantis `chainer`, `calibrator` | Analyze possible relationships between findings when static review conditions are met, and assess risk |
-| Reflection and reporting | Mantis `reflector`, `reporter` | Organize investigation results and native audit reports; the product report module consolidates the four deliverables |
+| Vulnerability planning and research | `planner`, `researcher` | Plan investigations using the threat model and requirement gaps; research candidate security problems along code paths |
+| Findings deduplication and review | `deduplicator`, `reviewer`, `critic` | Merge duplicates, review static conclusions, seek counterexamples, and retain excluded findings |
+| Attack chains and risk analysis | `chainer`, `calibrator` | Analyze possible relationships between findings when static review conditions are met, and assess risk |
+| Reflection and reporting | `reflector`, `reporter` | Organize investigation results and audit reports; the product report module consolidates the four deliverables |
 
-Document analysis, standard matching, and requirement checks use this project's domain logic. Code understanding, threat modeling, and Findings audits directly run a pinned version of the Mantis core with the corresponding full skills. Mantis selects subsequent branches based on investigation results, so individual Findings do not necessarily pass through every role. Requirement gaps are passed to vulnerability planning as investigation leads; further analysis determines whether they represent exploitable problems.
+Document analysis, standard matching, requirement checks, and static code audits work together in one workflow. The static audit engine selects subsequent branches based on investigation results; the progress of each investigation determines which roles are needed. Requirement gaps are passed to vulnerability planning as investigation leads; further analysis determines whether they represent exploitable problems.
 
 The current workflow generates and reviews requirements automatically, with no mandatory human approval of the requirement baseline. All analysis is static and does not run the target program. Dynamic reproduction and automatic patching stages have been removed from the execution workflow.
 
@@ -44,9 +44,9 @@ The current workflow generates and reviews requirements automatically, with no m
 | Stage | Inputs and processing | Outputs |
 | --- | --- | --- |
 | 1. Security requirements | Parse design documents; extract design facts, explicit requirements, and inferred requirements; match requirements to structured PCI DSS clauses; bind prepared compliance requirements and review them automatically | Requirements, acceptance criteria, design sources, related clauses, and applicability conditions |
-| 2. Threat modeling | Mantis reads a fixed source snapshot and uses upstream design and requirement context to establish actual architecture, entry points, trust boundaries, and attack paths | A threat model grounded in code and specific threats |
+| 2. Threat modeling | Read a fixed source snapshot and use design and requirement context to establish actual architecture, entry points, trust boundaries, and attack paths | A threat model grounded in code and specific threats |
 | 3. Requirement implementation assessments | Create an independent task for each requirement; use the code model and source navigation to investigate entry points, shared controls, and error paths; check each acceptance criterion | Static assessment results corresponding to each requirement, reasoning, and source locations |
-| 4. Findings | Mantis uses the threat model and implementation gaps for planning, research, deduplication, static review, criticism, attack chain analysis, and risk assessment; the final report consolidates the vulnerability audit and implementation comparison | Candidate vulnerabilities, implementation or design gaps, impact, causes, recommendations, and code locations; excluded candidates are retained separately |
+| 4. Findings | Use the threat model and implementation gaps for planning, research, deduplication, static review, criticism, attack chain analysis, and risk assessment; the final report consolidates the vulnerability audit and implementation comparison | Candidate vulnerabilities, implementation or design gaps, impact, causes, recommendations, and code locations; excluded candidates are retained separately |
 
 ```mermaid
 flowchart LR
@@ -92,7 +92,7 @@ PAthena's implementation verification is a **static assessment**. Code support d
 - Backend: Python 3.12, FastAPI, Google ADK, LiteLLM, Pydantic.
 - Frontend: TypeScript, React, Vite, Ant Design.
 - Database: SQLite, WAL, FTS5; persistence for the structured standards library, tasks, raw model responses, and results.
-- Document parsing: Docling. Source navigation: Mantis and local tree-sitter grammars.
+- Document parsing: Docling. Source navigation: structural indexes, search tools, and local tree-sitter grammars.
 - Model: DeepSeek `deepseek-flash` by default, accessed through a separate model gateway.
 - Deployment: Two containers for the analysis service and model gateway. The analysis service serves the frontend from the same origin.
 
@@ -216,14 +216,14 @@ Two deployed-container queries took 31.46 s end to end (including first load) an
 
 - `full`: Design requirements, standard matching, code modeling, implementation checks, and Findings.
 - `requirements_only`: Analyze only design documents and standard requirements.
-- `code_only`: Run only Mantis static modeling and Findings audits, without reading design documents.
+- `code_only`: Run only code threat modeling and static Findings audits, without reading design documents.
 - `implementation_only`: Import successfully submitted requirements and sources from an existing run in the same project, and check only their implementation.
 
 Selecting source code without uploading a document uses code mode. Existing requirements can be checked through the “Check existing requirements” action. The API's `implementation_only` mode accepts `baseline_run_id` and `repository_id`, preserves the original requirement language, records relationships between runs, and retains historical results.
 
 ## Budgets, result submission, and recovery
 
-API request counts, cumulative tokens, and per-task model call limits are temporarily disabled, with `AUDITOR_ENFORCE_BUDGETS=false` by default. This switch applies to the analysis service, outbound gateway, ADK, and Mantis adapter. Saved budgets on historical runs no longer block execution, while original budgets and cumulative usage are retained. Budget settings are hidden in the UI, new analyses have no limits, and legacy limits submitted through the API have no effect.
+API request counts, cumulative tokens, and per-task model call limits are temporarily disabled, with `AUDITOR_ENFORCE_BUDGETS=false` by default. This switch applies to the analysis service, outbound gateway, ADK, and static audit adapter. Saved budgets on historical runs no longer block execution, while original budgets and cumulative usage are retained. Budget settings are hidden in the UI, new analyses have no limits, and legacy limits submitted through the API have no effect.
 
 To restore limits, set `AUDITOR_ENFORCE_BUDGETS=true` in both the analysis service and gateway, then configure `AUDITOR_MAX_REQUESTS`, `AUDITOR_MAX_TOKENS`, and `AUDITOR_AGENT_MAX_CALLS`. All default to `0`, meaning unlimited. Budget controls then become available in the UI. In the API, `null` for `budget.max_requests` or `budget.max_tokens` means unlimited. Per-response output length, context capacity, concurrency, timeouts, and retry limits remain in place; these are separate from cumulative consumption limits.
 
@@ -231,7 +231,7 @@ Each actual outbound request is reserved and accounted for atomically. Known pro
 
 Project-defined roles use strict function argument contracts. Responses are archived first, then validated for schema, task ownership, sources, and acceptance-criterion inventory before transactional database submission. The application does not fabricate analytical fields, infer results from prose, or call another model to interpret or repair the final response. The application supplies fixed task relationships and rejects conflicting relationships returned by a model.
 
-Security judgments can cite only material actually read in the current session. Search results, summaries, and historical reads do not replace current source reads. Conclusions of implementation support, partial implementation, or requirement violations must have actual source references. Native Mantis analysis retains its investigation loops and structured conclusions, with no dynamic reproduction or target execution permissions.
+Security judgments can cite only material actually read in the current session. Search results, summaries, and historical reads do not replace current source reads. Conclusions of implementation support, partial implementation, or requirement violations must have actual source references. Static audits use investigation loops to submit structured conclusions, with no dynamic reproduction or target program execution permissions.
 
 Results can be exported as HTML, CSV, and JSON. Reports retain requirement relationships, sources, code locations, and excluded candidates. Deployment does not guarantee that model output will always be valid. When final structure or source validation fails, the task remains incomplete and requires the blocking issue to be addressed before continuing.
 
@@ -267,20 +267,19 @@ AUDITOR_DOCLING_MODELS=./models/docling \
 
 PDF tests require models prepared in advance and explicitly skip when resources are missing. Protocol tests use controlled model responses and do not establish real-world analysis accuracy. The first complete run with a real model required debugging and resumptions. Fully unattended stability and the validity of Findings have not yet passed acceptance testing. See [Current implementation status](docs/development-status.md) for other limitations.
 
-## Project structure and provenance
+## Project structure
 
 ```text
 apps/web/                  Frontend
 src/security_auditor/      Backend, database, model gateway, and adapters
-src/security_auditor/vendor/mantis/  Pinned Mantis core and skills
 skills/                    Project-defined versioned analysis skills
 design/                    Workflow and configuration examples
 deploy/                    Containers and general deployment templates
 tests/                     Automated tests and minimal test fixtures
-docs/                      Architecture, parsing, static reuse, and status notes
+docs/                      Architecture, parsing, static audits, and status notes
 licenses/                  Third-party licenses
 ```
 
-Mantis comes from [google/mantis](https://github.com/google/mantis). The pinned commit and file digests are recorded in the vendored `SOURCE.json`. Its Apache-2.0 license and [third-party notices](THIRD_PARTY_NOTICES) are retained. The internal name `security-design-auditor` is used for the package and Compose project.
+The internal name `security-design-auditor` is used for the package and Compose project.
 
-Detailed design documents are available in [Implementation plan](docs/implementation-plan.md), [Frontend, backend, and deployment](docs/frontend-backend-deployment.md), [Document parser selection](docs/document-parsing-selection.md), [Mantis skills review](docs/mantis-skills-review.md), and [Static audit reuse](docs/mantis-static-parity.md). Capabilities described as targets in design documents should be read alongside the current implementation and status. These linked design and status documents are currently in Chinese.
+Detailed design documents are available in [Implementation plan](docs/implementation-plan.md), [Frontend, backend, and deployment](docs/frontend-backend-deployment.md), [Document parser selection](docs/document-parsing-selection.md), and [Bilingual retrieval evaluation](docs/retrieval-evaluation.md). Capabilities described as targets in design documents should be read alongside the current implementation and status. Some linked design and status documents are currently in Chinese.

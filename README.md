@@ -27,15 +27,15 @@ PAthena 是一套面向设计评审和代码交付的安全分析智能体群。
 | 安全需求生成 | `requirement_generator` | 从设计事实形成安全需求、来源说明和逐项验收条件 |
 | 标准匹配与控制绑定 | `pci_mapper`、程序绑定服务 | 查询预计算标准与控制向量，判断相关性，直接绑定已保存的双语控制需求 |
 | 需求复核 | `requirement_reviewer` | 自动检查需求的表达、重复项、来源和可检查性，保留原需求与复核结果 |
-| 代码理解 | Mantis `history`、`structural_index`、`architect` | 整理代码背景和结构索引，建立实际架构与模块关系 |
-| 威胁建模 | Mantis `threat_modeler` | 分析代码入口、资产、信任边界和可能的攻击路径 |
+| 代码理解 | `history`、`structural_index`、`architect` | 整理代码背景和结构索引，建立实际架构与模块关系 |
+| 威胁建模 | `threat_modeler` | 分析代码入口、资产、信任边界和可能的攻击路径 |
 | 需求实现检查 | `requirement_checker` | 每项需求独立调查源码，逐条返回验收结果和代码位置 |
-| 漏洞规划与研究 | Mantis `planner`、`researcher` | 根据威胁模型和需求缺口安排调查，沿代码路径研究候选安全问题 |
-| Findings 去重与复核 | Mantis `deduplicator`、`reviewer`、`critic` | 合并重复问题，检查静态结论，寻找反证并保留排除结果 |
-| 攻击链与风险分析 | Mantis `chainer`、`calibrator` | 在满足静态复核条件时分析问题之间的可能关联，并评定风险 |
-| 反思与报告 | Mantis `reflector`、`reporter` | 整理调查结果和原生审计报告，由产品报告模块汇总四个输出物 |
+| 漏洞规划与研究 | `planner`、`researcher` | 根据威胁模型和需求缺口安排调查，沿代码路径研究候选安全问题 |
+| Findings 去重与复核 | `deduplicator`、`reviewer`、`critic` | 合并重复问题，检查静态结论，寻找反证并保留排除结果 |
+| 攻击链与风险分析 | `chainer`、`calibrator` | 在满足静态复核条件时分析问题之间的可能关联，并评定风险 |
+| 反思与报告 | `reflector`、`reporter` | 整理调查结果和审计报告，由产品报告模块汇总四个输出物 |
 
-文档分析、标准匹配和需求检查采用本项目的领域逻辑；代码理解、威胁建模和 Findings 审计直接运行固定版本的 Mantis 核心及对应完整技能。Mantis 内部按调查结果选择后续分支，并非每条 Finding 都会经过所有角色。需求缺口会交给漏洞规划作为调查线索，是否构成可利用问题仍需进一步分析。
+文档分析、标准匹配、需求检查与静态代码审计在同一工作流中协作。静态审计引擎根据调查结果选择后续分支，每条 Finding 所需的角色由调查进展决定。需求缺口会交给漏洞规划作为调查线索，是否构成可利用问题仍需进一步分析。
 
 当前流程全自动生成和复核需求，没有人工审批需求基线的必经步骤。分析完全静态，不运行目标程序；动态复现和自动补丁阶段已从执行工作流移除。
 
@@ -44,9 +44,9 @@ PAthena 是一套面向设计评审和代码交付的安全分析智能体群。
 | 阶段 | 输入与处理 | 输出 |
 | --- | --- | --- |
 | 1. 安全需求 | 解析设计文档，提取设计事实、明确要求和推导要求；将需求匹配到结构化 PCI DSS 条款，绑定预先保存的相关合规需求并自动复核 | 需求、验收条件、设计来源、关联条款与适用条件 |
-| 2. 威胁建模 | Mantis 读取固定源码快照，结合上游设计与需求背景，建立实际架构、入口、信任边界和攻击路径 | 基于代码的威胁模型与具体威胁 |
+| 2. 威胁建模 | 读取固定源码快照，结合设计与需求背景，建立实际架构、入口、信任边界和攻击路径 | 基于代码的威胁模型与具体威胁 |
 | 3. 需求实现情况 | 每项需求创建独立检查任务，借助代码模型和源码导航调查入口、共享控制及错误路径，逐条检查验收条件 | 与需求一一对应的静态检查结果、判断理由和源码位置 |
-| 4. Findings | Mantis 结合威胁模型及实现缺口进行规划、研究、去重、静态复核、质疑、攻击链分析和评级；最终报告汇总漏洞审计与需求实现比对 | 候选漏洞、实现或设计缺口、影响、原因、建议和代码位置；已排除候选单独保留 |
+| 4. Findings | 结合威胁模型及实现缺口进行规划、研究、去重、静态复核、质疑、攻击链分析和评级；最终报告汇总漏洞审计与需求实现比对 | 候选漏洞、实现或设计缺口、影响、原因、建议和代码位置；已排除候选单独保留 |
 
 ```mermaid
 flowchart LR
@@ -92,7 +92,7 @@ PAthena 的需求实现验证是**静态判断**：代码有支持并不等于�
 - 后端：Python 3.12、FastAPI、Google ADK、LiteLLM、Pydantic。
 - 前端：TypeScript、React、Vite、Ant Design。
 - 数据库：SQLite、WAL、FTS5；结构化标准库、任务、原始模型返回和结果持久化。
-- 文档解析：Docling；源码导航：Mantis 与本地 tree-sitter 语法资源。
+- 文档解析：Docling；源码导航：结构索引、检索工具与本地 tree-sitter 语法资源。
 - 模型：默认 DeepSeek `deepseek-flash`，通过独立模型网关调用。
 - 部署：分析服务和模型网关两个容器，前端由分析服务同源提供。
 
@@ -216,14 +216,14 @@ auditor prepare-standard --standard-pack ./standards/pci-dss-4.0.1 --model-dir .
 
 - `full`：设计需求、标准匹配、代码建模、实现检查和 Findings。
 - `requirements_only`：只分析设计文档和标准需求。
-- `code_only`：只进行 Mantis 静态建模与 Findings 审计，不读取设计文档。
+- `code_only`：只进行代码威胁建模与 Findings 静态审计，不读取设计文档。
 - `implementation_only`：从同项目已有运行导入成功提交的需求和来源，只检查实现情况。
 
 页面仅选择源码、不上传文档时使用代码模式。已有需求可通过“检查已有需求”继续执行实现检查。API 的 `implementation_only` 接受 `baseline_run_id` 与 `repository_id`；沿用原需求语言，记录新旧关联，保留历史结果。
 
 ## 预算、返回与恢复
 
-当前暂时关闭 API 调用次数、累计 token 和单任务模型调用轮数上限，默认 `AUDITOR_ENFORCE_BUDGETS=false`。此开关同时应用于分析服务、出站网关、ADK 和 Mantis 适配层；历史运行已保存的预算也不再阻断执行，原预算与累计用量保留。界面隐藏额度设置，新分析一律不限额，API 传入的旧额度也不生效。
+当前暂时关闭 API 调用次数、累计 token 和单任务模型调用轮数上限，默认 `AUDITOR_ENFORCE_BUDGETS=false`。此开关同时应用于分析服务、出站网关、ADK 和静态审计适配层；历史运行已保存的预算也不再阻断执行，原预算与累计用量保留。界面隐藏额度设置，新分析一律不限额，API 传入的旧额度也不生效。
 
 恢复限制时，在分析服务和网关同时设置 `AUDITOR_ENFORCE_BUDGETS=true`，再配置 `AUDITOR_MAX_REQUESTS`、`AUDITOR_MAX_TOKENS` 和 `AUDITOR_AGENT_MAX_CALLS`（默认均为 `0`，表示不限额）。此时页面可调整运行额度，API 的 `budget.max_requests` 和 `budget.max_tokens` 为 `null` 表示不限额。单次回答长度、上下文容量、并发、超时和故障重试限制继续保留；它们不属于累计消费上限。
 
@@ -231,7 +231,7 @@ auditor prepare-standard --standard-pack ./standards/pci-dss-4.0.1 --model-dir .
 
 自有角色使用严格函数参数协议，返回先归档、再做 Schema、任务归属、来源和验收项库存校验，成功后事务入库。程序不补写分析字段，不凭散文推断结果，不调用额外模型解释或修补最终返回。固定的任务关联由程序写入；模型回传冲突关联时拒绝提交。
 
-安全判断只能引用当次会话实际读取的材料；搜索结果、摘要和历史读取不代替当次源码读取。支持实现、部分实现和违反需求的结论必须具备实际源码引用。Mantis 原生分析保留其调查循环和结构化结论，不恢复动态复现或目标执行权限。
+安全判断只能引用当次会话实际读取的材料；搜索结果、摘要和历史读取不代替当次源码读取。支持实现、部分实现和违反需求的结论必须具备实际源码引用。静态审计通过调查循环提交结构化结论，没有动态复现或目标程序执行权限。
 
 结果支持 HTML、CSV、JSON 导出。报告保留需求对应关系、来源、源码位置和已排除候选。部署并不保证模型输出始终有效；遇到最终结构或来源校验失败时任务保持未完成，需要处理阻断原因后继续。
 
@@ -267,20 +267,19 @@ AUDITOR_DOCLING_MODELS=./models/docling \
 
 PDF 测试需要预置模型，缺少资源时明确跳过。协议测试使用受控模型响应，不代表真实分析准确率。首次完整真实链路经过调试续跑完成，尚未验收完全无人干预稳定性及 Findings 有效性；其他限制见 [当前状态](docs/development-status.md)。
 
-## 项目结构与来源
+## 项目结构
 
 ```text
 apps/web/                  前端
 src/security_auditor/      后端、数据库、模型网关与适配层
-src/security_auditor/vendor/mantis/  固定版本 Mantis 核心及技能
 skills/                    自有版本化分析技能
 design/                    工作流和配置示例
 deploy/                    容器与通用部署模板
 tests/                     自动测试与最小测试夹具
-docs/                      架构、解析、静态复用与状态说明
+docs/                      架构、解析、静态审计与状态说明
 licenses/                  第三方许可证
 ```
 
-Mantis 来源为 [google/mantis](https://github.com/google/mantis)，固定提交及文件摘要保存在 vendored `SOURCE.json`；保留 Apache-2.0 许可证与 [第三方声明](THIRD_PARTY_NOTICES)。内部结构名 `security-design-auditor` 用于安装包及 Compose 项目。
+内部结构名 `security-design-auditor` 用于安装包及 Compose 项目。
 
-详细设计见 [实现方案](docs/implementation-plan.md)、[前后端与部署](docs/frontend-backend-deployment.md)、[文档解析选型](docs/document-parsing-selection.md)、[Mantis 技能核对](docs/mantis-skills-review.md)、[静态审计复用](docs/mantis-static-parity.md)。设计文档中的目标能力以当前状态和实际实现为准。
+详细设计见 [实现方案](docs/implementation-plan.md)、[前后端与部署](docs/frontend-backend-deployment.md)、[文档解析选型](docs/document-parsing-selection.md)、[中英文检索对比](docs/retrieval-evaluation.md)。设计文档中的目标能力以当前状态和实际实现为准。
