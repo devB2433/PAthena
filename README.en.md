@@ -69,6 +69,410 @@ Security requirements and implementation checks share a stable identifier such a
 
 For example, suppose the design requires that “a disabled account must no longer access protected resources.” The system first records the requirement and acceptance criteria. It then uses the code model to locate login entry points, token validation, and shared authorization paths, and checks whether account disabling covers those paths. If the source behavior conflicts with the requirement, the report retains the implementation gap and its code location. Vulnerability research then investigates attack preconditions and impact. If the conclusion depends on runtime configuration, the result explicitly requests external material.
 
+## Detailed architecture
+
+The six views describe the current implementation: overall architecture, four-stage analysis, standard retrieval, agent calls and persistence, static audit branches, and deployment. Logical modules run within one Python analysis service under a shared scheduler. Document parsing and static auditing use separate subprocesses; logical modules are not separate microservices.
+
+### 1. Overall architecture
+
+```mermaid
+flowchart TB
+    USER["User"]
+    subgraph UI["Product interface · TypeScript / React"]
+        PROJECT["Projects and input materials"]
+        CONTROL["Start, pause and resume<br/>Language and progress"]
+        RESULTS["Four deliverables<br/>Requirement sources, assessments, code locations"]
+        EXPORT["HTML / CSV / JSON export"]
+    end
+    subgraph APP["Analysis service · Python / FastAPI"]
+        API["Application API<br/>Projects, materials, runs, results, SSE"]
+        SNAPSHOT["Snapshot and preflight<br/>Pin materials, code, standards, skills and language"]
+        INGEST["Ingestion<br/>Document extraction, code inventory, source index"]
+        subgraph FLOW["Analysis modules"]
+            REQ["Security requirements<br/>Design, mapping, control binding, automatic review"]
+            THREAT["Code understanding and threat modeling<br/>Architecture, entry points, boundaries, attack paths"]
+            CHECK["Implementation checks<br/>Per requirement and acceptance criterion"]
+            AUDIT["Findings audit<br/>Planning, research, deduplication, review, calibration"]
+        end
+        subgraph RUNTIME["Shared agent runtime"]
+            SCHED["Stage scheduler and complete inventory<br/>Ordered stages, isolated scopes, bounded concurrency"]
+            SKILLS["Versioned skills and language instructions"]
+            ADK["Google ADK<br/>Role sessions, tool calls, investigation loops"]
+            TOOLS["Restricted tools<br/>Source reads, code navigation, standard retrieval"]
+            VALIDATE["Result validation<br/>Schema, ownership, sources, criterion inventory"]
+        end
+        RETRIEVAL["Local standard retrieval<br/>Qwen embeddings + BM25 + BGE reranking"]
+        REPORT["Reports and result matrix<br/>Generated from persisted records"]
+    end
+    subgraph STORAGE["Local persistence"]
+        DOMAIN[("SQLite business database")]
+        STANDARD[("Shared versioned standard library<br/>Clauses, controls, indexes, caches")]
+        SESSION[("ADK session database")]
+        WORKSPACE["Run workspace<br/>Code snapshots, structural indexes, stage artifacts"]
+    end
+    GATEWAY["Model gateway<br/>Protocol adaptation, retries, ledger, credentials"]
+    MODEL["DeepSeek API<br/>deepseek-flash"]
+    USER --> PROJECT
+    USER --> CONTROL
+    PROJECT --> API
+    CONTROL --> API
+    API --> SNAPSHOT
+    SNAPSHOT --> INGEST
+    INGEST --> REQ
+    REQ --> THREAT
+    THREAT --> CHECK
+    CHECK --> AUDIT
+    SCHED -.-> REQ
+    SCHED -.-> THREAT
+    SCHED -.-> CHECK
+    SCHED -.-> AUDIT
+    SKILLS --> ADK
+    SCHED --> ADK
+    ADK --> TOOLS
+    TOOLS --> RETRIEVAL
+    TOOLS --> WORKSPACE
+    TOOLS --> DOMAIN
+    RETRIEVAL --> STANDARD
+    ADK --> GATEWAY
+    GATEWAY --> MODEL
+    ADK --> VALIDATE
+    VALIDATE --> DOMAIN
+    ADK --> SESSION
+    THREAT --> WORKSPACE
+    AUDIT --> WORKSPACE
+    DOMAIN --> REPORT
+    WORKSPACE --> REPORT
+    REPORT --> RESULTS
+    REPORT --> EXPORT
+    DOMAIN --> API
+    API -->|"Results and progress"| RESULTS
+```
+
+Solid arrows show data flow and calls; dotted arrows show scheduling. Standard catalogs and retrieval caches reside in versioned business SQLite tables and FTS indexes; ADK sessions use a separate SQLite file. Top-level stages progress in order, with bounded concurrency for independent requirement tasks within a stage. Static auditing has its own conditional graph.
+
+### 2. Four-stage analysis flow
+
+```mermaid
+flowchart TB
+    DOCUMENT["Design documents<br/>Word / PDF / PPT / Markdown / text"]
+    CODE["Registered source repository"]
+    STANDARD["Prepared standard catalog"]
+    PRECHECK["Preflight and fixed snapshot<br/>Material hashes, code inventory, catalog identity<br/>Skills, workflow and output language"]
+    subgraph PREP["Ingestion"]
+        PARSE["Local Docling extraction<br/>Text, tables, pages and source locations"]
+        SOURCE["Code inventory<br/>Hashes, paths, line numbers and full-text index"]
+        LOAD["Import pinned catalog<br/>Validate embedding and reranker identities"]
+    end
+    subgraph P1["Stage 1 · Security requirements"]
+        DESIGN["Design analyst<br/>Assets, modules, roles, flows and controls"]
+        GENERATE["Requirement generator<br/>Explicit and inferred requirements with criteria"]
+        MAP["Standard mapper<br/>Per-requirement relevance<br/>Code scope and formal applicability"]
+        SELECT{"Does the control belong<br/>to this assessment scope?"}
+        KEEP["Retain mapping decisions<br/>Exclude unrelated controls<br/>Preserve unknown scope and missing facts"]
+        BIND["Bind precomputed controls<br/>Copy stored text, criteria and sources"]
+        REVIEW["Automatic requirement review<br/>Preserve originals and review records"]
+        BASELINE["Deliverable 1: Security requirements<br/>Stable IDs, criteria, sources and conditions"]
+    end
+    subgraph P2["Stage 2 · Threat model"]
+        HISTORY["Code history and context"]
+        STRUCTURE["Structural index<br/>Configured tree-sitter languages"]
+        ARCH["Architect<br/>Module relationships, entry points, shared controls"]
+        MODEL["Threat modeler<br/>Assets, actors, boundaries and attack paths"]
+        THREAT["Deliverable 2: Threat model"]
+    end
+    subgraph P3["Stage 3 · Implementation assessments"]
+        INVENTORY["Persist the complete check inventory first<br/>One independent task per requirement"]
+        METHOD{"Is this a bound<br/>deployment standard control?"}
+        EXTERNAL["Apply the predefined verification policy<br/>Mark every criterion: Cannot verify from code"]
+        INVESTIGATE["Requirement checker<br/>Read entry points, code, shared controls<br/>Cross-module and error paths"]
+        CRITERIA["Submit each criterion<br/>Verdict, rationale, code location or source gap"]
+        IMPLEMENTATION["Deliverable 3: Implementation assessments<br/>Mapped to requirements and criteria"]
+    end
+    subgraph P4["Stage 4 · Findings"]
+        PLAN["Investigation planning<br/>Threat model and implementation gaps as leads"]
+        RESEARCH["Code research<br/>On-demand slicing and navigation"]
+        AUDIT["Deduplication, static review and criticism<br/>Conditional chain analysis<br/>Calibration, reflection and reporting"]
+        RISKS["Deliverable 4: Findings<br/>Impact, cause, remediation, requirements, locations<br/>Retain excluded candidates"]
+    end
+    FINAL["Product report<br/>Four deliverables and their relationships"]
+    DOCUMENT --> PRECHECK
+    CODE --> PRECHECK
+    STANDARD --> PRECHECK
+    PRECHECK --> PARSE
+    PRECHECK --> SOURCE
+    PRECHECK --> LOAD
+    PARSE --> DESIGN
+    DESIGN --> GENERATE
+    GENERATE --> MAP
+    SOURCE -->|"Code-scope context"| MAP
+    LOAD --> MAP
+    MAP --> SELECT
+    SELECT -->|"Relevant or potentially relevant, code-related<br/>and not explicitly inapplicable"| BIND
+    SELECT -->|"Unrelated, non-code scope<br/>or unknown code scope"| KEEP
+    GENERATE --> REVIEW
+    BIND --> REVIEW
+    REVIEW --> BASELINE
+    BASELINE --> HISTORY
+    SOURCE --> HISTORY
+    HISTORY --> STRUCTURE
+    STRUCTURE --> ARCH
+    ARCH --> MODEL
+    MODEL --> THREAT
+    BASELINE --> INVENTORY
+    INVENTORY --> METHOD
+    METHOD -->|"Yes"| EXTERNAL
+    EXTERNAL --> IMPLEMENTATION
+    METHOD -->|"No"| INVESTIGATE
+    THREAT --> INVESTIGATE
+    SOURCE --> INVESTIGATE
+    INVESTIGATE --> CRITERIA
+    CRITERIA --> IMPLEMENTATION
+    THREAT --> PLAN
+    IMPLEMENTATION --> PLAN
+    PLAN --> RESEARCH
+    SOURCE --> RESEARCH
+    RESEARCH --> AUDIT
+    AUDIT --> RISKS
+    BASELINE --> FINAL
+    THREAT --> FINAL
+    IMPLEMENTATION --> FINAL
+    RISKS --> FINAL
+```
+
+Technical relevance, assessed code scope and formal compliance applicability are recorded separately. Unknown prerequisites preserve conditions and missing facts rather than imply inapplicability. Source blocks of 100 lines are citation units, not mandatory independent analysis tasks; on-demand code slices define investigations and retain relevant context.
+
+### 3. Standard preparation and retrieval
+
+```mermaid
+flowchart TB
+    subgraph OFFLINE["Before project analysis · Independent preparation"]
+        PDF["Original PCI DSS document"]
+        IMPORT["Standard import<br/>Normative clauses, conditions, testing procedures<br/>Guidance, pages and hashes"]
+        CLAUSES["Structured clauses and contexts"]
+        CONTROL_TASK["Independent control preparation<br/>Normative sources, bilingual requirements and criteria<br/>Control types and verification methods"]
+        CONTROL_FILE["controls.jsonl"]
+        PREPARE["prepare-standard<br/>Validate inventory, sources and bilingual controls"]
+        EMBED["Local Qwen embedding model<br/>Normative clauses + bilingual control vectors"]
+        LEXICAL["Catalog-specific BM25 index<br/>English terms and Chinese character terms"]
+        CATALOG["Pinned catalog identity<br/>Standard, control and model-file hashes<br/>Inference protocol and retrieval recipe"]
+        PERSIST[("Shared standard library<br/>Clauses, controls, vectors, lexical indexes")]
+    end
+    subgraph PROJECT["Project runtime · Requirement matching"]
+        REQUIREMENT["Current design requirement<br/>Original design and code-scope context"]
+        QUERY["Mapper issues a query"]
+        CACHE{"Cached ranking for this catalog,<br/>query, language and section?"}
+        QUERY_VECTOR["Look up cached query vectors<br/>Embed only uncached new queries"]
+        DENSE["Similarity search over stored vectors<br/>Aggregate source and bilingual hits by control ID"]
+        BM25["Search the stored lexical index"]
+        FUSION["RRF fusion · k = 60"]
+        SECTION["Filter by requested section"]
+        RERANK["Local BGE reranks the first 40<br/>Control content + normative source"]
+        SAVE["Cache the complete candidate order<br/>Rerank the first 40; retain remaining candidates"]
+        PAGE["Return candidates and pages<br/>Reuse cache for repeated queries and pagination"]
+        READ["Read actual controls and normative sources<br/>Check parent scope and conditions"]
+        DECIDE["Submit mapping decisions<br/>Exact control IDs and source references"]
+        BIND["Bind stored controls<br/>No regeneration or rewriting"]
+    end
+    PDF --> IMPORT
+    IMPORT --> CLAUSES
+    CLAUSES --> CONTROL_TASK
+    CONTROL_TASK --> CONTROL_FILE
+    CLAUSES --> PREPARE
+    CONTROL_FILE --> PREPARE
+    PREPARE --> EMBED
+    PREPARE --> LEXICAL
+    EMBED --> CATALOG
+    LEXICAL --> CATALOG
+    CATALOG --> PERSIST
+    REQUIREMENT --> QUERY
+    QUERY --> QUERY_VECTOR
+    CACHE -->|"Hit"| PAGE
+    CACHE -->|"Miss"| RERANK
+    QUERY --> BM25
+    QUERY_VECTOR --> DENSE
+    DENSE --> FUSION
+    BM25 --> FUSION
+    FUSION --> SECTION
+    SECTION --> CACHE
+    RERANK --> SAVE
+    SAVE --> PAGE
+    PAGE --> READ
+    READ --> DECIDE
+    DECIDE --> BIND
+    PERSIST --> DENSE
+    PERSIST --> BM25
+    PERSIST --> READ
+```
+
+Projects do not regenerate controls or standard vectors. The current prepare-standard command consumes an existing controls.jsonl and performs validation and precomputation; control authoring belongs to the preceding independent task. Ranking scores are not applicability probabilities or automatic exclusion thresholds. A cached ranking avoids reranking; catalog/source integrity checks and vector/lexical retrieval still run on the current query path.
+
+### 4. Agent calls, validation and recovery
+
+```mermaid
+flowchart TB
+    TASKS["Persisted complete task inventory<br/>IDs, stages, roles, scopes and statuses"]
+    SCHED["Application scheduler<br/>Ordered stages and bounded concurrency"]
+    CONTEXT["Build task context<br/>Pinned snapshot, upstream artifacts, requirement and criteria"]
+    PROMPT["Compile instructions<br/>Complete skills, language, static boundary, output contract"]
+    SESSION["ADK role session"]
+    REQUEST["Model request<br/>Tool declarations and strict schemas"]
+    GATEWAY["Model gateway"]
+    MODEL["Analysis model"]
+    TOOLCALL["Model returns a tool call"]
+    TOOLCHECK["Validate tool, arguments and read scope"]
+    READ["Execute restricted tools<br/>Read design, code, indexes or standards"]
+    READLOG["Record sources actually read by this task<br/>Update permitted references"]
+    SUBMIT["Model submits structured output"]
+    ARCHIVE["Archive original output and hash"]
+    CHECK["Application validation<br/>Schema, role, ownership, sources actually read<br/>Code locations and complete criterion inventory"]
+    VALID{"Validation passed?"}
+    COMMIT["Transactionally commit business results<br/>Complete task and record events"]
+    FAIL["Keep errors and original output<br/>Task incomplete; block subsequent stages"]
+    RETRY["Bounded gateway retries and backoff<br/>Account for each outbound attempt"]
+    WAIT["Wait for provider recovery<br/>Scheduler retries when due"]
+    PAUSE["Persistent outage, authentication blocks<br/>or user pause: preserve progress and pause"]
+    LEDGER[("Request ledger<br/>Reservations, known usage, unknown-usage estimates")]
+    TASKS --> SCHED
+    SCHED --> CONTEXT
+    CONTEXT --> PROMPT
+    PROMPT --> SESSION
+    SESSION --> REQUEST
+    REQUEST --> GATEWAY
+    GATEWAY --> MODEL
+    MODEL --> TOOLCALL
+    TOOLCALL --> TOOLCHECK
+    TOOLCHECK --> READ
+    READ --> READLOG
+    READLOG --> SESSION
+    MODEL --> SUBMIT
+    SUBMIT --> ARCHIVE
+    ARCHIVE --> CHECK
+    CHECK --> VALID
+    VALID -->|"Yes"| COMMIT
+    COMMIT --> TASKS
+    VALID -->|"No"| FAIL
+    FAIL --> TASKS
+    GATEWAY -->|"Network, rate-limit or temporary errors"| RETRY
+    RETRY -->|"Short-term recovery"| GATEWAY
+    RETRY -->|"Attempts exhausted"| WAIT
+    WAIT --> SCHED
+    WAIT -->|"Recovery exhausted"| PAUSE
+    GATEWAY -->|"Authentication or other blocks"| PAUSE
+    GATEWAY --> LEDGER
+```
+
+Models perform analysis; the application validates contracts and persists results without another model interpreting prose, filling fields or repairing final conclusions. Recovery follows committed task and stage boundaries: successful tasks can be skipped, while incomplete tasks rerun. Changed inputs, skills, language policies or workflow versions require a new run.
+
+### 5. Conditional Findings audit
+
+```mermaid
+flowchart TB
+    INPUT["Threat model and code snapshot<br/>Requirements and implementation gaps"]
+    PLANNER["Planning · planner"]
+    RESEARCHER["Research · researcher"]
+    GATE{"Any candidate findings?"}
+    DEDUPE["Deduplication · deduplicator"]
+    REVIEW["Static review · reviewer"]
+    CONFIRMED{"Confirmed by review?"}
+    CRITIC["Criticism and counterevidence · critic"]
+    VIABLE{"Static claim still viable?"}
+    CHAIN["Chain analysis · chainer<br/>Static relationships and explicit prerequisites only"]
+    CALIBRATE["Risk calibration · calibrator"]
+    REFLECT["Reflection · reflector"]
+    REPORTER["Audit reporting · reporter"]
+    OUTPUT["Findings output<br/>Static conclusions, unknown conditions, excluded candidates"]
+    INPUT --> PLANNER
+    PLANNER --> RESEARCHER
+    RESEARCHER --> GATE
+    GATE -->|"No candidates"| REPORTER
+    GATE -->|"Candidates exist"| DEDUPE
+    DEDUPE --> REVIEW
+    REVIEW --> CONFIRMED
+    CONFIRMED -->|"Confirmed"| CRITIC
+    CONFIRMED -->|"Other verdicts"| CALIBRATE
+    CRITIC --> VIABLE
+    VIABLE -->|"Viable"| CHAIN
+    VIABLE -->|"Other verdicts"| CALIBRATE
+    CHAIN --> CALIBRATE
+    CALIBRATE --> REFLECT
+    REFLECT --> REPORTER
+    REPORTER --> OUTPUT
+```
+
+Review and criticism use source code and existing material. Chain analysis preserves unknown links and prerequisites. Target execution, dynamic reproduction and patch verification are absent. Investigations with no candidates go directly to reporting rather than visiting every role.
+
+### 6. Containers, networks and persistence
+
+```mermaid
+flowchart TB
+    BROWSER["User browser"]
+    subgraph INTERNAL["Compose internal network"]
+        subgraph GW["Model gateway container"]
+            PROXY["Browser entry and reverse proxy<br/>Host 127.0.0.1:8088"]
+            MODELAPI["Internal model endpoint<br/>Registration, adaptation, retries, ledger, credentials"]
+        end
+        subgraph ANALYSIS["Analysis service container"]
+            API["FastAPI · 8080<br/>Frontend assets, REST, SSE"]
+            SCHED["Application scheduler and ADK"]
+            PARSER["Docling parser subprocess<br/>Network disabled, local models"]
+            ENGINE["Static audit subprocess<br/>Fixed code snapshot, restricted tools"]
+            LOCAL["Local retrieval models<br/>Qwen embeddings, BGE reranking"]
+            DATABASE["Business database access and source indexing"]
+        end
+    end
+    OUTBOUND["Gateway outbound network"]
+    DS["api.deepseek.com"]
+    subgraph HOST["Read-only host resources"]
+        INPUTS["Inputs and registered repositories"]
+        MODELS["Preinstalled model resources"]
+        STANDARDS["Prepared standard packs"]
+    end
+    subgraph DATA["Shared persistent volume · /data"]
+        BUSINESS[("auditor.sqlite3<br/>Business results, standard library, request ledger")]
+        ADKDB[("adk-sessions.sqlite3<br/>Role sessions")]
+        WORK["Run workspace<br/>Code snapshots, audit knowledge database<br/>Structural indexes, original artifacts, parser output"]
+        BACKUP["Pre-migration database backups"]
+    end
+    BROWSER -->|"HTTP / SSE"| PROXY
+    PROXY --> API
+    API --> SCHED
+    SCHED --> PARSER
+    SCHED --> ENGINE
+    SCHED --> LOCAL
+    SCHED --> DATABASE
+    SCHED -->|"Internal model calls"| MODELAPI
+    ENGINE -->|"Internal model calls"| MODELAPI
+    MODELAPI --> OUTBOUND
+    OUTBOUND --> DS
+    INPUTS --> API
+    INPUTS --> WORK
+    MODELS --> PARSER
+    MODELS --> LOCAL
+    STANDARDS --> DATABASE
+    DATABASE --> BUSINESS
+    MODELAPI -->|"Request and usage accounting"| BUSINESS
+    SCHED --> ADKDB
+    PARSER --> WORK
+    ENGINE --> WORK
+    BUSINESS --> BACKUP
+```
+
+The analysis service has no direct outbound network, and the gateway holds model credentials. The gateway restricts provider destinations and rejects cross-host redirects at the application layer; Compose does not supply an OS-level domain firewall. Both containers share persistent state, retained across normal rebuilds. Scanned-page OCR and diagram-semantic analysis are not enabled by default in the parser subprocess.
+
+### Persistence responsibilities
+
+| Storage scope | Contents | Purpose |
+| --- | --- | --- |
+| Projects and runs | Projects, assets, pinned snapshots, language and run status | Identify the assessment and its versions |
+| Tasks and events | Stage and requirement tasks, scopes, statuses, errors and events | Scheduling, pause, recovery and UI progress |
+| Sources and read records | Original text, code excerpts, paths, lines and task-specific reads | Validate cited material |
+| Business results | Requirements, mappings, threats, assessments, findings and reviews | Build four deliverables and relationships |
+| Standard catalogs | Clauses, contexts, bilingual controls, vectors, lexical indexes and identities | Reuse pinned standards across projects |
+| Retrieval caches | Query vectors and rankings pinned to catalog, language and section | Avoid repeated computation and pagination reranking |
+| Original outputs and artifacts | Model outputs, submissions, architecture, threat models and plans | Retain process data for audit and recovery |
+| Request ledger | Outbound attempts, reservations, provider usage and unknown-usage estimates | Account for consumption and provider failures |
+| Sessions and workspaces | ADK sessions, audit knowledge database, code snapshots and indexes | Support investigations and static audits |
+
 ## How it differs from SAST
 
 SAST (Static Application Security Testing) and PAthena can both analyze source code without executing the target program. Common rule- or query-driven SAST tools primarily check dangerous patterns, data flows, and vulnerability rules in code. PAthena adds design and standard requirement analysis before the static code audit, checks implementation against those project-specific requirements, and links the threat model, implementation gaps, and Findings.

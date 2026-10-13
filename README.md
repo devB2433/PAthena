@@ -69,6 +69,410 @@ flowchart LR
 
 例如，设计要求“账号禁用后不得继续访问受保护资源”。系统先将其整理为安全需求和验收条件，再从代码模型定位登录入口、令牌验证及共享鉴权路径，逐项检查禁用控制是否覆盖这些路径。如果源码行为与要求冲突，报告会保留该需求的实现缺口及代码位置，漏洞研究角色再调查其攻击前提和影响；如果需要运行时配置才能判断，就明确记录需要外部材料。
 
+## 完整架构
+
+以下六个视图对应当前实现：总体架构、四阶段流程、标准检索、智能体调用与入库、静态审计分支、容器与存储。逻辑模块集中在一个 Python 分析服务中，由统一调度器推进；文档解析与静态审计使用独立子进程，逻辑模块不是独立微服务。
+
+### 1. 总体架构
+
+```mermaid
+flowchart TB
+    USER["用户"]
+    subgraph UI["产品界面 · TypeScript / React"]
+        PROJECT["项目与材料管理"]
+        CONTROL["启动、暂停、恢复分析<br/>语言设置与进度"]
+        RESULTS["四个输出物<br/>需求来源、实现结果、代码位置"]
+        EXPORT["HTML / CSV / JSON 导出"]
+    end
+    subgraph APP["分析服务 · Python / FastAPI"]
+        API["应用接口<br/>项目、材料、运行、结果、SSE"]
+        SNAPSHOT["输入快照与预检查<br/>固定材料、源码、标准、技能和语言版本"]
+        INGEST["材料处理<br/>文档提取、源码登记、来源索引"]
+        subgraph FLOW["业务分析模块"]
+            REQ["安全需求分析<br/>设计需求、标准匹配、控制绑定、自动复核"]
+            THREAT["代码理解与威胁建模<br/>架构、入口、信任边界、攻击路径"]
+            CHECK["需求实现检查<br/>逐需求、逐验收项检查"]
+            AUDIT["安全风险审计<br/>规划、研究、去重、复核、评级"]
+        end
+        subgraph RUNTIME["统一智能体运行模块"]
+            SCHED["阶段调度与完整任务库存<br/>顺序推进、范围隔离、有限并发"]
+            SKILLS["版本化技能与语言指令"]
+            ADK["Google ADK<br/>角色会话、工具调用、调查循环"]
+            TOOLS["受限工具<br/>原文读取、源码导航、标准检索"]
+            VALIDATE["结果契约校验<br/>结构、任务归属、来源、验收项库存"]
+        end
+        RETRIEVAL["本地标准检索<br/>Qwen 向量 + BM25 + BGE 重排"]
+        REPORT["报告与结果矩阵<br/>按已保存记录生成"]
+    end
+    subgraph STORAGE["本地存储"]
+        DOMAIN[("SQLite 业务数据库")]
+        STANDARD[("共享固定版本标准库<br/>条款、控制、索引、缓存")]
+        SESSION[("ADK 会话数据库")]
+        WORKSPACE["分析工作目录<br/>源码快照、结构索引、阶段产物"]
+    end
+    GATEWAY["模型网关<br/>协议适配、重试、调用账本、凭据"]
+    MODEL["DeepSeek API<br/>deepseek-flash"]
+    USER --> PROJECT
+    USER --> CONTROL
+    PROJECT --> API
+    CONTROL --> API
+    API --> SNAPSHOT
+    SNAPSHOT --> INGEST
+    INGEST --> REQ
+    REQ --> THREAT
+    THREAT --> CHECK
+    CHECK --> AUDIT
+    SCHED -.-> REQ
+    SCHED -.-> THREAT
+    SCHED -.-> CHECK
+    SCHED -.-> AUDIT
+    SKILLS --> ADK
+    SCHED --> ADK
+    ADK --> TOOLS
+    TOOLS --> RETRIEVAL
+    TOOLS --> WORKSPACE
+    TOOLS --> DOMAIN
+    RETRIEVAL --> STANDARD
+    ADK --> GATEWAY
+    GATEWAY --> MODEL
+    ADK --> VALIDATE
+    VALIDATE --> DOMAIN
+    ADK --> SESSION
+    THREAT --> WORKSPACE
+    AUDIT --> WORKSPACE
+    DOMAIN --> REPORT
+    WORKSPACE --> REPORT
+    REPORT --> RESULTS
+    REPORT --> EXPORT
+    DOMAIN --> API
+    API -->|"结果与进度"| RESULTS
+```
+
+实线表示数据流与调用关系，虚线表示调度关系。标准目录和检索缓存保存在业务 SQLite 的版本化表与 FTS 索引中，ADK 会话使用独立的 SQLite 文件。总体阶段按顺序推进，同一阶段中的独立需求任务可以有限并发；静态审计内部另有条件分支。
+
+### 2. 四阶段业务流程
+
+```mermaid
+flowchart TB
+    DOCUMENT["设计文档<br/>Word / PDF / PPT / Markdown / 文本"]
+    CODE["已登记的代码仓库"]
+    STANDARD["已准备好的标准目录"]
+    PRECHECK["运行预检查与固定快照<br/>材料摘要、源码库存、标准身份<br/>技能、工作流与输出语言"]
+    subgraph PREP["材料处理"]
+        PARSE["Docling 本地解析<br/>正文、表格、页码与来源位置"]
+        SOURCE["源码登记<br/>摘要、路径、行号与全文索引"]
+        LOAD["导入固定标准目录<br/>校验向量与重排模型身份"]
+    end
+    subgraph P1["阶段一 · 安全需求"]
+        DESIGN["设计分析角色<br/>资产、模块、角色、数据流与控制"]
+        GENERATE["需求生成角色<br/>明确要求、推导要求与验收条件"]
+        MAP["标准匹配角色<br/>逐需求判断技术相关性<br/>代码范围与正式适用性"]
+        SELECT{"控制是否属于<br/>本次分析范围？"}
+        KEEP["保存匹配判断<br/>无关控制排除<br/>范围未知与缺少事实保留"]
+        BIND["程序绑定预生成控制<br/>原样复制需求、验收项与来源"]
+        REVIEW["需求自动复核<br/>保留原需求与复核记录"]
+        BASELINE["输出一：安全需求<br/>稳定编号、验收项、来源与适用前提"]
+    end
+    subgraph P2["阶段二 · 威胁模型"]
+        HISTORY["代码背景整理"]
+        STRUCTURE["结构索引<br/>已配置语言的 tree-sitter 语法"]
+        ARCH["架构分析角色<br/>模块关系、入口与共享控制"]
+        MODEL["威胁建模角色<br/>资产、攻击者、边界与攻击路径"]
+        THREAT["输出二：威胁模型"]
+    end
+    subgraph P3["阶段三 · 需求实现情况"]
+        INVENTORY["先保存完整检查库存<br/>每项需求一个独立任务"]
+        METHOD{"是否为已绑定的<br/>部署类标准控制？"}
+        EXTERNAL["程序按预定义验证方式处理<br/>各验收项标记：无法通过代码验证"]
+        INVESTIGATE["实现检查角色<br/>读取入口、源码、公共控制<br/>跨模块与错误路径"]
+        CRITERIA["逐验收项提交<br/>结果、理由、代码位置或材料缺口"]
+        IMPLEMENTATION["输出三：需求实现情况<br/>与需求和验收项一一对应"]
+    end
+    subgraph P4["阶段四 · 安全风险"]
+        PLAN["调查规划<br/>威胁模型与实现缺口作为线索"]
+        RESEARCH["代码研究<br/>按需切片与源码导航"]
+        AUDIT["去重、静态复核、质疑<br/>条件满足时分析攻击链<br/>评级、反思与报告"]
+        RISKS["输出四：安全风险<br/>影响、原因、建议、关联需求、代码位置<br/>保留已排除候选"]
+    end
+    FINAL["产品报告<br/>四个输出物及关联关系"]
+    DOCUMENT --> PRECHECK
+    CODE --> PRECHECK
+    STANDARD --> PRECHECK
+    PRECHECK --> PARSE
+    PRECHECK --> SOURCE
+    PRECHECK --> LOAD
+    PARSE --> DESIGN
+    DESIGN --> GENERATE
+    GENERATE --> MAP
+    SOURCE -->|"代码范围背景"| MAP
+    LOAD --> MAP
+    MAP --> SELECT
+    SELECT -->|"相关或可能相关、属于代码范围<br/>且非明确不适用"| BIND
+    SELECT -->|"无关、非代码范围<br/>或代码范围未知"| KEEP
+    GENERATE --> REVIEW
+    BIND --> REVIEW
+    REVIEW --> BASELINE
+    BASELINE --> HISTORY
+    SOURCE --> HISTORY
+    HISTORY --> STRUCTURE
+    STRUCTURE --> ARCH
+    ARCH --> MODEL
+    MODEL --> THREAT
+    BASELINE --> INVENTORY
+    INVENTORY --> METHOD
+    METHOD -->|"是"| EXTERNAL
+    EXTERNAL --> IMPLEMENTATION
+    METHOD -->|"否"| INVESTIGATE
+    THREAT --> INVESTIGATE
+    SOURCE --> INVESTIGATE
+    INVESTIGATE --> CRITERIA
+    CRITERIA --> IMPLEMENTATION
+    THREAT --> PLAN
+    IMPLEMENTATION --> PLAN
+    PLAN --> RESEARCH
+    SOURCE --> RESEARCH
+    RESEARCH --> AUDIT
+    AUDIT --> RISKS
+    BASELINE --> FINAL
+    THREAT --> FINAL
+    IMPLEMENTATION --> FINAL
+    RISKS --> FINAL
+```
+
+技术相关性、代码范围和正式合规适用性分别记录。范围前提未知时保留条件与缺少事实，不能直接判定不适用。100 行来源块用于引用定位，不等于每个块都独立开展分析；按需代码切片则用于界定调查范围并携带相关上下文。
+
+### 3. 标准准备与检索
+
+```mermaid
+flowchart TB
+    subgraph OFFLINE["项目分析前 · 独立标准准备"]
+        PDF["PCI DSS 标准原件"]
+        IMPORT["标准导入<br/>规范条款、适用说明、测试程序<br/>指导、页码与摘要"]
+        CLAUSES["结构化条款与上下文"]
+        CONTROL_TASK["独立控制准备任务<br/>规范来源、中英文需求与验收项<br/>控制类型、验证方式"]
+        CONTROL_FILE["controls.jsonl"]
+        PREPARE["prepare-standard<br/>校验控制库存、来源与双语内容"]
+        EMBED["本地 Qwen 向量模型<br/>规范条款 + 中英文控制向量"]
+        LEXICAL["目录独立的 BM25 索引<br/>英文词项与中文字符词项"]
+        CATALOG["固定目录身份<br/>标准、控制、模型文件摘要<br/>推理协议与检索策略"]
+        PERSIST[("共享标准库<br/>条款、控制、向量、关键词索引")]
+    end
+    subgraph PROJECT["项目运行时 · 需求匹配"]
+        REQUIREMENT["当前设计需求<br/>设计原文与代码范围背景"]
+        QUERY["匹配角色提出查询"]
+        CACHE{"该目录、查询、语言、章节<br/>是否已有排序缓存？"}
+        QUERY_VECTOR["先查查询向量缓存<br/>只计算未缓存的新查询向量"]
+        DENSE["已保存向量的相似度召回<br/>原文及双语命中按控制 ID 聚合"]
+        BM25["查询已保存的关键词索引"]
+        FUSION["RRF 合并 · k = 60"]
+        SECTION["按指定章节筛选"]
+        RERANK["本地 BGE 重排前 40 项<br/>控制内容 + 规范来源原文"]
+        SAVE["缓存完整候选顺序<br/>前 40 项重排，其他候选保留"]
+        PAGE["返回候选与分页<br/>重复查询和翻页复用缓存"]
+        READ["读取实际控制与规范原文<br/>核对父级范围和适用条件"]
+        DECIDE["提交匹配判断<br/>精确控制 ID 与来源引用"]
+        BIND["程序绑定已保存控制<br/>不重新生成或改写控制需求"]
+    end
+    PDF --> IMPORT
+    IMPORT --> CLAUSES
+    CLAUSES --> CONTROL_TASK
+    CONTROL_TASK --> CONTROL_FILE
+    CLAUSES --> PREPARE
+    CONTROL_FILE --> PREPARE
+    PREPARE --> EMBED
+    PREPARE --> LEXICAL
+    EMBED --> CATALOG
+    LEXICAL --> CATALOG
+    CATALOG --> PERSIST
+    REQUIREMENT --> QUERY
+    QUERY --> QUERY_VECTOR
+    CACHE -->|"命中"| PAGE
+    CACHE -->|"未命中"| RERANK
+    QUERY --> BM25
+    QUERY_VECTOR --> DENSE
+    DENSE --> FUSION
+    BM25 --> FUSION
+    FUSION --> SECTION
+    SECTION --> CACHE
+    RERANK --> SAVE
+    SAVE --> PAGE
+    PAGE --> READ
+    READ --> DECIDE
+    DECIDE --> BIND
+    PERSIST --> DENSE
+    PERSIST --> BM25
+    PERSIST --> READ
+```
+
+项目阶段不重新生成标准控制或计算标准向量。当前 prepare-standard 命令消费已经准备好的 controls.jsonl，负责校验与预计算；控制整理、生成属于前面的独立任务。排名分数只用于候选排序，不是适用性概率，也不作为自动排除控制的阈值。排序缓存命中省去重复重排；目录与来源完整性校验、向量与关键词检索仍在当前查询路径中执行。
+
+### 4. 智能体调用、校验与恢复
+
+```mermaid
+flowchart TB
+    TASKS["持久化完整任务库存<br/>任务 ID、阶段、角色、scope、状态"]
+    SCHED["应用调度器<br/>阶段顺序与有限并发"]
+    CONTEXT["构建任务上下文<br/>固定快照、上游产物、当前需求与验收项"]
+    PROMPT["编译指令<br/>完整技能、语言规则、静态边界、输出契约"]
+    SESSION["ADK 角色会话"]
+    REQUEST["模型请求<br/>工具声明与严格 Schema"]
+    GATEWAY["模型网关"]
+    MODEL["分析模型"]
+    TOOLCALL["模型返回工具调用"]
+    TOOLCHECK["校验工具、参数与读取范围"]
+    READ["执行受限工具<br/>读取原文、源码、索引或标准"]
+    READLOG["登记本任务实际读取的来源<br/>更新可引用来源集合"]
+    SUBMIT["模型提交结构化结果"]
+    ARCHIVE["归档返回原件与摘要"]
+    CHECK["程序校验<br/>Schema、角色、任务关联、实际读取来源<br/>代码位置与验收项完整性"]
+    VALID{"校验通过？"}
+    COMMIT["事务提交业务结果<br/>完成任务并记录事件"]
+    FAIL["保存错误与原件<br/>任务未完成，阻断后续阶段"]
+    RETRY["网关有界重试与退避<br/>每次实际出站请求分别记账"]
+    WAIT["等待模型服务恢复<br/>调度器到期重新尝试"]
+    PAUSE["持续不可用、认证等阻断<br/>或用户暂停：保存进度并暂停"]
+    LEDGER[("调用账本<br/>预留、实际用量、未知用量估算")]
+    TASKS --> SCHED
+    SCHED --> CONTEXT
+    CONTEXT --> PROMPT
+    PROMPT --> SESSION
+    SESSION --> REQUEST
+    REQUEST --> GATEWAY
+    GATEWAY --> MODEL
+    MODEL --> TOOLCALL
+    TOOLCALL --> TOOLCHECK
+    TOOLCHECK --> READ
+    READ --> READLOG
+    READLOG --> SESSION
+    MODEL --> SUBMIT
+    SUBMIT --> ARCHIVE
+    ARCHIVE --> CHECK
+    CHECK --> VALID
+    VALID -->|"通过"| COMMIT
+    COMMIT --> TASKS
+    VALID -->|"失败"| FAIL
+    FAIL --> TASKS
+    GATEWAY -->|"网络、限速或临时服务错误"| RETRY
+    RETRY -->|"短期恢复"| GATEWAY
+    RETRY -->|"本次重试耗尽"| WAIT
+    WAIT --> SCHED
+    WAIT -->|"持续恢复失败"| PAUSE
+    GATEWAY -->|"认证等阻断"| PAUSE
+    GATEWAY --> LEDGER
+```
+
+模型负责分析，程序负责契约校验和持久化；不调用额外模型解释散文、补齐字段或修补最终结论。恢复以已提交任务和阶段产物为边界，成功任务可跳过，未完成任务重新执行。输入、技能、语言规则或工作流版本变化后需要新运行。
+
+### 5. 安全风险审计条件分支
+
+```mermaid
+flowchart TB
+    INPUT["威胁模型、源码快照<br/>安全需求与实现缺口"]
+    PLANNER["调查规划 · planner"]
+    RESEARCHER["代码研究 · researcher"]
+    GATE{"是否产生候选风险？"}
+    DEDUPE["去重 · deduplicator"]
+    REVIEW["静态复核 · reviewer"]
+    CONFIRMED{"复核确认？"}
+    CRITIC["质疑与反证 · critic"]
+    VIABLE{"静态结论仍可成立？"}
+    CHAIN["攻击链 · chainer<br/>仅分析静态关联与明确前提"]
+    CALIBRATE["风险评级 · calibrator"]
+    REFLECT["反思 · reflector"]
+    REPORTER["审计报告 · reporter"]
+    OUTPUT["安全风险结果<br/>静态结论、未知条件、已排除候选"]
+    INPUT --> PLANNER
+    PLANNER --> RESEARCHER
+    RESEARCHER --> GATE
+    GATE -->|"没有候选"| REPORTER
+    GATE -->|"有候选"| DEDUPE
+    DEDUPE --> REVIEW
+    REVIEW --> CONFIRMED
+    CONFIRMED -->|"确认"| CRITIC
+    CONFIRMED -->|"其他结论"| CALIBRATE
+    CRITIC --> VIABLE
+    VIABLE -->|"成立"| CHAIN
+    VIABLE -->|"其他结论"| CALIBRATE
+    CHAIN --> CALIBRATE
+    CALIBRATE --> REFLECT
+    REFLECT --> REPORTER
+    REPORTER --> OUTPUT
+```
+
+复核和质疑均通过源码及已有材料进行。攻击链结论保留未知环节与攻击前提；流程没有目标程序执行、动态复现或补丁验证阶段。没有候选风险的调查直接进入审计报告，不会强制经过所有角色。
+
+### 6. 容器、网络与持久化边界
+
+```mermaid
+flowchart TB
+    BROWSER["用户浏览器"]
+    subgraph INTERNAL["Compose 内部网络"]
+        subgraph GW["模型网关容器"]
+            PROXY["浏览器入口与反向代理<br/>宿主机 127.0.0.1:8088"]
+            MODELAPI["内部模型接口<br/>模型登记、协议适配、重试、账本、凭据"]
+        end
+        subgraph ANALYSIS["分析服务容器"]
+            API["FastAPI · 8080<br/>前端静态文件、REST、SSE"]
+            SCHED["应用调度器与 ADK"]
+            PARSER["Docling 解析子进程<br/>禁用网络、本地模型"]
+            ENGINE["静态审计子进程<br/>固定源码快照、受限工具"]
+            LOCAL["本地检索模型<br/>Qwen 向量、BGE 重排"]
+            DATABASE["业务数据库访问与来源索引"]
+        end
+    end
+    OUTBOUND["网关出站网络"]
+    DS["api.deepseek.com"]
+    subgraph HOST["宿主机只读资源"]
+        INPUTS["输入材料与登记仓库"]
+        MODELS["预置模型资源"]
+        STANDARDS["预置标准包"]
+    end
+    subgraph DATA["共享持久化卷 · /data"]
+        BUSINESS[("auditor.sqlite3<br/>业务结果、标准库、调用账本")]
+        ADKDB[("adk-sessions.sqlite3<br/>角色会话")]
+        WORK["运行工作目录<br/>源码快照、审计知识库<br/>结构索引、阶段原件、解析结果"]
+        BACKUP["数据库升级前备份"]
+    end
+    BROWSER -->|"HTTP / SSE"| PROXY
+    PROXY --> API
+    API --> SCHED
+    SCHED --> PARSER
+    SCHED --> ENGINE
+    SCHED --> LOCAL
+    SCHED --> DATABASE
+    SCHED -->|"内部模型调用"| MODELAPI
+    ENGINE -->|"内部模型调用"| MODELAPI
+    MODELAPI --> OUTBOUND
+    OUTBOUND --> DS
+    INPUTS --> API
+    INPUTS --> WORK
+    MODELS --> PARSER
+    MODELS --> LOCAL
+    STANDARDS --> DATABASE
+    DATABASE --> BUSINESS
+    MODELAPI -->|"请求与用量记账"| BUSINESS
+    SCHED --> ADKDB
+    PARSER --> WORK
+    ENGINE --> WORK
+    BUSINESS --> BACKUP
+```
+
+分析服务没有直接出站网络，模型密钥由网关持有。网关在应用层限定 DeepSeek 域名并拒绝跨主机重定向；Compose 本身没有操作系统级域名防火墙。两个容器共享持久化卷，普通重建保留分析数据。文档解析子进程默认不启用扫描页 OCR 或图形语义分析。
+
+### 持久化职责
+
+| 存储范围 | 保存内容 | 用途 |
+| --- | --- | --- |
+| 项目与运行 | 项目、材料、固定快照、语言、运行状态 | 确定分析对象与版本 |
+| 任务与事件 | 阶段及需求子任务、scope、状态、错误、进度事件 | 调度、暂停、恢复与界面进度 |
+| 来源与读取记录 | 原文、源码片段、路径、行号、任务实际读取记录 | 验证结果引用的材料 |
+| 业务结果 | 需求、匹配判断、威胁、实现检查、风险、复核与评级 | 构建四个输出物及关联 |
+| 标准目录 | 条款、上下文、双语控制、向量、关键词索引与目录身份 | 跨项目复用固定标准 |
+| 检索缓存 | 查询向量与按目录、语言、章节固定的候选排序 | 避免重复计算与翻页重排 |
+| 原件与阶段产物 | 模型返回、结构化提交、架构模型、威胁模型、计划 | 保留过程，支持审计与恢复 |
+| 调用账本 | 出站尝试、预留量、供应商用量与未知用量估算 | 记录消费和服务故障 |
+| 会话与工作目录 | ADK 会话、审计知识库、源码快照与索引文件 | 支撑角色调查与静态审计 |
+
 ## 与 SAST 的区别
 
 SAST（静态应用安全测试）与 PAthena 都可以在不运行目标程序的情况下分析源码。常见规则或查询驱动的 SAST 以代码中的危险模式、数据流和漏洞规则为主要检查依据；PAthena 在静态代码审计前加入设计需求和标准需求分析，再用这些项目自身的要求检查实现，并将威胁模型、实现缺口和安全风险关联起来。
