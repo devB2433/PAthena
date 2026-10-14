@@ -15,15 +15,10 @@ from .store import BudgetExceeded, Store
 from .provider import budgets_enabled
 from .provider import ProviderUnavailable, ProviderBlocked, OutputContractError
 from .model_contract import accounted_response, validate_native_response, validate_review_inventory, typed_native_tool
+from .native_skills import STAGE_SKILLS
 
 ENGINE = Path(__file__).parent / "vendor/mantis"
-SKILLS = {
-    "history": "history", "architect": "architecture", "threat_modeler": "threat-model",
-    "planner": "plan", "researcher": "researcher", "deduplicator": "dedupe",
-    "reviewer": "review", "critic": "critic",
-    "chainer": "chain", "calibrator": "calibrate",
-    "reflector": "reflect", "reporter": "report",
-}
+SKILLS = {k: v for k, v in STAGE_SKILLS.items() if k != 'structural_index'}
 EXECUTION_NODES = {"reproducer", "repro_classifier", "patcher"}
 EXECUTION_TOOLS = {"run_sandbox", "run_sandbox_with_evidence", "apply_patch"}
 
@@ -68,7 +63,7 @@ def native_path():
     index._load_parser = offline_parser
 
 
-def phase_spec(phase: str, gateway: str, model: str, database: Path, language: str = "en") -> dict:
+def phase_spec(phase: str, gateway: str, model: str, database: Path, language: str = "en", skills_root: Path | None = None) -> dict:
     """Partition the native graph and explicitly bypass its dynamic-only stages."""
     spec = json.loads((ENGINE / "workflow.json").read_text())
     prefix = {"history", "structural_index", "architect", "threat_modeler"}
@@ -94,47 +89,18 @@ def phase_spec(phase: str, gateway: str, model: str, database: Path, language: s
         if node["type"] != "agent":
             continue
         node["tools"] = [tool for tool in node.get("tools", []) if tool not in EXECUTION_TOOLS]
+        if node['id'] in {'architect', 'planner', 'researcher', 'reviewer', 'critic'}:
+            node['tools'] = list(dict.fromkeys([*node['tools'], 'search_source']))
         if node["id"] == "chainer":
             # Preserve native success-only and terminal-dismissal guards, using a
             # completed static stage instead of entering the removed reproducer.
             node["on_enter_status"] = "static_confirmed"
         node.pop("model", None)
         node.pop("reasoning_effort", None)
-        if node["id"] not in SKILLS:
-            continue
-        from core.prompts import get_stage_prompt
-        skill = ENGINE / "skills" / ("mantis-" + SKILLS[node["id"]]) / "SKILL.md"
-        node["system_prompt"] = (
-            f"MANTIS_STAGE:{node['id']}\n" + get_stage_prompt(node["id"])
-            + "\n\nUPSTREAM FULL SKILL:\n" + skill.read_text()
-            + "\n\nDEPLOYMENT ADAPTER CONTRACT:\n"
-            "Use the registered native tools and SQLite workspace artifacts. The code root is the "
-            "fixed read-only snapshot. This deployment has no shell or sub-agent-spawn tool; use "
-            "the upstream sequential fallback. This is a fully static analysis product: execution, "
-            "reproduction and patch tools are not registered, and their workflow stages are removed. "
-            "Do not claim dynamic proof. Missing execution conditions alone do not dismiss a static claim. "
-            "Persist stage artifacts through record_summary, record_threat_model, record_plan and "
-            "report_findings as applicable. Read workspace/kb/design_context.json and "
-            "workspace/kb/security_requirements.json as background. During audit planning also read "
-            "workspace/kb/requirement_assessments.json; requirement gaps are leads, not confirmed exploits. "
-            "For schema-bound nodes finish "
-            "through set_model_response using the native bound schema."
-        )
-        if node["id"] == "calibrator":
-            rules = ENGINE / "skills/mantis-calibrate/references/calibration_rules.md"
-            node["system_prompt"] += "\n\nFULL CALIBRATION RULES:\n" + rules.read_text()
-        if node["id"] == "chainer":
-            node["system_prompt"] += (
-                "\n\nSTATIC CHAIN ADAPTATION: Reason only from source and explicit preconditions. "
-                "The upstream dynamic-success prerequisite is replaced by the reviewer's confirmed "
-                "and critic's viable static verdicts. No finding has dynamic reproduction evidence. "
-                "Record any chain as a static hypothesis, preserving unknown links; never claim "
-                "the chain ran or promote findings to dynamic_confirmed or patch_verified."
-            )
-    from .localization import output_policy
-    for node in spec["nodes"]:
-        if node["type"] == "agent":
-            node["system_prompt"] = node.get("system_prompt", "") + "\n\n" + output_policy(language)
+        if node["id"] not in SKILLS and node["id"] != "structural_index":
+            raise ValueError('代码审计阶段缺少仓库技能绑定，禁止使用框架默认提示词')
+        from .native_skills import NativeSkillLoader
+        _, node['system_prompt'], _ = NativeSkillLoader(skills_root).compile(node['id'], language)
     return spec
 
 
@@ -197,6 +163,10 @@ async def execute_job(job: dict, model_factory=None) -> dict:
         record_artifact(str(database), native_run, "workspace_file", f"workspace/kb/{name}.json",
                         wrap_untrusted_content(SecretScrubber.scrub(body), filename=name))
 
+    from .native_skills import NativeSkillLoader
+    skill_loader = NativeSkillLoader(Path(job['skills_dir']) if job.get('skills_dir') else None)
+    skill_loader.fingerprint()
+    write_json(work / 'loaded-skills.json', skill_loader.catalog())
     stage_tasks = {}
     read_file_path = work / (phase + "-reads.json")
     verdict_file_path = work / (phase + "-verdicts.json")
@@ -238,7 +208,8 @@ async def execute_job(job: dict, model_factory=None) -> dict:
             if stage_key not in stage_tasks:
                 tid = store.add_task(run["id"], "mantis_" + stage,
                                      {"phase": phase, "snapshot": job["snapshot_id"], "campaign": campaign}, parent, "native")
-                store.start_task(tid, instruction_hash=digest(instruction.encode()))
+                bundle = skill_loader.resolve(stage) if stage in SKILLS else None
+                store.start_task(tid, bundle, instruction_hash=digest(instruction.encode()))
                 stage_tasks[stage_key] = tid
             tid = stage_tasks[stage_key]
             nonlocal budget_paused, model_failure
@@ -332,6 +303,14 @@ async def execute_job(job: dict, model_factory=None) -> dict:
     graph.LiteLlm = BudgetModel
     # Preserve native tool behavior; only record precisely the source ranges returned.
     import tools
+    from .source_search import SnapshotSourceSearch
+    source_search = SnapshotSourceSearch(snapshot, manifest['files'])
+    async def search_source(query: str, directory: str = '', offset: int = 0, limit: int = 50) -> str:
+        """Literal source search over the approved snapshot; read hits before citing them. Continue all pages."""
+        result = json.dumps(source_search.search(query, directory, offset, limit), ensure_ascii=False)
+        return wrap_untrusted_content(SecretScrubber.scrub(result), filename='source-search')
+    original_search = tools.TOOLS.get('search_source')
+    tools.TOOLS['search_source'] = search_source
     from core.schemas import CodebaseSummary, ThreatModel, ReviewPlan, VulnerabilityReport, FindingSchema
     from pydantic import ConfigDict, Field, AliasChoices
     class StrictSummary(CodebaseSummary):
@@ -422,7 +401,7 @@ async def execute_job(job: dict, model_factory=None) -> dict:
         return result
 
     tools.TOOLS["get_function_boundary"] = get_function_boundary
-    spec = phase_spec(phase, job["gateway"], job["model_id"], database, run["language"])
+    spec = phase_spec(phase, job["gateway"], job["model_id"], database, run["language"], skill_loader.root)
     layout = work / (phase + "-workflow.json")
     layout.write_text(json.dumps(spec, ensure_ascii=False))
     spec["config"].update({"sessions_db_path": str(work / (phase + "-sessions.db")),
@@ -504,6 +483,10 @@ async def execute_job(job: dict, model_factory=None) -> dict:
         tools.research_tools.read_file = original_read
         tools.TOOLS["get_function_boundary"] = original_boundary
         tools.TOOLS.update(strict_tools)
+        if original_search is None:
+            tools.TOOLS.pop('search_source', None)
+        else:
+            tools.TOOLS['search_source'] = original_search
         graph._parse_finding_calibration = original_calibration_parser
 
 

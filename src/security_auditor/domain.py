@@ -150,14 +150,7 @@ ALLOWED_KINDS = {
     "pci_mapper": {"applicability"},
     "pci_requirement_generator": {"requirement"},
     "requirement_reviewer": {"review"},
-    "code_architect": {"fact"},
-    "threat_modeler": {"threat"},
     "requirement_checker": {"assessment", "finding"},
-    "vulnerability_planner": {"fact"},
-    "vulnerability_researcher": {"finding"},
-    "finding_reviewer": {"review"},
-    "finding_critic": {"review"},
-    "risk_calibrator": {"risk"},
 }
 
 ALLOWED_SOURCES = {
@@ -166,12 +159,5 @@ ALLOWED_SOURCES = {
     "pci_mapper": {"document", "standard", "code"},
     "pci_requirement_generator": {"document", "standard"},
     "requirement_reviewer": {"document", "standard"},
-    "code_architect": {"code"},
-    "threat_modeler": {"document", "code", "standard"},
     "requirement_checker": {"document", "code", "standard"},
-    "vulnerability_planner": {"document", "code", "standard"},
-    "vulnerability_researcher": {"document", "code"},
-    "finding_reviewer": {"document", "code", "standard"},
-    "finding_critic": {"document", "code", "standard"},
-    "risk_calibrator": {"document", "code", "standard"},
 }

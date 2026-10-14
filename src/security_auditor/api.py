@@ -176,11 +176,15 @@ def create_app(settings: Settings | None = None, executor=None, mantis_executor=
 
     @app.get("/api/v1/health")
     def health():
+        from .native_skills import NativeSkillLoader
+        code_skills = NativeSkillLoader(settings.skills_dir).catalog()
         return {
             "status": "ready",
             "version": "0.1.0",
             "static_only": True,
-            "skills": len(scheduler.loader.catalog()),
+            "skills": len(scheduler.loader.catalog()) + len(code_skills),
+            "application_skills": len(scheduler.loader.catalog()),
+            "code_skills": len(code_skills),
         }
 
     @app.get("/api/v1/settings")

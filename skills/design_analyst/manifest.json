@@ -1,7 +1,7 @@
 {
   "id": "design_analyst",
-  "version": "0.1.0",
-  "sha256": "72168f88469d55a72a84ffc0ab2641d0803aef85424cc4f023fea0a5d4dda8b9",
+  "version": "0.2.0",
+  "sha256": "48b2d3f6abe5b723678036ab192e5957354dcc2691b29a165dd91b0342501c77",
   "mandatory_rules": [
     "SNAPSHOT",
     "EVIDENCE",
@@ -14,7 +14,8 @@
     "DESIGN_ANALYST-02",
     "DESIGN_ANALYST-03",
     "DESIGN_ANALYST-04",
-    "DESIGN_ANALYST-05"
+    "DESIGN_ANALYST-05",
+    "METHOD"
   ],
   "source": {
     "repository": "google/mantis",
@@ -23,5 +24,6 @@
     "license": "Apache-2.0"
   },
   "profile": "static",
-  "output_schema": "StageOutput"
+  "output_schema": "StageOutput",
+  "revision": "complete-methods-v2"
 }

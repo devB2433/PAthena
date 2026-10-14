@@ -10,7 +10,7 @@ class FixtureExecutor:
         self.store = store
 
     async def execute(self, task: dict, bundle: SkillBundle, context: dict) -> StageOutput:
-        from security_auditor.domain import Assessment, Fact, Finding, Requirement, Review, Risk, Threat
+        from security_auditor.domain import Assessment, Fact, Requirement, Review
 
         reservation = self.store.reserve(task["run_id"], task["id"], 300)
         self.store.settle(reservation, 300)
@@ -21,13 +21,13 @@ class FixtureExecutor:
             self.store.note_read(task["id"], eid)
         role = bundle.skill_id
         records = []
-        if role in {"design_analyst", "code_architect", "vulnerability_planner"}:
+        if role == "design_analyst":
             records = [
                 Fact(
                     title="订单模块与租户数据边界",
                     module="订单模块",
                     fact_type="BOUNDARY",
-                    basis="OBSERVED" if role == "code_architect" else "DECLARED",
+                    basis="DECLARED",
                     evidence_ids=refs,
                     rationale="构造样例展示订单接口和租户隔离要求。",
                 )
@@ -42,20 +42,6 @@ class FixtureExecutor:
                     origin="EXPLICIT_DESIGN",
                     evidence_ids=[doc],
                     rationale="构造设计材料明确要求租户只能访问自己的订单。",
-                )
-            ]
-        elif role == "threat_modeler":
-            records = [
-                Threat(
-                    title="批量导出跨租户访问",
-                    module="订单模块",
-                    attacker="普通租户用户",
-                    entrypoint="GET /orders/export",
-                    trust_boundary="租户数据边界",
-                    preconditions=["已登录租户可调用导出接口"],
-                    impact="其他租户订单泄露",
-                    evidence_ids=refs,
-                    rationale="构造代码用于展示共享控制与入口检查。",
                 )
             ]
         elif role == "requirement_checker":
@@ -73,20 +59,7 @@ class FixtureExecutor:
                         rationale="演示结果：单条有租户检查，导出未限制租户。",
                     )
                 )
-        elif role == "vulnerability_researcher" and task["wave"] == "deep":
-            records = [
-                Finding(
-                    title="订单导出缺少租户范围约束",
-                    module="订单模块",
-                    finding_type="STATIC_VULNERABILITY",
-                    evidence_ids=refs,
-                    impact="跨租户订单数据泄露",
-                    attack_preconditions=["租户用户可调用导出接口"],
-                    recommendation="在共享查询层绑定当前租户并覆盖批量接口。",
-                    rationale="这是预设构造样例结果，不代表模型已经完成真实分析。",
-                )
-            ]
-        elif role in {"requirement_reviewer", "finding_reviewer", "finding_critic"}:
+        elif role == "requirement_reviewer":
             records = [
                 Review(
                     title="样例证据复核",
@@ -98,56 +71,52 @@ class FixtureExecutor:
                 )
                 for sid in task["scope"].get("subject_ids", [])
             ]
-        elif role == "risk_calibrator":
-            records = [
-                Risk(
-                    title="跨租户数据泄露风险",
-                    subject_id=sid,
-                    severity="HIGH",
-                    evidence_strength="STATIC_SUPPORTED",
-                    impact_score=4,
-                    likelihood_score=4,
-                    evidence_ids=refs,
-                    rationale="演示预设业务影响，不是实际模型评级。",
-                )
-                for sid in task["scope"].get("subject_ids", [])
-            ]
         return StageOutput(records=records, gaps=[], summary="构造样例阶段完成；未调用真实模型。")
 
 
 class FixtureMantis:
-    """API test adapter only. Native graph behavior is covered in test_mantis.py."""
+    """Scripted application transport fixture, using the production skill compiler.
+
+    This does not evaluate analysis accuracy. The actual native driver and
+    real ADK calls with the same repository skills are exercised in test_mantis.
+    """
 
     def __init__(self, settings, store):
         from security_auditor.mantis_engine import MantisEngine
         self.engine = MantisEngine(settings, store)
         self.fingerprint = self.engine.fingerprint
-        self.store = store
-        self.fixture = FixtureExecutor(store)
+        self.store, self.settings = store, settings
 
     def workspace(self, run_id):
         return self.engine.workspace(run_id)
 
     async def execute(self, run_id, phase, parent):
-        from security_auditor.skills import SkillLoader
-        from security_auditor.config import ROOT
+        from security_auditor.domain import Fact, Finding, Risk, Threat
+        from security_auditor.native_skills import NativeSkillLoader
         tid = self.store.add_task(run_id, "mantis_" + phase, {}, parent, "engine")
         self.store.start_task(tid)
-        task = self.store.task(tid)
-        loader = SkillLoader(ROOT / "skills")
-        records = []
-        for role in (["code_architect", "threat_modeler"] if phase == "model" else
-                     ["vulnerability_researcher", "risk_calibrator"]):
-            bundle = loader.resolve(role, role, "0.1.0")
-            task["wave"] = "deep"
-            task["scope"] = {"subject_ids": [r.id for r in records if r.kind == "finding"]}
-            output = await self.fixture.execute(task, bundle, {})
-            for record in output.records:
-                record.engine = "mantis"
-                if record.kind == "finding":
-                    record.status = "STATIC_SUPPORTED"
-                    record.native_status = "static_confirmed"
-                if record.kind == "risk":
-                    record.native_score = 6.4
-                records.append(record)
-        self.store.commit_output(tid, "mantis_engine", StageOutput(records=records, summary="Test adapter"))
+        loader = NativeSkillLoader(self.settings.skills_dir)
+        language = self.store.run(run_id)['language']
+        stages = ['architect', 'threat_modeler'] if phase == 'model' else ['researcher', 'calibrator']
+        for stage in stages:
+            bundle, instruction, fingerprint = loader.compile(stage, language)
+            assert bundle.instruction in instruction
+            self.store.save_model_output(tid, '{"transport_fixture":true,"instruction_hash":"' + fingerprint + '"}')
+        refs = [e['id'] for e in self.store.evidence(run_id, 'code')]
+        for eid in refs:
+            self.store.note_read(tid, eid)
+        common = {'module': 'orders', 'evidence_ids': refs, 'rationale': 'Scripted transport fixture, not analysis acceptance.', 'engine': 'mantis'}
+        if phase == 'model':
+            records = [Fact(title='Order architecture', fact_type='BOUNDARY', basis='OBSERVED', **common),
+                Threat(title='Cross-tenant export', attacker='Tenant user', entrypoint='/orders/export',
+                    trust_boundary='Tenant data', preconditions=['User can export'], impact='Cross-tenant disclosure', **common)]
+        else:
+            finding = Finding(title='Cross-tenant export', finding_type='STATIC_VULNERABILITY',
+                status='STATIC_SUPPORTED', native_status='static_confirmed',
+                impact='Cross-tenant disclosure', attack_preconditions=['User can export'],
+                recommendation='Scope the shared query by tenant.', **common)
+            risk = Risk(title='Cross-tenant risk', subject_id=finding.id, severity='HIGH',
+                evidence_strength='STATIC_SUPPORTED', impact_score=4, likelihood_score=4,
+                native_score=6.4, **{k: v for k, v in common.items() if k != 'module'})
+            records = [finding, risk]
+        self.store.commit_output(tid, 'mantis_engine', StageOutput(records=records, summary='Scripted application transport fixture'))

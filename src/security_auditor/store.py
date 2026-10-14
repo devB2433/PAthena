@@ -549,7 +549,7 @@ class Store:
                 mapped.update(requirement.clause_ids)
             if expected - mapped:
                 raise ValueError('适用条款缺少可验收需求')
-        if role in {"requirement_reviewer", "finding_reviewer", "finding_critic", "risk_calibrator"}:
+        if role == "requirement_reviewer":
             expected = task["scope"].get("subject_ids", [])
             actual = [r.subject_id for r in output.records]
             if sorted(expected) != sorted(actual):

@@ -28,13 +28,19 @@ class NativeScript(BaseLlm):
     premature_metadata: bool = False
     _calls: int = PrivateAttr(default=0)
     _requests: list = PrivateAttr(default_factory=list)
+    _instruction_hashes: list = PrivateAttr(default_factory=list)
     _tools: set = PrivateAttr(default_factory=set)
 
     async def generate_content_async(self, llm_request, stream=False):
         self._calls += 1
         from security_auditor.localization import output_policy
         assert output_policy(self.language) in str(llm_request.config.system_instruction)
+        from security_auditor.native_skills import NativeSkillLoader, STAGE_SKILLS
+        if self.stage in STAGE_SKILLS:
+            _, canonical_prompt, _ = NativeSkillLoader().compile(self.stage, self.language)
+            assert canonical_prompt in str(llm_request.config.system_instruction)
         self._tools.update(llm_request.tools_dict)
+        self._instruction_hashes.append(digest(str(llm_request.config.system_instruction).encode()))
         self._requests.append(str(llm_request.config.system_instruction) + "".join(
             c.model_dump_json() for c in llm_request.contents))
         call, args, text = None, {}, "阶段完成" if self.language == "zh-CN" else "Stage complete"
@@ -143,7 +149,8 @@ async def test_native_mantis_graph_tools_and_static_verdicts(settings, store, tm
         store.start_task(tid)
         job = {"phase": phase, "run_id": run["id"], "task_id": tid,
             "work": str(work), "repository": manifest, "application_db": str(store.path),
-            "gateway": "http://invalid.test", "model_id": "deepseek-flash", "snapshot_id": "fixed-snapshot"}
+            "gateway": "http://invalid.test", "model_id": "deepseek-flash", "snapshot_id": "fixed-snapshot",
+            "skills_dir": str(settings.skills_dir)}
         if phase == "audit" and final_artifacts and citation_retry:
             from security_auditor.provider import OutputContractError
             with pytest.raises(OutputContractError, match="源码引用"):
@@ -165,9 +172,22 @@ async def test_native_mantis_graph_tools_and_static_verdicts(settings, store, tm
     recovered = recover_reads(work, "model", manifest)
     assert recovered and all(r["path"] == "orders.py" for r in recovered)
     assert not execution_attempts
+    from security_auditor.native_skills import NativeSkillLoader
+    loader = NativeSkillLoader(settings.skills_dir)
+    receipts = store.rows('SELECT skill_id,skill_version,skill_hash,instruction_hash FROM tasks WHERE run_id=? AND skill_id IS NOT NULL', (run['id'],))
+    for stage in models.keys() - {'campaign_planner'}:
+        bundle = loader.resolve(stage)
+        # The original graph adds stage context/schema instructions to the full
+        # canonical packet. Receipts pin the actual request, not just its base.
+        instruction_hash = models[stage]._instruction_hashes[0]
+        assert any(r['skill_id'] == bundle.skill_id and r['skill_version'] == bundle.version
+                   and r['skill_hash'] == bundle.content_hash and r['instruction_hash'] == instruction_hash
+                   for r in receipts)
     assert not {"reproducer", "repro_classifier", "patcher"} & models.keys()
     assert not {"run_sandbox", "run_sandbox_with_evidence", "apply_patch"} & set().union(
         *(m._tools for m in models.values()))
+    assert all('search_source' in models[stage]._tools
+               for stage in {'architect', 'planner', 'researcher', 'reviewer', 'critic'} & models.keys())
     assert exports[1]["findings"][0]["status"] == (
         "false_positive" if dismiss else "non_viable" if reject else "static_confirmed")
     assert "record_plan" in "".join(models["researcher"]._requests) or "investigations" in "".join(models["researcher"]._requests)

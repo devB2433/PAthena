@@ -689,12 +689,18 @@ AUDITOR_DOCLING_MODELS=./models/docling \
 
 PDF tests require models prepared in advance and explicitly skip when resources are missing. Protocol tests use controlled model responses and do not establish real-world analysis accuracy. The first complete run with a real model required debugging and resumptions. Fully unattended stability and the validity of Findings have not yet passed acceptance testing.
 
+## Skill versions and runtime consistency
+
+All skills and references are checked into `skills/`. Design analysis, requirement generation, compliance matching, requirement review, and implementation checks use complete 0.2.0 methods; the standard-preparation compatibility method is updated too. Code auditing retains the complete original skills and references from a pinned source. Static execution boundaries, tool mappings, and structured submission protocols reside in a separate adapter. Seven obsolete abbreviated code-audit skills have been removed.
+
+Production and tests use the same loaders and full instructions, validating provenance, versions, and digests. Missing or rewritten original skills stop execution. Automated tests check the skill bodies in actual ADK requests and database task receipts; controlled responses do not establish security-analysis accuracy. Skill changes require a new analysis run; existing reports retain their original version. Run `.venv/bin/python tools/check_skill_corpus.py` to inspect the checked-in corpus.
+
 ## Project structure
 
 ```text
 apps/web/                  Frontend
 src/security_auditor/      Backend, database, model gateway, and adapters
-skills/                    Project-defined versioned analysis skills
+skills/                    Complete versioned skills, original code methods and references
 design/                    Workflow and configuration examples
 deploy/                    Containers and general deployment templates
 tests/                     Automated tests and minimal test fixtures

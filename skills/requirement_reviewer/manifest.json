@@ -1,7 +1,7 @@
 {
   "id": "requirement_reviewer",
-  "version": "0.1.0",
-  "sha256": "1ff4a4c9ae1f0a21022eacfe4f3582f996ef832fdfb54adeef3252a15beb11d8",
+  "version": "0.2.0",
+  "sha256": "f8379f30b8b2e6d32a215fbe92d50286e31ae08328dfb07fd5ff74e7676bb7bd",
   "mandatory_rules": [
     "SNAPSHOT",
     "EVIDENCE",
@@ -16,7 +16,8 @@
     "REQUIREMENT_REVIEWER-04",
     "REQUIREMENT_REVIEWER-05",
     "REQUIREMENT_REVIEWER-06",
-    "REQUIREMENT_REVIEWER-07"
+    "REQUIREMENT_REVIEWER-07",
+    "METHOD"
   ],
   "source": {
     "repository": "google/mantis",
@@ -25,5 +26,6 @@
     "license": "Apache-2.0"
   },
   "profile": "static",
-  "output_schema": "StageOutput"
+  "output_schema": "StageOutput",
+  "revision": "complete-methods-v2"
 }

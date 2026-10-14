@@ -8,6 +8,9 @@ from pathlib import Path
 from .config import contained_file
 from .domain import ALLOWED_KINDS
 
+PROJECT_ROLES = ('design_analyst', 'requirement_generator', 'pci_mapper',
+                 'requirement_reviewer', 'requirement_checker')
+
 
 def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -48,13 +51,13 @@ class SkillLoader:
         return [
             {
                 "id": role,
-                "version": "0.1.0",
+                "version": bundle.version,
                 "sha256": bundle.content_hash,
                 "mandatory_rules": list(bundle.rule_ids),
             }
-            for role in ALLOWED_KINDS
-            if role != "mantis_engine"
-            for bundle in [self.resolve(role, role, "0.1.0")]
+            for role in PROJECT_ROLES
+            for manifest in [json.loads(contained_file(self.root / role, 'manifest.json').read_text())]
+            for bundle in [self.resolve(role, role, manifest['version'])]
         ]
 
 

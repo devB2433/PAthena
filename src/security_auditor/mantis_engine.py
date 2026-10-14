@@ -19,12 +19,16 @@ from .provider import ProviderUnavailable, ProviderBlocked, OutputContractError
 ENGINE = Path(__file__).parent / "vendor/mantis"
 
 
-def engine_fingerprint() -> str:
+def engine_fingerprint(skills_root: Path | None = None) -> str:
     manifest = json.loads((ENGINE / "SOURCE.json").read_text())
     for name, entry in manifest["files"].items():
         if digest((ENGINE / name).read_bytes()) != entry["sha256"]:
             raise ValueError("Mantis 引擎版本或来源摘要不一致")
-    return digest((ENGINE / "SOURCE.json").read_bytes() + Path(__file__).read_bytes()
+    from .native_skills import NativeSkillLoader
+    corpus_hash = NativeSkillLoader(skills_root).fingerprint()
+    return digest(corpus_hash.encode() + (Path(__file__).parent / 'native_skills.py').read_bytes()
+                  + (Path(__file__).parent / 'source_search.py').read_bytes()
+                  + (ENGINE / "SOURCE.json").read_bytes() + Path(__file__).read_bytes()
                   + (Path(__file__).parent / "mantis_worker.py").read_bytes()
                   + (Path(__file__).parent / "mantis_paths.py").read_bytes()
                   + (Path(__file__).parent / "model_contract.py").read_bytes()
@@ -35,7 +39,7 @@ def engine_fingerprint() -> str:
 class MantisEngine:
     def __init__(self, settings: Settings, store: Store):
         self.settings, self.store = settings, store
-        self.fingerprint = engine_fingerprint()
+        self.fingerprint = engine_fingerprint(settings.skills_dir)
 
     def workspace(self, run_id: str) -> Path:
         return self.settings.state_dir.resolve() / "mantis" / run_id
@@ -84,7 +88,7 @@ class MantisEngine:
 
     async def execute(self, run_id: str, phase: str, parent: str):
         run = self.store.run(run_id)
-        if engine_fingerprint() != run["snapshot"].get("mantis_hash"):
+        if engine_fingerprint(self.settings.skills_dir) != run["snapshot"].get("mantis_hash"):
             raise ValueError("Mantis 版本已变化，需要新运行")
         tid = self.store.add_task(run_id, "mantis_" + phase, {"engine": self.fingerprint}, parent, "engine")
         if self.store.task(tid)["status"] == "SUCCEEDED":
@@ -95,6 +99,7 @@ class MantisEngine:
                 "phase": phase, "task_id": tid, "repository": run["snapshot"]["repository"],
                 "application_db": str(self.store.path.resolve()), "gateway": self.settings.gateway,
                 "model_id": self.settings.model_id, "language": run["language"],
+                "skills_dir": str(self.settings.skills_dir.resolve()),
                 "enforce_budgets": self.settings.enforce_budgets,
             }, phase)
             output = self.map_output(run_id, tid, result)

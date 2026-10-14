@@ -13,23 +13,23 @@ from security_auditor.store import BudgetExceeded
 
 def test_skill_is_full_and_tampering_fails(settings, tmp_path):
     loader = SkillLoader(settings.skills_dir)
-    bundle = loader.resolve("finding_reviewer", "finding_reviewer", "0.1.0")
+    bundle = loader.resolve("requirement_checker", "requirement_checker", "0.2.0")
     instruction, _ = compile_instruction(bundle)
     assert len(instruction) > 1000
-    assert instruction.index("[FINDING_REVIEWER-13]") > 1000
+    assert instruction.index("[REQUIREMENT_CHECKER-07]") > 1000
     assert all(f"[{rule}]" in instruction for rule in bundle.rule_ids)
     shutil.copytree(settings.skills_dir, tmp_path / "skills")
-    file = tmp_path / "skills/finding_reviewer/SKILL.md"
+    file = tmp_path / "skills/requirement_checker/SKILL.md"
     file.write_text(file.read_text() + "injected")
     with pytest.raises(ValueError, match="摘要"):
-        SkillLoader(tmp_path / "skills").resolve("finding_reviewer", "finding_reviewer", "0.1.0")
+        SkillLoader(tmp_path / "skills").resolve("requirement_checker", "requirement_checker", "0.2.0")
 
 
 def test_no_missing_or_incompatible_skill_fallback(settings):
     with pytest.raises(ValueError):
-        SkillLoader(settings.skills_dir).resolve("code_architect", "missing", "0.1.0")
+        SkillLoader(settings.skills_dir).resolve("code_architect", "missing", "0.2.0")
     with pytest.raises(ValueError):
-        SkillLoader(settings.skills_dir).resolve("code_architect", "code_architect", "0.2.0")
+        SkillLoader(settings.skills_dir).resolve("requirement_checker", "requirement_checker", "0.9.0")
 
 
 def test_path_boundaries(tmp_path):
@@ -56,7 +56,7 @@ def test_cross_snapshot_evidence_rejected(store, sample_run):
         rationale="source",
     )
     with pytest.raises(ValueError, match="快照"):
-        store.commit_output(tid, "vulnerability_researcher", StageOutput(records=[finding], summary="result"))
+        store.commit_output(tid, "mantis_engine", StageOutput(records=[finding], summary="result"))
     assert store.task(tid)["status"] == "RUNNING"
     assert store.records(other["id"]) == []
 
@@ -209,7 +209,7 @@ def test_citation_must_have_been_read_by_this_task(store, sample_run):
     )
     output = StageOutput(records=[finding], summary="candidate")
     with pytest.raises(ValueError, match="实际读取"):
-        store.commit_output(tid, "vulnerability_researcher", output)
+        store.commit_output(tid, "mantis_engine", output)
     store.note_read(tid, eid)
-    store.commit_output(tid, "vulnerability_researcher", output)
+    store.commit_output(tid, "mantis_engine", output)
     assert store.task(tid)["status"] == "SUCCEEDED"

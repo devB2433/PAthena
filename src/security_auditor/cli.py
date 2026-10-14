@@ -30,7 +30,10 @@ def main():
         from .skills import SkillLoader
 
         settings = Settings()
-        print(f"技能包校验通过：{len(SkillLoader(settings.skills_dir).catalog())} 个")
+        from .native_skills import NativeSkillLoader
+        native = NativeSkillLoader(settings.skills_dir)
+        native.fingerprint()
+        print(f"技能包校验通过：自有角色 {len(SkillLoader(settings.skills_dir).catalog())} 个，代码分析角色 {len(native.catalog())} 个")
         print(f"标准包：{'已配置' if settings.standard_pack else '尚未配置，不生成合规结论'}")
         print(f"本地解析模型：{'已配置' if settings.docling_models else '尚未配置 PDF / OCR 模型'}")
         return

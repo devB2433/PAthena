@@ -108,8 +108,6 @@ class Scheduler:
             ]
         if role == "requirement_reviewer":
             return [{"subject_ids": [r["id"]]} for r in records if r["kind"] == "requirement"]
-        if role in {"finding_reviewer", "finding_critic", "risk_calibrator"}:
-            return [{"subject_ids": [r["id"]]} for r in records if r["kind"] == "finding"]
         if role == "design_analyst":
             evidence = self.store.evidence(run_id, "document")
             # Parsing blocks are citation units, not mandatory task slices.

@@ -1,7 +1,7 @@
 {
   "id": "requirement_generator",
-  "version": "0.1.0",
-  "sha256": "36a92b6f341a1715ee14739890f1935642c63bdaaa641abee5457fd19c92b080",
+  "version": "0.2.0",
+  "sha256": "5be4106e2d06b36012e943ce40a04219310c085406fbe32d28de4f94c4f99704",
   "mandatory_rules": [
     "SNAPSHOT",
     "EVIDENCE",
@@ -17,7 +17,8 @@
     "REQUIREMENT_GENERATOR-05",
     "REQUIREMENT_GENERATOR-06",
     "REQUIREMENT_GENERATOR-07",
-    "REQUIREMENT_GENERATOR-08"
+    "REQUIREMENT_GENERATOR-08",
+    "METHOD"
   ],
   "source": {
     "repository": "google/mantis",
@@ -26,5 +27,6 @@
     "license": "Apache-2.0"
   },
   "profile": "static",
-  "output_schema": "StageOutput"
+  "output_schema": "StageOutput",
+  "revision": "complete-methods-v2"
 }
