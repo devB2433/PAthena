@@ -1,7 +1,7 @@
 {
   "id": "requirement_reviewer",
-  "version": "0.3.0",
-  "sha256": "46e05db405dc48a64618ee6f86415f0175dc0539e3609724cb7c7f930b48f47a",
+  "version": "0.4.0",
+  "sha256": "ba40a10c7f576ddebe1bcaf7effe3f3279a430e99339508375e0e24d6dc86120",
   "mandatory_rules": [
     "METHOD",
     "REQUIREMENT_REVIEWER-01",
@@ -23,7 +23,8 @@
     "REQUIREMENT_REVIEWER-04",
     "REQUIREMENT_REVIEWER-05",
     "REQUIREMENT_REVIEWER-06",
-    "REQUIREMENT_REVIEWER-07"
+    "REQUIREMENT_REVIEWER-07",
+    "REQUIREMENT_REVIEWER-08"
   ],
   "source": {
     "repository": "google/mantis",
@@ -33,9 +34,9 @@
   },
   "profile": "static",
   "output_schema": "StageOutput",
-  "revision": "role-specific-investigation-manuals-v3",
+  "revision": "source-obligation-and-per-claim-review-v4",
   "references": {
-    "references/cases.md": "7dc2ea9a12914c180b1034197b987de6085113ab68b7cec67b60739924ce3e2c"
+    "references/cases.md": "0a19d3a4d0a7e32038e30d292de78f421c54c9e1cb6c5eb57704f1727c9514d5"
   },
   "derivation": "Project-authored role method; cited upstream is a methodological reference, not a verbatim port."
 }

@@ -10,7 +10,7 @@ class FixtureExecutor:
         self.store = store
 
     async def execute(self, task: dict, bundle: SkillBundle, context: dict) -> StageOutput:
-        from security_auditor.domain import Assessment, Fact, Requirement, Review
+        from security_auditor.domain import Assessment, Fact, Requirement, Review, SourceQuote, SourceObligation, ClaimReview, LogicComparison
 
         reservation = self.store.reserve(task["run_id"], task["id"], 300)
         self.store.settle(reservation, 300)
@@ -71,6 +71,24 @@ class FixtureExecutor:
                 )
                 for sid in task["scope"].get("subject_ids", [])
             ]
+        # Transport fixtures populate the production v4 fields. These scripted
+        # support decisions are not analysis-quality tests.
+        quote = SourceQuote(evidence_id=doc, text=self.store.read_evidence(task['run_id'], doc)['content'])
+        for record in records:
+            if isinstance(record, (Fact, Requirement)):
+                claims = [record.statement, *record.acceptance_criteria] if isinstance(record, Requirement) else [record.title]
+                record.source_obligations = [SourceObligation(claim=c, quotes=[quote], subject='Fixture',
+                    action='Fixture', modality='DECLARED', conditions=[], quantifier='UNSPECIFIED',
+                    trigger='', time_anchor='', exceptions=[]) for c in claims]
+            elif isinstance(record, Review):
+                target = next(r for r in self.store.records(task['run_id'], 'requirement') if r['id'] == record.subject_id)
+                record.claim_reviews = [ClaimReview(claim=c, status='SUPPORTED', source_meaning='Transport fixture',
+                    quotes=[quote], issue_codes=[], explanation='Scripted fixture')
+                    for c in [target['statement'], *target['acceptance_criteria']]]
+                for claim in record.claim_reviews:
+                    claim.logic_comparisons = [LogicComparison(action='Fixture', predicate='Fixture',
+                        source_polarity='UNSPECIFIED', claim_polarity='UNSPECIFIED',
+                        source_quantifier='UNSPECIFIED', claim_quantifier='UNSPECIFIED')]
         return StageOutput(records=records, gaps=[], summary="构造样例阶段完成；未调用真实模型。")
 
 

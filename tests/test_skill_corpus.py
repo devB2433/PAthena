@@ -70,7 +70,7 @@ def test_application_skills_are_versioned_complete_methods_and_legacy_audit_role
     loader = SkillLoader(ROOT / 'skills')
     assert {r['id'] for r in loader.catalog()} == set(PROJECT_ROLES)
     for row in loader.catalog():
-        assert row['version'] == '0.3.0'
+        assert row['version'] == ('0.4.0' if row['id'] in {'design_analyst', 'requirement_generator', 'requirement_reviewer'} else '0.3.0')
         bundle = loader.resolve(row['id'], row['id'], row['version'])
         prompt, _ = compile_instruction(bundle)
         assert bundle.instruction in prompt and '[METHOD]' in bundle.instruction

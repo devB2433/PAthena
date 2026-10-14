@@ -82,7 +82,7 @@ async def test_document_completion_cannot_skip_readable_assigned_material(
     _, run, _ = sample_run
     ids = [store.add_evidence(run['id'], 'document', f'design:{i}', f'Business flow {i}', {}) for i in range(2)]
     tid = store.add_task(run['id'], 'document_method', {'evidence_ids': ids} if role == 'design_analyst' else {})
-    bundle = SkillLoader(settings.skills_dir).resolve(role, role, '0.3.0')
+    bundle = SkillLoader(settings.skills_dir).resolve(role, role, '0.4.0')
     model = DocumentCompletion(read_all=read_all, use_final_tool=use_final_tool)
     executor = AdkExecutor(settings, store, model_factory=lambda: model)
     if read_all:

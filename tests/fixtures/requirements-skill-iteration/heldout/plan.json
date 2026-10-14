@@ -1,0 +1,167 @@
+{
+  "experiment": "source-obligation-and-per-claim-review-v4",
+  "model": "deepseek-flash",
+  "versions": [
+    "0.3.0",
+    "0.4.0"
+  ],
+  "baseline_commit": "45b8488",
+  "candidate_commit": "WORKTREE",
+  "language": "zh-CN",
+  "temperature": 0,
+  "thinking": "disabled: production forced-tool transport",
+  "max_output_tokens": 32768,
+  "hard_budgets": false,
+  "selective_retries": false,
+  "dataset_role": "Previously untested public KEP-4193, frozen before model calls; same repository/domain, not cross-domain validation",
+  "tasks": [
+    [
+      "pipeline",
+      1,
+      "0.4.0"
+    ]
+  ],
+  "positives": [
+    {
+      "id": "H01",
+      "behavior": "Pod-bound token embeds scheduled Node name and UID when feature enabled",
+      "source_lines": [
+        119,
+        120,
+        414
+      ],
+      "full_credit": [
+        "Signed token embeds Node name and UID obtained from associated Pod nodeName",
+        "Feature conditional retained"
+      ]
+    },
+    {
+      "id": "H02",
+      "behavior": "Direct Node binding supported without requiring Pod binding",
+      "source_lines": [
+        128,
+        129,
+        416
+      ],
+      "full_credit": [
+        "Direct Node binding allowed when issuance gate enabled",
+        "Does not require simultaneous Pod binding"
+      ]
+    },
+    {
+      "id": "H03",
+      "behavior": "Direct Node-bound token validation checks existence and matching UID",
+      "source_lines": [
+        136,
+        138,
+        145,
+        415
+      ],
+      "full_credit": [
+        "Node existence checked",
+        "Node UID matches token UID",
+        "Referenced Node deletion invalidates direct Node-bound tokens when validation active"
+      ]
+    },
+    {
+      "id": "H04",
+      "behavior": "Pod-bound tokens retain Pod-only lifetime validation",
+      "source_lines": [
+        140,
+        142,
+        187,
+        190
+      ],
+      "full_credit": [
+        "Node metadata does not add immediate Node lifetime validation to Pod-bound tokens",
+        "Pod deletion remains relevant invalidation mechanism"
+      ]
+    },
+    {
+      "id": "H05",
+      "behavior": "JTI minted UUID and linked issuance/use audit",
+      "source_lines": [
+        150,
+        154,
+        156,
+        158,
+        413
+      ],
+      "full_credit": [
+        "UUID embedded when JTI enabled",
+        "Issuance audit links credential",
+        "Use audit links same identifier"
+      ]
+    },
+    {
+      "id": "H06",
+      "behavior": "Issuance gate requires validation gate",
+      "source_lines": [
+        421,
+        424
+      ],
+      "full_credit": [
+        "Issuance only enabled with validation gate",
+        "Cannot disable validation while issuance remains enabled"
+      ]
+    },
+    {
+      "id": "H07",
+      "behavior": "Disable feature affects future tokens; existing fields remain",
+      "source_lines": [
+        459,
+        460,
+        462,
+        465
+      ],
+      "full_credit": [
+        "Future issuance stops embedding information when disabled pre-GA",
+        "Existing tokens keep fields",
+        "Reissue if old fields incompatible",
+        "GA cannot disable"
+      ]
+    },
+    {
+      "id": "H08",
+      "behavior": "Received credential ID remains auditable when feature disabled",
+      "source_lines": [
+        531,
+        532
+      ],
+      "full_credit": [
+        "If presented token has credential identifier, UserInfo audit retains it even with issuance feature disabled"
+      ]
+    },
+    {
+      "id": "H09",
+      "behavior": "Roll out validation on all active servers before allowing issuance",
+      "source_lines": [
+        476,
+        479
+      ],
+      "full_credit": [
+        "Validation gate enabled and rollout completed on all active servers before issuance gate enabled"
+      ]
+    }
+  ],
+  "adjudication": "Developer source-based manual judgment, not blind human evaluation; require normative statement/criteria, no partial credit from rationale; raw outputs unchanged",
+  "phase": "Final fixed-slot acceptance",
+  "protocol_notes": "Model selects current read-only Q paragraph IDs. Program deterministically resolves source text without interpretation. All failed development runs retained. Compare to full original-protocol v0.3 arm in final-heldout. No KEP-4193 semantic findings used to tune skills; its development failures were truncation and literal quote copying.",
+  "generated_review_versions": [
+    "0.4.0"
+  ],
+  "receiver_notes": "Drop undeclared empty decorations and exact target-owned origin/clause annotation echoes with receipts; never change analytical values, fill missing fields, fix verdicts, or ask another model to repair. All nonempty unknown values and conflicting annotation echoes fail. Normative claim indices resolve exact text; comparison guards prevent SUPPORTED for declared polarity/quantifier conflicts without forcing a particular issue category on a rejected claim. Root source provenance is deterministically closed over selected paragraph addresses; model does not repeat redundant source IDs. No semantic claims are changed. Generator pairs each normative criterion with its source constraints in the same object; storage projection preserves criterion text and assigns exact bindings. Reviewer retains fixed claim indices. UNRESOLVED requires MISSING_CONTEXT but may describe scope/checkability gaps too. Reviewer schema freezes statement and criterion_1..N properties, instead of asking the model to construct an indexed parallel array. Semantic errors remain possible and will be reported.",
+  "expected_packet_hashes": {
+    "0.3.0": {
+      "design_analyst": "e70c390471e21307cfe9ab7554a467eba87812f347b0c741a40451b3a4a93f94",
+      "requirement_generator": "bc0487755972709e685c67ca2490c2594bb6b630dbd2849b968211ed2fd82227",
+      "requirement_reviewer": "05d03feff17fa3d475d6dad423e05dc41d5c1abd8acae01e2eb5f1279c120a2a"
+    },
+    "0.4.0": {
+      "design_analyst": "b981614b50acd44b725c8460406a7e592f581617efb63513334003e4e283b2fd",
+      "requirement_generator": "e737f531e47fc81deee563af884908462dd9af24717353037a7ac02789893a02",
+      "requirement_reviewer": "c9457e15f852a91687ad1e505123c077e50689a8e34db48fe1eb2b81fe41c353"
+    }
+  },
+  "fixture_note": "Reproduction plan with expected packet hashes; original pre-call frozen plan is retained locally. Development prototypes are not acceptance results."
+}

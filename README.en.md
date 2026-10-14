@@ -324,7 +324,8 @@ flowchart TB
     READLOG["Record sources actually read by this task<br/>Update permitted references"]
     SUBMIT["Model submits structured output"]
     ARCHIVE["Archive original output and hash"]
-    CHECK["Application validation<br/>Schema, role, ownership, sources actually read<br/>Code locations and complete criterion inventory"]
+    REFERENCE["Deterministic reference binding<br/>Paragraph ID → original source<br/>Claim index → exact normative text"]
+    CHECK["Application validation<br/>Schema, role, ownership, sources actually read<br/>Code locations, per-claim reviews and verdict consistency"]
     VALID{"Validation passed?"}
     COMMIT["Transactionally commit business results<br/>Complete task and record events"]
     FAIL["Keep errors and original output<br/>Task incomplete; block subsequent stages"]
@@ -346,7 +347,8 @@ flowchart TB
     READLOG --> SESSION
     MODEL --> SUBMIT
     SUBMIT --> ARCHIVE
-    ARCHIVE --> CHECK
+    ARCHIVE --> REFERENCE
+    REFERENCE --> CHECK
     CHECK --> VALID
     VALID -->|"Yes"| COMMIT
     COMMIT --> TASKS
@@ -513,7 +515,7 @@ As of 2026-10-09, DeepSeek's documentation maps `deepseek-flash` to DeepSeek-V4.
 | Model interface | The gateway currently connects to `api.deepseek.com` and accepts only the registered model name and approved parameters. Other providers require adaptations for interfaces, parameters, tool protocols, and error handling. |
 | Context window | Retain the current large-context model. **Replacing it with an 8K, 16K, or 32K small-context analysis model is not recommended.** Context includes complete skills, design and code material, tool schemas, call history, and tool results. Insufficient capacity can cause rejected requests, incomplete material inclusion, or inadequate cross-module analysis. |
 | Tools and structured output | Reliable tool calling and complete arguments conforming to strict schemas are required. Chat capability or JSON text output alone is insufficient for the full workflow. The application also validates task ownership, sources actually read, and acceptance-criterion inventory. |
-| Per-response output | The current default output budget is **16,384 tokens**. Requirements, threat models, and audit results can be large structured objects; reducing the budget can cause truncated arguments, missing inventory, or failed submissions. Provider output capacity and the application's configured response budget are separate limits. |
+| Per-response output | The default application-agent response allowance is **32,768 tokens**; the code engine retains **16,384 tokens**. Per-claim source obligations enlarge requirement JSON; a real pilot hit the 16K output ceiling. A large context window is still needed. Provider output capacity, response allowance, and cumulative consumption budgets are separate settings. |
 | Instruction following and reasoning | The model must follow skills, source constraints, bilingual output instructions, and cross-file investigations consistently. Smaller analysis models have not passed acceptance; successful tool calling does not establish accurate security judgments. |
 
 Material grouping, on-demand code slicing, retrieval, and some context-budget checks are implemented. **Unified capability detection and end-to-end context adaptation for arbitrary models are not implemented.** A smaller window does not guarantee that all tasks will be split automatically while preserving analytical completeness. Unlimited cumulative tokens do not increase the model's context window or per-response capacity.
@@ -691,7 +693,7 @@ PDF tests require models prepared in advance and explicitly skip when resources 
 
 ## Skill versions and runtime consistency
 
-All skills and references are checked into `skills/`. Design analysis, requirement generation, compliance matching, requirement review, and implementation checks use complete 0.3.0 methods; the historical structured-standard compatibility method is updated too. Code auditing retains the complete original skills and references from a pinned source. Static execution boundaries, tool mappings, and structured submission protocols reside in a separate adapter. Seven obsolete abbreviated code-audit skills have been removed.
+All skills and references are checked into `skills/`. Design analysis, requirement generation, and requirement review use 0.4.0; compliance matching, implementation checking, and the historical structured-standard compatibility method remain at 0.3.0. Code auditing retains the complete original skills and references from a pinned source. Static execution boundaries, tool mappings, and structured submission protocols reside in a separate adapter. Seven obsolete abbreviated code-audit skills have been removed.
 
 Production and tests use the same loaders and full instructions, validating provenance, versions, and digests. Missing or rewritten original skills stop execution. Automated tests check the skill bodies in actual ADK requests and database task receipts; controlled responses do not establish security-analysis accuracy. Skill changes require a new analysis run; existing reports retain their original version. Run `.venv/bin/python tools/check_skill_corpus.py` to inspect the checked-in corpus.
 
@@ -712,3 +714,16 @@ licenses/                  Third-party licenses
 ```
 
 The internal name `security-design-auditor` is used for the package and Compose project.
+
+
+### Source fidelity and per-claim review: 0.4.0 iteration
+
+Design analysis preserves condition polarity, quantifiers, events, timer anchors and exceptions. Generation pairs each criterion with its source constraints; review uses frozen statement and criterion slots. Models select read paragraph IDs. The application deterministically binds original text, source provenance and normative claims without another inference step. Records retain per-claim judgments, issues and two-sided logical comparisons; the interface exposes their reasoning.
+
+Validation checks actual reads, exact references, complete inventory, declared logical conflicts and verdict consistency. Undeclared empty decorations and exact target-owned annotation echoes may be projected with receipts. Nonempty unknown analytical values, missing claims and conflicting echoes still fail. Raw provider outputs are retained; analytical text, conditions, issues and verdicts are unchanged. Existing JSON record storage supports the new optional fields without rewriting historical records.
+
+The final 2026-10-14 test used pinned [KEP-4193](https://github.com/kubernetes/enhancements/blob/6bcd596bb6bb7d055452e2df2f08af7afdc3beae/keps/sig-auth/4193-bound-service-account-token-improvements/README.md), 754 lines. It generated 18 facts, 14 requirements and 39 criteria; all 14 requirements completed per-claim review: 12 supported and 2 rejected, with no receipt failures. Facts plus generation used 6 calls and 168,993 tokens. The complete requirements phase including review used 35 calls and 634,697 tokens. Baseline facts plus generation used 98,902 tokens, a 70.87% increase; complete-phase cost is not compared against a baseline without equivalent review data.
+
+**Semantic accuracy acceptance did not pass.** Both versions correctly judged 5 of 8 repair challenges. The candidate still accepted reversed conditions and excessive recovery-permission restrictions, and rejected a valid inference. Best-match coverage remained 8 of 9 frozen behaviors, with incomplete lifecycle boundaries; coverage does not establish consistency across drafts. Fresh-document review also missed some gate and cross-requirement conflicts. This iteration improves traceability, exact correspondence and receipt reliability; it does not establish more accurate security judgments.
+
+Both arms used deepseek-flash, Chinese output, temperature 0, disabled thinking and a 32K response allowance. Expectations and source-based scoring came from the development agent, without blind independent expert review. The new document was not used to tune semantic results, but was used repeatedly to debug receipt protocols; all development failures remain archived and count toward consumption. Development plus acceptance totaled 300 physical requests and 4,396,009 known tokens, with 2 unknown-usage requests (102,223 reserved estimate, not actual billing). This is not one project's cost. No code scan or compliance-mapper validation was performed. Experiment databases and reports remain local. See the [reproduction fixtures](tests/fixtures/requirements-skill-iteration/README.md).

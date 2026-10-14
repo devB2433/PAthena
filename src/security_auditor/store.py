@@ -468,6 +468,9 @@ class Store:
                 raise ValueError("复核或评级对象不存在")
             if subject_id and role != "mantis_engine" and subject_id not in task["scope"].get("subject_ids", []):
                 raise ValueError("复核或评级对象不属于当前任务")
+            if role in {'design_analyst', 'requirement_generator', 'requirement_reviewer'}:
+                from .source_contract import validate_source_contract
+                validate_source_contract(self, task, role, record, known, read_ids)
             if record.kind == "assessment":
                 requirement = known.get(record.requirement_id, {})
                 if requirement.get("kind") != "requirement":

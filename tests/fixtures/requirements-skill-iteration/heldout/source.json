@@ -1,0 +1,7 @@
+{
+  "repository": "kubernetes/enhancements",
+  "commit": "6bcd596bb6bb7d055452e2df2f08af7afdc3beae",
+  "path": "keps/sig-auth/4193-bound-service-account-token-improvements/README.md",
+  "url": "https://github.com/kubernetes/enhancements/blob/6bcd596bb6bb7d055452e2df2f08af7afdc3beae/keps/sig-auth/4193-bound-service-account-token-improvements/README.md",
+  "sha256": "c796ebd45c40ba7028a05034bb9810e54ba373ff82b859e245eaf68628f1d427"
+}

@@ -73,3 +73,39 @@ files were verified against their pinned Git revisions, not substituted by
 evaluation summaries. These results call for additional source-condition
 fidelity and review tests on fresh documents, not prompt tuning on KEP-2799
 followed by a claim of independent validation.
+
+## Source fidelity iteration, v0.4
+
+The pilot exposed condition-direction drift, lost event/timer anchors, stronger
+constraints that overwrite explicit exceptions, and reviews that quote the
+correct source while accepting the opposite claim. Three document methods now
+require source-obligation records and per-statement/per-criterion judgments.
+Reviewers independently parse source-side and claim-side predicates, polarity
+and quantifiers; declared conflicts cannot receive a supported verdict.
+
+Development preflight also exposed unreliable literal quote copying, repeated
+normative text and redundant source IDs. The final protocol uses exact read
+paragraph IDs, numbered claim addresses and deterministic provenance closure.
+No analytical value is rewritten or repaired by another model. Empty undeclared
+decorations and exact target-owned annotation echoes are projected with receipts.
+The 16K response ceiling was hit by structured generation; the application
+default is now 32K, separately from disabled cumulative call/token budgets.
+
+A new pinned 754-line KEP-4193 is used for document validation. Earlier failed
+protocol prototypes remain archived, and their consumption counts toward total
+experiment usage. This is an engineering iteration with developer-authored
+criteria, not blind human-expert acceptance or cross-domain accuracy validation.
+
+### Final acceptance outcome
+
+The final KEP-4193 run generated 18 facts, 14 requirements and 39 criteria. All
+14 reviews committed (12 supported, 2 rejected) without receipt failures.
+Facts plus generation: 6 calls / 168993 tokens. Complete requirements phase:
+35 calls / 634697 tokens. Both versions scored 5/8 on repair challenges.
+Condition reversal, overrestrictive recovery permissions and rejection of a
+valid inference remained. Best-match behavior coverage stayed 8/9.
+
+Semantic accuracy acceptance therefore did not pass. This round establishes
+more reliable deterministic receipt and traceability, not equivalent analysis
+quality to the upstream code-audit system. All protocol prototypes and failures
+remain local; their cost is included, never hidden by selective retry.

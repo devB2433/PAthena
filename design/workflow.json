@@ -1,7 +1,7 @@
 {
   "contract_version": "0.2-mantis-native",
   "id": "design_to_static_assurance",
-  "version": 15,
+  "version": 16,
   "standard_use_policy": "precomputed_controls_vector_matching_v3",
   "source_reference_transport": "exact_task_local_handles_v1",
   "dispatch_policy": "ready_tasks_with_bounded_concurrency",
@@ -47,7 +47,7 @@
       "kind": "agent",
       "role": "design_analyst",
       "skill_id": "design_analyst",
-      "skill_version": "0.3.0",
+      "skill_version": "0.4.0",
       "depends_on": [
         "document_ingest"
       ],
@@ -58,7 +58,7 @@
       "kind": "agent",
       "role": "requirement_generator",
       "skill_id": "requirement_generator",
-      "skill_version": "0.3.0",
+      "skill_version": "0.4.0",
       "depends_on": [
         "design_model"
       ],
@@ -97,7 +97,7 @@
       "kind": "agent",
       "role": "requirement_reviewer",
       "skill_id": "requirement_reviewer",
-      "skill_version": "0.3.0",
+      "skill_version": "0.4.0",
       "depends_on": [
         "pci_requirements"
       ],
@@ -221,5 +221,6 @@
     "project_policy": "query_embeddings_only_never_rebuild_standard_vectors_or_controls",
     "retrieval": "bilingual_dense_bm25_rrf60_rerank40"
   },
-  "application_method_policy": "role_specific_investigation_with_casebooks_v3"
+  "application_method_policy": "role_specific_investigation_with_casebooks_v3",
+  "source_semantics_policy": "quoted_obligations_and_per_claim_review_v4"
 }

@@ -25,11 +25,59 @@ class RecordBase(StrictModel):
     native_data: dict | None = None
 
 
+class SourceQuote(StrictModel):
+    evidence_id: str = ''
+    text: str = Field(default='', min_length=1, max_length=5000, description="Original text resolved from the selected task-local quote ID")
+    quote_id: str | None = None
+
+
+class SourceCondition(StrictModel):
+    predicate: str = Field(min_length=1)
+    polarity: Literal['POSITIVE', 'NEGATIVE']
+
+
+class SourceObligation(StrictModel):
+    claim: str = Field(default='', min_length=1, description="Exact normative text resolved from claim_index; for Facts, a factual proposition")
+    claim_index: int | None = Field(default=None, ge=0)
+    quotes: list[SourceQuote] = Field(min_length=1)
+    subject: str
+    action: str
+    modality: Literal['REQUIRED', 'FORBIDDEN', 'OPTIONAL', 'DECLARED', 'INFERRED']
+    conditions: list[SourceCondition]
+    quantifier: Literal['ALL', 'ANY', 'UNSPECIFIED']
+    trigger: str = Field(description="The event that causes the action; empty only if not specified")
+    time_anchor: str = Field(description="Timer start, elapsed interval and reset event; empty if not applicable")
+    exceptions: list[str]
+
+
+class LogicComparison(StrictModel):
+    action: str = Field(min_length=1, description="The SAME action whose eligibility is compared on both sides")
+    predicate: str = Field(min_length=1, description="The SAME affirmative predicate, independently parsed from source and claim")
+    source_polarity: Literal['POSITIVE', 'NEGATIVE', 'UNSPECIFIED']
+    claim_polarity: Literal['POSITIVE', 'NEGATIVE', 'UNSPECIFIED']
+    source_quantifier: Literal['ALL', 'ANY', 'UNSPECIFIED']
+    claim_quantifier: Literal['ALL', 'ANY', 'UNSPECIFIED']
+
+
+class ClaimReview(StrictModel):
+    claim: str = Field(default='', min_length=1, description="Exact target text resolved from the submitted claim_index")
+    claim_index: int | None = Field(default=None, ge=0)
+    status: Literal['SUPPORTED', 'CONTRADICTED', 'UNSUPPORTED', 'UNRESOLVED']
+    source_meaning: str = Field(min_length=1, description="Reconstruct the source meaning independently before comparing the claim")
+    quotes: list[SourceQuote] = Field(min_length=1)
+    issue_codes: list[Literal['POLARITY', 'QUANTIFIER', 'TIMING', 'EXCEPTION', 'STRENGTH',
+                             'UNSUPPORTED_ADDITION', 'INTERNAL_CONTRADICTION', 'CLASSIFICATION',
+                             'SCOPE', 'UNTESTABLE', 'MISSING_CONTEXT']]
+    explanation: str = Field(min_length=1)
+    logic_comparisons: list[LogicComparison] = Field(default_factory=list)
+
+
 class Fact(RecordBase):
     kind: Literal["fact"] = "fact"
     module: str
     fact_type: Literal["MODULE", "ASSET", "DATA_FLOW", "CONTROL", "BOUNDARY", "ENTRYPOINT"]
     basis: Literal["DECLARED", "OBSERVED", "INFERRED"]
+    source_obligations: list[SourceObligation] = Field(default_factory=list)
 
 
 class Requirement(RecordBase):
@@ -44,6 +92,7 @@ class Requirement(RecordBase):
     verification_method: Literal['CODE', 'DEPLOYMENT', 'NON_CODE'] | None = None
     matched_requirement_ids: list[str] = Field(default_factory=list)
     applicability_conditions: list[str] = Field(default_factory=list)
+    source_obligations: list[SourceObligation] = Field(default_factory=list)
 
     @field_validator("acceptance_criteria")
     @classmethod
@@ -119,6 +168,7 @@ class Review(RecordBase):
     verdict: Literal["SUPPORTED", "NEEDS_EVIDENCE", "REJECTED"]
     checked_rules: list[str] = Field(min_length=1)
     counter_evidence_ids: list[str] = Field(default_factory=list)
+    claim_reviews: list[ClaimReview] = Field(default_factory=list)
 
 
 class Risk(RecordBase):

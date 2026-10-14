@@ -179,7 +179,7 @@ async def test_litellm_adapter_routes_tool_and_structured_response(settings, sto
 async def test_requirement_role_cannot_read_code(settings, store, sample_run):
     _, run, eid = sample_run
     bundle = SkillLoader(settings.skills_dir).resolve(
-        "requirement_generator", "requirement_generator", "0.3.0"
+        "requirement_generator", "requirement_generator", "0.4.0"
     )
     tid = store.add_task(run["id"], "requirements", {})
     store.start_task(tid, bundle, compile_instruction(bundle)[1])
@@ -193,40 +193,64 @@ async def test_requirement_role_cannot_read_code(settings, store, sample_run):
     assert not store.rows("SELECT * FROM task_reads WHERE task_id=?", (tid,))
 
 
-@pytest.mark.parametrize('complete', [True, False])
-async def test_explicit_stage_submission_ends_without_another_model_call(settings, store, sample_run, complete):
+@pytest.mark.parametrize("complete", [True, False])
+async def test_explicit_stage_submission_ends_without_another_model_call(
+    settings, store, sample_run, complete
+):
     from security_auditor.agents import stage_schema
+
     _, run, _ = sample_run
-    tid = store.add_task(run['id'], 'requirements', {})
-    bundle = SkillLoader(settings.skills_dir).resolve('requirement_generator', 'requirement_generator', '0.3.0')
+    tid = store.add_task(run["id"], "requirements", {})
+    bundle = SkillLoader(settings.skills_dir).resolve(
+        "requirement_generator", "requirement_generator", "0.4.0"
+    )
+
     class SubmissionModel(BaseLlm):
-        model: str = 'submission-test'
+        model: str = "submission-test"
         _calls: int = PrivateAttr(default=0)
+
         async def generate_content_async(self, llm_request, stream=False):
             self._calls += 1
             assert self._calls == 1  # no repair, summary generation, or translation
-            declarations = [f for tool in llm_request.config.tools or [] for f in tool.function_declarations or []]
-            final = next(f for f in declarations if f.name == 'set_model_response')
-            assert set(final.parameters_json_schema['required']) == {'summary', 'records', 'gaps'}
-            assert set(final.parameters_json_schema['$defs']) == {'Requirement'}
-            args = {'records': [], 'gaps': ['未发现支付范围说明']}
+            declarations = [
+                f for tool in llm_request.config.tools or [] for f in tool.function_declarations or []
+            ]
+            final = next(f for f in declarations if f.name == "set_model_response")
+            assert set(final.parameters_json_schema["required"]) == {"summary", "records", "gaps"}
+            assert {
+                "requirement_generatorSourceRecord",
+                "SourceObligation",
+                "SourceCondition",
+                "SourceQuote",
+                "SourceCriterion",
+            } == set(final.parameters_json_schema["$defs"])
+            args = {"records": [], "gaps": ["未发现支付范围说明"]}
             if complete:
-                args['summary'] = '安全需求分析完成'
-            yield LlmResponse(content=types.Content(role='model', parts=[types.Part(
-                function_call=types.FunctionCall(name='set_model_response', args=args))]))
+                args["summary"] = "安全需求分析完成"
+            yield LlmResponse(
+                content=types.Content(
+                    role="model",
+                    parts=[
+                        types.Part(function_call=types.FunctionCall(name="set_model_response", args=args))
+                    ],
+                )
+            )
+
     model = SubmissionModel()
     executor = AdkExecutor(settings, store, model_factory=lambda: model)
     if complete:
         output = await executor.execute(store.task(tid), bundle, {})
-        assert output.summary == '安全需求分析完成'
+        assert output.summary == "安全需求分析完成"
     else:
         with pytest.raises(OutputContractError):
             await executor.execute(store.task(tid), bundle, {})
-        assert not store.records(run['id'])
+        assert not store.records(run["id"])
     assert model._calls == 1
-    raw = json.loads(store.rows('SELECT content FROM model_outputs WHERE task_id=? ORDER BY created', (tid,))[0]['content'])
-    assert ('summary' in raw) == complete
-    assert set(stage_schema('design_analyst').model_json_schema()['$defs']) == {'Fact'}
+    raw = json.loads(
+        store.rows("SELECT content FROM model_outputs WHERE task_id=? ORDER BY created", (tid,))[0]["content"]
+    )
+    assert ("summary" in raw) == complete
+    assert "Fact" in stage_schema("design_analyst").model_json_schema()["$defs"]
 
 
 @pytest.mark.parametrize('failure_type', ['transport', 'balance', 'budget'])
@@ -235,7 +259,7 @@ async def test_adk_error_event_preserves_retry_pause_and_budget_categories(setti
     from security_auditor import agents
     _, run, _ = sample_run
     tid = store.add_task(run['id'], 'requirements', {})
-    bundle = SkillLoader(settings.skills_dir).resolve('requirement_generator', 'requirement_generator', '0.3.0')
+    bundle = SkillLoader(settings.skills_dir).resolve('requirement_generator', 'requirement_generator', '0.4.0')
     failure = {'transport': ProviderUnavailable('timeout', code='transport'),
                'balance': ProviderBlocked('balance', code='balance'),
                'budget': BudgetExceeded('budget')}[failure_type]
@@ -251,38 +275,117 @@ async def test_adk_error_event_preserves_retry_pause_and_budget_categories(setti
     assert calls == [1]
 
 
-async def test_final_json_uses_the_same_declared_role_schema(settings, store, sample_run):
+@pytest.mark.parametrize("final_tool", [False, True])
+async def test_final_json_uses_the_same_declared_role_schema(settings, store, sample_run, final_tool):
     _, run, _ = sample_run
-    eid = store.add_evidence(run['id'], 'document', 'design:1', 'Authentication is required.', {})
-    tid = store.add_task(run['id'], 'requirements', {})
+    eid = store.add_evidence(run["id"], "document", "design:1", "Authentication is required.", {})
+    tid = store.add_task(run["id"], "requirements", {})
     store.start_task(tid)
-    bundle = SkillLoader(settings.skills_dir).resolve('requirement_generator', 'requirement_generator', '0.3.0')
-    submitted = {'records': [{'id': 'req-auth', 'title': 'Authentication', 'module': 'API',
-                             'statement': 'Require authentication.', 'acceptance_criteria': ['Reject unauthenticated requests.'],
-                             'origin': 'EXPLICIT_DESIGN', 'evidence_ids': [eid], 'rationale': 'Original design'}],
-                 'gaps': [], 'summary': 'Requirement analysis'}
+    bundle = SkillLoader(settings.skills_dir).resolve(
+        "requirement_generator", "requirement_generator", "0.4.0"
+    )
+    submitted = {
+        "records": [
+            {
+                "id": "req-auth",
+                "title": "Authentication",
+                "module": "API",
+                "statement": "Require authentication.",
+                "acceptance_criteria": ["Reject unauthenticated requests."],
+                "origin": "EXPLICIT_DESIGN",
+                "evidence_ids": [eid],
+                "rationale": "Original design",
+            }
+        ],
+        "gaps": [],
+        "summary": "Requirement analysis",
+    }
+    source = dict(
+        quotes=[dict(quote_id="Q00001")],
+        subject="API",
+        action="Authentication",
+        modality="REQUIRED",
+        conditions=[],
+        quantifier="UNSPECIFIED",
+        trigger="",
+        time_anchor="",
+        exceptions=[],
+    )
+    submitted["records"][0]["statement_source"] = source
+    submitted["records"][0]["acceptance_criteria"] = [
+        {"criterion": "Reject unauthenticated requests.", "source": source}
+    ]
+    submitted["records"][0].pop("evidence_ids")
+
     class Model(BaseLlm):
-        model: str = 'role-schema-test'
+        model: str = "role-schema-test"
         _calls: int = PrivateAttr(default=0)
+
         async def generate_content_async(self, llm_request, stream=False):
             self._calls += 1
             if self._calls == 1:
-                part = types.Part(function_call=types.FunctionCall(name='read_evidence', args={'evidence_id': eid}))
+                part = types.Part(
+                    function_call=types.FunctionCall(name="read_evidence", args={"evidence_id": eid})
+                )
             else:
                 assert self._calls == 2
-                declarations = [f for tool in llm_request.config.tools or [] for f in tool.function_declarations or []]
-                final = next(f for f in declarations if f.name == 'set_model_response')
-                assert final.parameters_json_schema['$defs']['Requirement']['properties']['evidence_ids']['items']['enum'] == ['S0001']
-                part = types.Part(text=json.dumps(submitted))
-            yield LlmResponse(content=types.Content(role='model', parts=[part]))
+                declarations = [
+                    f for tool in llm_request.config.tools or [] for f in tool.function_declarations or []
+                ]
+                final = next(f for f in declarations if f.name == "set_model_response")
+                assert (
+                    "evidence_ids"
+                    not in final.parameters_json_schema["$defs"]["requirement_generatorSourceRecord"][
+                        "properties"
+                    ]
+                )
+                assert final.parameters_json_schema["$defs"]["SourceQuote"]["properties"] == {
+                    "quote_id": {
+                        "type": "string",
+                        "description": "Exact Qxxxxx paragraph ID from the current read_evidence result",
+                        "enum": ["Q00001"],
+                    }
+                }
+                part = (
+                    types.Part(function_call=types.FunctionCall(name="set_model_response", args=submitted))
+                    if final_tool
+                    else types.Part(text=json.dumps(submitted))
+                )
+            yield LlmResponse(content=types.Content(role="model", parts=[part]))
+
     model = Model()
-    output = await AdkExecutor(settings, store, model_factory=lambda: model).execute(store.task(tid), bundle, {})
-    store.commit_output(tid, 'requirement_generator', output)
+    output = await AdkExecutor(settings, store, model_factory=lambda: model).execute(
+        store.task(tid), bundle, {}
+    )
+    store.commit_output(tid, "requirement_generator", output)
     assert model._calls == 2
-    record = store.records(run['id'])[0]
-    assert record['kind'] == 'requirement'  # literal default in the advertised Requirement schema
-    assert all(record[key] == value for key, value in submitted['records'][0].items())
-    assert json.loads(store.rows('SELECT content FROM model_outputs WHERE task_id=?', (tid,))[0]['content']) == submitted
+    record = store.records(run["id"])[0]
+    assert record["kind"] == "requirement"  # literal default in the advertised Requirement schema
+    assert all(
+        record[key] == value
+        for key, value in submitted["records"][0].items()
+        if key not in {"statement_source", "acceptance_criteria"}
+    )
+    assert record["evidence_ids"] == [eid]
+    assert record["acceptance_criteria"] == ["Reject unauthenticated requests."]
+    assert [r["claim"] for r in record["source_obligations"]] == [
+        "Require authentication.",
+        "Reject unauthenticated requests.",
+    ]
+    for index, saved in enumerate(record["source_obligations"]):
+        assert saved["claim_index"] == index
+        assert saved["quotes"] == [
+            {"quote_id": "Q00001", "evidence_id": eid, "text": "Authentication is required."}
+        ]
+        assert all(saved[key] == value for key, value in source.items() if key != "quotes")
+    artifacts = [
+        json.loads(row["content"])
+        for row in store.rows("SELECT content FROM model_outputs WHERE task_id=?", (tid,))
+        if row["content"].strip()
+    ]
+    assert submitted in artifacts
+    catalog = next(row for row in artifacts if row.get("transport") == "quote_reference_catalog_v1")
+    assert catalog["references"]["Q00001"] == {"evidence_id": eid, "text": "Authentication is required."}
 
 
 @pytest.mark.parametrize('mixed_fields', [False, True])
@@ -330,3 +433,94 @@ async def test_pci_submission_commits_unchanged_or_stops_without_repair(settings
         assert all(store.records(run['id'])[0][key] == value for key, value in record.items())
     assert model._calls == 1
     assert json.loads(store.rows('SELECT content FROM model_outputs WHERE task_id=? ORDER BY created', (tid,))[0]['content']) == submitted
+
+
+async def test_scoped_review_tool_binds_all_fixed_slots_without_extra_model_call(settings, store, sample_run):
+    from security_auditor.domain import Requirement, StageOutput
+
+    _, run, _ = sample_run
+    eid = store.add_evidence(run["id"], "document", "design:1", "Authentication protects requests.", {})
+    seed = store.add_task(run["id"], "seed", {})
+    store.start_task(seed)
+    store.note_read(seed, eid)
+    requirement = Requirement(
+        id="req",
+        title="Authentication",
+        module="API",
+        statement="Authenticate requests",
+        acceptance_criteria=["Reject absent identity", "Verify supplied identity"],
+        origin="EXPLICIT_DESIGN",
+        evidence_ids=[eid],
+        rationale="Source",
+    )
+    store.commit_output(seed, "requirement_generator", StageOutput(records=[requirement], summary="Seed"))
+    tid = store.add_task(run["id"], "requirement_review", {"subject_ids": ["req"]})
+    bundle = SkillLoader(settings.skills_dir).resolve("requirement_reviewer", "requirement_reviewer", "0.4.0")
+    store.start_task(tid, bundle)
+    entry = {
+        "status": "SUPPORTED",
+        "source_meaning": "Authentication required",
+        "quotes": [{"quote_id": "Q00001"}],
+        "issue_codes": [],
+        "explanation": "Unmodified model reason",
+        "logic_comparisons": [
+            {
+                "action": "Authenticate",
+                "predicate": "Identity valid",
+                "source_polarity": "POSITIVE",
+                "claim_polarity": "POSITIVE",
+                "source_quantifier": "ALL",
+                "claim_quantifier": "ALL",
+            }
+        ],
+    }
+
+    class Model(BaseLlm):
+        model: str = "fixed-review-test"
+        _calls: int = PrivateAttr(default=0)
+
+        async def generate_content_async(self, llm_request, stream=False):
+            self._calls += 1
+            if self._calls == 1:
+                part = types.Part(
+                    function_call=types.FunctionCall(name="read_evidence", args={"evidence_id": "S0001"})
+                )
+            else:
+                assert self._calls == 2
+                declarations = [
+                    f for tool in llm_request.config.tools or [] for f in tool.function_declarations or []
+                ]
+                final = next(f for f in declarations if f.name == "set_model_response")
+                slots = final.parameters_json_schema["$defs"]["ScopedClaimSlots"]
+                assert set(slots["required"]) == {"statement", "criterion_1", "criterion_2"}
+                payload = {
+                    "records": [
+                        {
+                            "id": "review",
+                            "title": "Review",
+                            "subject_id": "req",
+                            "verdict": "SUPPORTED",
+                            "rationale": "Unmodified summary",
+                            "checked_rules": ["METHOD"],
+                            "claim_reviews": {"statement": entry, "criterion_1": entry, "criterion_2": entry},
+                        }
+                    ],
+                    "gaps": [],
+                    "summary": "Complete",
+                }
+                part = types.Part(function_call=types.FunctionCall(name="set_model_response", args=payload))
+            yield LlmResponse(content=types.Content(role="model", parts=[part]))
+
+    model = Model()
+    output = await AdkExecutor(settings, store, model_factory=lambda: model).execute(
+        store.task(tid), bundle, {}
+    )
+    store.commit_output(tid, "requirement_reviewer", output)
+    saved = store.records(run["id"], "review")[0]
+    assert [r["claim"] for r in saved["claim_reviews"]] == [
+        requirement.statement,
+        *requirement.acceptance_criteria,
+    ]
+    assert [r["explanation"] for r in saved["claim_reviews"]] == ["Unmodified model reason"] * 3
+    assert saved["evidence_ids"] == [eid]
+    assert model._calls == 2

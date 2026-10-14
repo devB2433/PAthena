@@ -40,7 +40,7 @@ class Settings:
     enforce_budgets: bool = field(default_factory=budgets_enabled)
     max_requests: int = field(default_factory=lambda: int(os.getenv("AUDITOR_MAX_REQUESTS", "0")))
     max_tokens: int = field(default_factory=lambda: int(os.getenv("AUDITOR_MAX_TOKENS", "0")))
-    agent_output_tokens: int = field(default_factory=lambda: int(os.getenv("AUDITOR_AGENT_OUTPUT_TOKENS", "16384")))
+    agent_output_tokens: int = field(default_factory=lambda: int(os.getenv("AUDITOR_AGENT_OUTPUT_TOKENS", "32768")))
     agent_max_calls: int = field(default_factory=lambda: int(os.getenv("AUDITOR_AGENT_MAX_CALLS", "0")))
     concurrency: int = field(default_factory=lambda: int(os.getenv("AUDITOR_CONCURRENCY", "2")))
     upload_limit: int = 25 * 1024 * 1024

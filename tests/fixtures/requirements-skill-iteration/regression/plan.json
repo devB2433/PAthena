@@ -1,0 +1,197 @@
+{
+  "experiment": "source-obligation-and-per-claim-review-v4",
+  "model": "deepseek-flash",
+  "versions": [
+    "0.3.0",
+    "0.4.0"
+  ],
+  "baseline_commit": "45b8488",
+  "candidate_commit": "WORKTREE",
+  "language": "zh-CN",
+  "temperature": 0,
+  "thinking": "disabled: production forced-tool transport",
+  "max_output_tokens": 32768,
+  "hard_budgets": false,
+  "selective_retries": false,
+  "dataset_role": "Repair regression using exact previous model failures plus two counterfactual probes; not independent validation",
+  "review_cases": [
+    [
+      "polarity",
+      "清理仅针对未被 Pod 引用且未被双向引用的自动生成 Secret",
+      "当 LegacyServiceAccountTokenCleanUp 生效时，Token Controller 只能移除同时满足以下条件的自动生成 Secret：未被任何 Pod 挂载引用，且与服务账号之间不存在双向引用关系；任一条件不满足的自动生成 Secret 必须保留。",
+      [
+        "被 Pod 挂载引用的自动生成 Secret 不被移除。",
+        "仍与服务账号保持双向引用的自动生成 Secret 不被移除。",
+        "同时满足未被 Pod 引用且无双向引用的自动生成 Secret 才进入移除流程。"
+      ],
+      [
+        1,
+        101,
+        201,
+        301,
+        401,
+        501
+      ],
+      "REJECTED",
+      "EXPLICIT_DESIGN",
+      "Notes/Constraints/Caveats 声明只清理“are not referenced by pods”的自动生成令牌；LegacyServiceAccountTokenCleanUp 进一步声明移除“unused auto-generated secrets (secrets bi-directionally referenced by the service account) and not mounted by pods”。这是设计原文对清理对象范围的显式限定。"
+    ],
+    [
+      "recovery_permission",
+      "跟踪 ConfigMap 与 Secret 标签的写入权限应限于控制平面组件",
+      "kube-system 命名空间中的 kube-apiserver-legacy-service-account-token-tracking ConfigMap，以及自动生成 Secret 上的 kubernetes.io/legacy-token-last-used 与 kubernetes.io/legacy-token-invalid-since 标签，其写入与删除应仅由控制平面组件（kube-apiserver 跟踪控制器与 kube-controller-manager 的 Token Controller）执行；集群内普通工作负载不得具备改写这些对象以影响清理判定或令牌有效性的能力。",
+      [
+        "跟踪 ConfigMap 的创建、更新与删除仅由 kube-apiserver 侧控制器发起。",
+        "kubernetes.io/legacy-token-last-used 与 kubernetes.io/legacy-token-invalid-since 标签的写入仅由控制平面组件发起。",
+        "普通工作负载无法通过改写上述标签或 ConfigMap 使已失效令牌恢复有效或阻止清理判定。"
+      ],
+      [
+        1,
+        101,
+        201,
+        301,
+        401,
+        501
+      ],
+      "REJECTED",
+      "INFERRED_SECURITY",
+      "设计声明该功能仅触及控制平面，版本偏差策略不适用；跟踪 ConfigMap 由 kube-apiserver 控制器维护，Secret 标签由控制平面在令牌使用时更新，清理动作由 kube-controller-manager 执行。设计未显式规定这些对象的写入权限边界，但若工作负载可任意改写 kubernetes.io/legacy-token-last-used 或 kubernetes.io/legacy-token-invalid-since 标签，即可影响清理判定与令牌有效性，因此推导出该控制要求。"
+    ],
+    [
+      "unsupported_recovery",
+      "跟踪 ConfigMap 不可用时不得删除任何 Secret",
+      "在 LegacyServiceAccountTokenCleanUp 启用但 ConfigMap kube-apiserver-legacy-service-account-token-tracking 不可用时，Token Controller 必须不删除任何 Secret；在 kube-apiserver 和/或 etcd 不可用导致该 ConfigMap 无法创建时，同样不得移除未使用的自动生成 Secret。",
+      [
+        "ConfigMap 不存在或不可读时，清理流程不产生任何 Secret 删除操作。",
+        "kube-apiserver 和/或 etcd 不可用期间，未使用的自动生成 Secret 不被移除。",
+        "ConfigMap 恢复可用后，清理流程按最后使用日期规则重新判定，不追溯删除此前应保留的对象。"
+      ],
+      [
+        1,
+        101,
+        201,
+        301,
+        401,
+        501
+      ],
+      "REJECTED",
+      "EXPLICIT_DESIGN",
+      "来源分类：EXPLICIT_DESIGN。design.md 的 LegacyServiceAccountTokenCleanUp 章节声明：若 kube-apiserver-legacy-service-account-token-tracking 不可用，则不删除任何 Secret；Troubleshooting 章节声明 API server 和/或 etcd 不可用时 ConfigMap 无法创建且无法移除未使用的自动生成 Secret。控制目的：在判定基准缺失时采取保守失败行为，避免基于不完整信息误删凭证。前提：原文未说明 ConfigMap 被误删后的恢复流程，故不写入验收项。"
+    ],
+    [
+      "internal_contradiction",
+      "特性门控与清理周期配置的启用/回滚边界行为",
+      "在集群中通过特性门控启用或禁用 LegacyServiceAccountTokenNoAutoGeneration、LegacyServiceAccountTokenTracking、LegacyServiceAccountTokenCleanUp 时，各特性必须可独立禁用回滚；禁用 LegacyServiceAccountTokenNoAutoGeneration 期间 Token Controller 恢复为服务账号创建令牌，重新启用后停止自动创建；禁用 LegacyServiceAccountTokenTracking 时跟踪控制器周期性删除 kube-system 中的跟踪 ConfigMap，重新启用过程中仅持久化 kubernetes.io/legacy-token-last-used 标签且不影响功能；禁用 LegacyServiceAccountTokenCleanUp 时停止清理，重新启用后行为等同于首次启用。",
+      [
+        "三个特性门控可分别被禁用，且禁用后对应行为停止（自动生成、跟踪写入、清理删除）。",
+        "LegacyServiceAccountTokenNoAutoGeneration 禁用期间，Token Controller 为服务账号创建令牌；重新启用后不再自动创建。",
+        "LegacyServiceAccountTokenTracking 禁用时，kube-system 中的跟踪 ConfigMap 被周期性删除。",
+        "LegacyServiceAccountTokenTracking 重新启用过程中，仅 kubernetes.io/legacy-token-last-used 标签被持久化，跟踪功能不受影响。",
+        "LegacyServiceAccountTokenCleanUp 重新启用后的行为与首次启用一致。"
+      ],
+      [
+        1,
+        101,
+        201,
+        301,
+        401,
+        501
+      ],
+      "REJECTED",
+      "EXPLICIT_DESIGN",
+      "来源分类：EXPLICIT_DESIGN。KEP-2799.md 的 Feature Enablement and Rollback 一节列出三个特性门控及其依赖组件（NoAutoGeneration 与 CleanUp 依赖 kube-controller-manager，Tracking 依赖 kube-apiserver），声明均可禁用回滚，并说明重新启用后的行为：NoAutoGeneration 重新启用前 Token Controller 会继续为服务账号创建令牌；Tracking 重新启用过程中仅持久化 kubernetes.io/legacy-token-last-used 标签，不影响功能；CleanUp 重新启用等同于启用。控制目的：明确配置状态变化时的行为边界，避免回滚期间产生未预期的凭证生成或清理。必要前提：三个特性可独立启用与回滚。"
+    ],
+    [
+      "exclusive_read",
+      "跟踪状态资产的最小权限与防篡改约束",
+      "在 LegacyServiceAccountTokenTracking 与 LegacyServiceAccountTokenCleanUp 启用时，kube-system 命名空间中的 kube-apiserver-legacy-service-account-token-tracking ConfigMap 必须仅允许 kube-apiserver 侧跟踪控制器写入、仅允许 Token Controller 读取，其他主体不得创建、修改或删除该 ConfigMap；当检测到该 ConfigMap 被非预期主体修改或删除时，清理流程必须按“ConfigMap 不可用”处理，不删除任何 Secret。",
+      [
+        "该 ConfigMap 的写入权限仅授予 kube-apiserver 侧跟踪控制器所使用的身份。",
+        "Token Controller 仅以读取方式访问该 ConfigMap，不写入其 since 值。",
+        "非授权主体对该 ConfigMap 的创建、修改或删除请求被拒绝。",
+        "该 ConfigMap 被非预期修改或删除后，清理流程不删除任何自动生成的 secret-based 令牌。"
+      ],
+      [
+        1,
+        101,
+        201,
+        301,
+        401,
+        501
+      ],
+      "REJECTED",
+      "INFERRED_SECURITY",
+      "来源分类：INFERRED_SECURITY。推导链：kube-apiserver-legacy-service-account-token-tracking ConfigMap 的 since 值直接决定清理判定的时间基准（LegacyServiceAccountTokenCleanUp 一节），且该 ConfigMap 不可用时不得删除任何 Secret；若集群内非授权主体可创建、修改或删除该 ConfigMap，则可篡改 since 使清理判定失效（延长令牌寿命）或使清理完全停止，从而保留本设计意图消除的长期凭证。设计事实：该 ConfigMap 位于 kube-system，由 kube-apiserver 侧控制器创建/更新，由 Token Controller 读取。失效场景：低权限主体写入 since 为未来日期，使所有令牌都被判定为“未超期”，清理永不生效。必要前提：文档未说明该 ConfigMap 的读写权限控制与防篡改措施，因此本需求为推导控制，具体权限模型需以集群 RBAC 设计为准。"
+    ],
+    [
+      "wrong_clock",
+      "失效后的删除计时",
+      "令牌被标记失效后，只要从最初创建时累计超过一个清理周期，即立即删除。",
+      [
+        "最终删除从最初创建时计算一次周期即可，不必从标记失效时另等一个周期。"
+      ],
+      [
+        159,
+        173,
+        183
+      ],
+      "REJECTED",
+      "EXPLICIT_DESIGN"
+    ],
+    [
+      "wrong_quantifier",
+      "全部关闭才移除跟踪状态",
+      "只有全部 API server 都关闭 LegacyServiceAccountTokenTracking 时，才周期性删除跟踪 ConfigMap。",
+      [
+        "仅一个 API server 关闭跟踪时，跟踪 ConfigMap 必须保留。"
+      ],
+      [
+        145,
+        154
+      ],
+      "REJECTED",
+      "EXPLICIT_DESIGN"
+    ],
+    [
+      "valid_recovery",
+      "授权恢复路径",
+      "Token Controller 最终删除令牌前，授权用户应可通过更新失效标签重新激活令牌；未经授权主体不可随意更改失效状态。",
+      [
+        "在最终删除前保留授权用户更新失效标签的恢复路径。",
+        "通过既有授权机制限制未授权修改失效标签。"
+      ],
+      [
+        173,
+        183
+      ],
+      "SUPPORTED",
+      "INFERRED_SECURITY"
+    ]
+  ],
+  "tasks": [
+    [
+      "review",
+      1,
+      "0.4.0"
+    ]
+  ],
+  "phase": "Final fixed-slot acceptance",
+  "protocol_notes": "Model selects current read-only Q paragraph IDs. Program deterministically resolves source text without interpretation. All failed development runs retained. Compare to full original-protocol v0.3 arm in final-regression. No KEP-4193 semantic findings used to tune skills; its development failures were truncation and literal quote copying.",
+  "generated_review_versions": [
+    "0.4.0"
+  ],
+  "receiver_notes": "Drop undeclared empty decorations and exact target-owned origin/clause annotation echoes with receipts; never change analytical values, fill missing fields, fix verdicts, or ask another model to repair. All nonempty unknown values and conflicting annotation echoes fail. Normative claim indices resolve exact text; comparison guards prevent SUPPORTED for declared polarity/quantifier conflicts without forcing a particular issue category on a rejected claim. Root source provenance is deterministically closed over selected paragraph addresses; model does not repeat redundant source IDs. No semantic claims are changed. Generator pairs each normative criterion with its source constraints in the same object; storage projection preserves criterion text and assigns exact bindings. Reviewer retains fixed claim indices. UNRESOLVED requires MISSING_CONTEXT but may describe scope/checkability gaps too. Reviewer schema freezes statement and criterion_1..N properties, instead of asking the model to construct an indexed parallel array. Semantic errors remain possible and will be reported.",
+  "expected_packet_hashes": {
+    "0.3.0": {
+      "design_analyst": "e70c390471e21307cfe9ab7554a467eba87812f347b0c741a40451b3a4a93f94",
+      "requirement_generator": "bc0487755972709e685c67ca2490c2594bb6b630dbd2849b968211ed2fd82227",
+      "requirement_reviewer": "05d03feff17fa3d475d6dad423e05dc41d5c1abd8acae01e2eb5f1279c120a2a"
+    },
+    "0.4.0": {
+      "design_analyst": "b981614b50acd44b725c8460406a7e592f581617efb63513334003e4e283b2fd",
+      "requirement_generator": "e737f531e47fc81deee563af884908462dd9af24717353037a7ac02789893a02",
+      "requirement_reviewer": "c9457e15f852a91687ad1e505123c077e50689a8e34db48fe1eb2b81fe41c353"
+    }
+  },
+  "fixture_note": "Reproduction plan with expected packet hashes; original pre-call frozen plan is retained locally. Development prototypes are not acceptance results."
+}

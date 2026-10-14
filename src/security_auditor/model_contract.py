@@ -35,7 +35,7 @@ async def accounted_response(model, llm_request, store, run_id: str, task_id: st
         raise_failure(failure)
 
 
-def validate_native_response(response, schema):
+def validate_native_response(response, schema, projector=None):
     if response.error_code or str(response.finish_reason) in {"MAX_TOKENS", "FinishReason.MAX_TOKENS", "SAFETY", "FinishReason.SAFETY"}:
         raise OutputContractError("模型结果被截断或拒绝，阶段未完成")
     if not schema:
@@ -46,14 +46,16 @@ def validate_native_response(response, schema):
         for call in calls:
             if call.name == "set_model_response":
                 try:
-                    result = schema.model_validate(dict(call.args or {}))
+                    value = dict(call.args or {})
+                    result = schema.model_validate(projector(value) if projector else value)
                     check_verdict(result)
                 except ValueError:
                     raise OutputContractError("模型工具结果未通过结构化校验") from None
         return response  # ordinary source navigation is not a final verdict
     text = "".join(p.text or "" for p in parts)
     try:
-        result = schema.model_validate(parse_model_json(text)[0])
+        value = parse_model_json(text)[0]
+        result = schema.model_validate(projector(value) if projector else value)
     except ValueError:
         raise OutputContractError("模型最终结果必须直接符合约定 JSON 结构，阶段未完成") from None
     reason = getattr(result, "reason", getattr(result, "reasoning", ""))

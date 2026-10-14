@@ -1,0 +1,38 @@
+{
+  "0.3.0": {
+    "commit": "45b84881da789de1f224fbf23df7adfe690861ea",
+    "worktree_candidate": false,
+    "skills": [
+      {
+        "role": "design_analyst",
+        "packet_hash": "e70c390471e21307cfe9ab7554a467eba87812f347b0c741a40451b3a4a93f94"
+      },
+      {
+        "role": "requirement_generator",
+        "packet_hash": "bc0487755972709e685c67ca2490c2594bb6b630dbd2849b968211ed2fd82227"
+      },
+      {
+        "role": "requirement_reviewer",
+        "packet_hash": "05d03feff17fa3d475d6dad423e05dc41d5c1abd8acae01e2eb5f1279c120a2a"
+      }
+    ]
+  },
+  "0.4.0": {
+    "commit": "45b84881da789de1f224fbf23df7adfe690861ea",
+    "worktree_candidate": true,
+    "skills": [
+      {
+        "role": "design_analyst",
+        "packet_hash": "b981614b50acd44b725c8460406a7e592f581617efb63513334003e4e283b2fd"
+      },
+      {
+        "role": "requirement_generator",
+        "packet_hash": "e737f531e47fc81deee563af884908462dd9af24717353037a7ac02789893a02"
+      },
+      {
+        "role": "requirement_reviewer",
+        "packet_hash": "c9457e15f852a91687ad1e505123c077e50689a8e34db48fe1eb2b81fe41c353"
+      }
+    ]
+  }
+}

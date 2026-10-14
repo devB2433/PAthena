@@ -86,7 +86,7 @@ async def test_adk_generates_chinese_directly_without_translation_call(settings,
     p = store.create_project('fixture')
     run = store.create_run(p['id'], 'full', {'language': 'zh-CN'}, False, 10, 100000)
     tid = store.add_task(run['id'], 'requirements', {})
-    bundle = SkillLoader(settings.skills_dir).resolve('requirement_generator', 'requirement_generator', '0.3.0')
+    bundle = SkillLoader(settings.skills_dir).resolve('requirement_generator', 'requirement_generator', '0.4.0')
     model = Model()
     output = await AdkExecutor(settings, store, model_factory=lambda: model).execute(store.task(tid), bundle, {})
     assert output.summary == '中文分析结论' and model._calls == 1

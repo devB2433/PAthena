@@ -172,3 +172,54 @@ async def test_checker_searches_paths_filters_before_limit_and_rebinds_read_sour
     assert any('task_owned_check_provenance_v1' in row['content'] for row in
                store.rows('SELECT content FROM model_outputs WHERE task_id=?',(tid,)))
     assert model._calls == 4
+
+
+def test_nested_quote_handles_decode_without_rewriting_original_text():
+    refs = SourceReferences()
+    refs.register(['source-id'])
+    value = {'claim_reviews': [{'claim': 'S0001 is mentioned literally',
+        'quotes': [{'evidence_id': 'S0001', 'text': 'S0001 is mentioned literally'}]}]}
+    decoded = refs.decode_submission(value)
+    assert decoded['claim_reviews'][0]['quotes'][0] == {
+        'evidence_id': 'source-id', 'text': 'S0001 is mentioned literally'}
+    assert decoded['claim_reviews'][0]['claim'] == value['claim_reviews'][0]['claim']
+    with pytest.raises(OutputContractError):
+        refs.decode_submission({'quotes': [{'evidence_id': 'S001', 'text': 'unchanged'}]})
+
+
+def test_quote_lookup_preserves_all_source_text_and_rejects_conflicting_ids():
+    refs = SourceReferences()
+    refs.register(['source-id'])
+    original = 'Yes, preserve Case.\nwrapped line\n\nSecond paragraph.'
+    passages = refs.register_quotes({'id': 'source-id', 'content': original})
+    assert passages == [{'quote_id':'Q00001', 'text':'Yes, preserve Case.\nwrapped line'},
+                        {'quote_id':'Q00002', 'text':'Second paragraph.'}]
+    assert refs.register_quotes({'id': 'source-id', 'content': original}) == passages
+    result = refs.decode_submission({'quotes':[{'quote_id':'Q00001'}]}, quote_handles_required=True)
+    assert result['quotes'][0] == {'quote_id':'Q00001','evidence_id':'source-id','text':'Yes, preserve Case.\nwrapped line'}
+    for quote in [{'quote_id':'Q99999'}, {'quote_id':'Q00001','text':'yes, preserve Case.'},
+                  {'text':'Yes, preserve Case.'}]:
+        with pytest.raises(OutputContractError):
+            refs.decode_submission({'quotes':[quote]}, quote_handles_required=True)
+    assert 'quote_id' not in refs.encode(result)['quotes'][0]  # Prior invocation IDs never leak into upstream context.
+
+
+def test_long_original_paragraph_is_addressed_without_truncation():
+    refs = SourceReferences()
+    text = 'a' * 11001
+    passages = refs.register_quotes({'id':'source','content':text})
+    assert ''.join(row['text'] for row in passages) == text
+    assert [len(row['text']) for row in passages] == [5000,5000,1001]
+
+
+def test_record_sources_are_derived_from_selected_paragraphs_without_changing_claims():
+    refs = SourceReferences()
+    refs.register(['source-a','source-b'])
+    refs.register_quotes({'id':'source-a','content':'First source.'})
+    refs.register_quotes({'id':'source-b','content':'Second source.'})
+    raw = {'records':[{'id':'req','statement':'Unchanged statement','source_obligations':[
+        {'claim_index':0,'quotes':[{'quote_id':'Q00002'},{'quote_id':'Q00001'}]}]}]}
+    out = refs.decode_submission(raw,quote_handles_required=True)
+    assert out['records'][0]['evidence_ids'] == ['source-b','source-a']
+    assert out['records'][0]['statement'] == raw['records'][0]['statement']
+    assert 'evidence_ids' not in raw['records'][0]

@@ -43,29 +43,37 @@ def prepare(directory: Path):
     assert digest((directory / 'plan.json').read_bytes()) == (directory / 'plan.sha256').read_text().strip()
     source = json.loads((directory / 'source.json').read_text())
     assert digest((directory / 'design.md').read_bytes()) == source['sha256']
-    baseline = directory / 'baseline'
-    if not baseline.exists():
-        baseline.mkdir()
-        archive = git('archive', plan['baseline_commit'], 'skills')
-        with tarfile.open(fileobj=io.BytesIO(archive)) as files:
-            files.extractall(baseline, filter='data')
     identity = {}
-    for name, folder, ref in [('0.2.0', baseline / 'skills', plan['baseline_commit']),
-                              ('0.3.0', ROOT / 'skills', plan['candidate_commit'])]:
+    for name, ref in zip(plan['versions'], [plan['baseline_commit'], plan['candidate_commit']], strict=True):
+        packet = directory / ('skills-v' + name)
+        folder = packet / 'skills'
+        if not packet.exists():
+            packet.mkdir()
+            if ref == 'WORKTREE':
+                shutil.copytree(ROOT / 'skills', folder)
+            else:
+                with tarfile.open(fileobj=io.BytesIO(git('archive', ref, 'skills'))) as files:
+                    files.extractall(packet, filter='data')
         loader = SkillLoader(folder)
         items = []
         for role in ['design_analyst', 'requirement_generator', 'requirement_reviewer']:
             bundle = loader.resolve(role, role, name)
+            expected = plan.get('expected_packet_hashes', {}).get(name, {}).get(role)
+            if expected and bundle.content_hash != expected:
+                raise ValueError('Candidate packet differs from the pinned reproduction fixture: ' + role)
             manifest = json.loads((folder / role / 'manifest.json').read_text())
             for relative in ['SKILL.md', 'manifest.json', *manifest.get('references', {})]:
-                original = git('show', ref + ':skills/' + role + '/' + relative)
+                original = ((ROOT / 'skills' / role / relative).read_bytes() if ref == 'WORKTREE'
+                            else git('show', ref + ':skills/' + role + '/' + relative))
                 assert original == (folder / role / relative).read_bytes(), relative
             items.append({'role': role, 'packet_hash': bundle.content_hash})
-        identity[name] = {'commit': git('rev-parse', ref).decode().strip(), 'skills': items}
+        identity[name] = {'commit': git('rev-parse', 'HEAD' if ref == 'WORKTREE' else ref).decode().strip(),
+                          'worktree_candidate': ref == 'WORKTREE', 'skills': items}
         spec = json.loads((ROOT / 'design/workflow.json').read_text())
         for node in spec['nodes']:
             if node['kind'] == 'agent':
-                node['skill_version'] = name
+                if node.get('role') in {'design_analyst', 'requirement_generator', 'requirement_reviewer'}:
+                    node['skill_version'] = name
         write(directory / ('workflow-' + name + '.json'), spec)
     write(directory / 'skill-identities.json', identity)
     Store(directory / 'state/auditor.sqlite3', enforce_budgets=False)
@@ -89,12 +97,13 @@ def gateway(directory: Path, port: int):
 
 
 def make_run(directory: Path, name: str, version: str, port: int):
-    root = directory / 'baseline/skills' if version == '0.2.0' else ROOT / 'skills'
+    root = directory / ('skills-v' + version) / 'skills'
     settings = replace(Settings(), state_dir=directory / 'state', skills_dir=root,
                        workflow=directory / ('workflow-' + version + '.json'),
                        standard_pack='', repositories={}, language='zh-CN', model_id='deepseek-flash',
                        gateway=f'http://127.0.0.1:{port}', enforce_budgets=False,
                        agent_max_calls=0, concurrency=1)
+    settings = replace(settings, agent_output_tokens=json.loads((directory / 'plan.json').read_text())['max_output_tokens'])
     store = Store(settings.database, enforce_budgets=False)
     prior = store.rows('SELECT id FROM projects WHERE name=?', (name,))
     if prior:
@@ -103,7 +112,7 @@ def make_run(directory: Path, name: str, version: str, port: int):
     project = store.create_project(name)
     source = directory / 'design.md'
     snapshot = {'language': 'zh-CN', 'assets': [{'id': 'design', 'path': str(source),
-                 'name': 'KEP-2799.md', 'sha256': digest(source.read_bytes())}],
+                 'name': 'design.md', 'sha256': digest(source.read_bytes())}],
                 'repository': None, 'standard': None, 'experiment': name,
                 'skill_hashes': {r['id']: r['sha256'] for r in SkillLoader(root).catalog()}}
     run = store.create_run(project['id'], 'requirements_only', snapshot, False, 0, 0, physical=True)
@@ -151,19 +160,20 @@ REVIEW_CASES = [
 ]
 
 
-def seed_reviews(store: Store, rid: str):
+def seed_reviews(store: Store, rid: str, cases=REVIEW_CASES):
     if store.records(rid, 'requirement'):
         return
     task = store.add_task(rid, 'fixed_review_input', {}, wave='experiment_input')
     store.start_task(task)
     records = []
-    for slug, title, statement, criteria, lines, _ in REVIEW_CASES:
+    for case in cases:
+        slug, title, statement, criteria, lines, _ = case[:6]
         evidence = refs(store, rid, lines)
         for eid in evidence:
             store.note_read(task, eid)
         records.append(Requirement(id=rid + '_' + slug, title=title, module='ServiceAccount token lifecycle',
-            statement=statement, acceptance_criteria=criteria, origin='EXPLICIT_DESIGN', evidence_ids=evidence,
-            rationale='待独立复核的设计要求，依据为所附设计原文。'))
+            statement=statement, acceptance_criteria=criteria, origin=case[6] if len(case) > 6 else 'EXPLICIT_DESIGN', evidence_ids=evidence,
+            rationale=case[7] if len(case) > 7 else '待独立复核的设计要求，依据为所附设计原文。'))
     store.commit_output(task, 'requirement_generator', StageOutput(records=records, summary='Shared review input'))
 
 
@@ -174,7 +184,8 @@ async def stage(scheduler: Scheduler, rid: str, role: str, scope: dict):
 
 async def experiment(directory: Path, port: int):
     prepare(directory)
-    tasks = [('pipeline', 1, '0.2.0'), ('pipeline', 1, '0.3.0'),
+    plan = json.loads((directory / 'plan.json').read_text())
+    tasks = plan.get('tasks') or [('pipeline', 1, '0.2.0'), ('pipeline', 1, '0.3.0'),
              ('pipeline', 2, '0.3.0'), ('pipeline', 2, '0.2.0'),
              ('isolated_generator', 1, '0.2.0'), ('isolated_generator', 1, '0.3.0'),
              ('review', 1, '0.3.0'), ('review', 1, '0.2.0')]
@@ -197,8 +208,9 @@ async def experiment(directory: Path, port: int):
                 seed_facts(store, run['id'], directory)
                 await stage(scheduler, run['id'], 'requirement_generator', {'scope': 'system_and_cross_module_relationships'})
             else:
-                seed_reviews(store, run['id'])
-                for slug, *_ in REVIEW_CASES:
+                cases = plan.get('review_cases') or REVIEW_CASES
+                seed_reviews(store, run['id'], cases)
+                for slug, *_ in cases:
                     try:
                         await stage(scheduler, run['id'], 'requirement_reviewer', {'subject_ids': [run['id'] + '_' + slug]})
                     except Exception as exc:
@@ -229,7 +241,8 @@ async def experiment(directory: Path, port: int):
 
 async def generated_reviews(directory: Path, port: int):
     """Secondary exploratory extension, recorded separately from frozen primary outputs."""
-    for version in ['0.2.0', '0.3.0']:
+    plan = json.loads((directory / 'plan.json').read_text())
+    for version in plan.get('generated_review_versions', plan['versions']):
         name = 'pipeline-r1-v' + version
         target = directory / 'outputs' / ('generated-reviews-v' + version + '.json')
         if target.exists():

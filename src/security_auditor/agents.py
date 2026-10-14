@@ -33,9 +33,40 @@ def stage_schema(role: str):
 
 
 @lru_cache
-def submission_model(role: str):
+def submission_model(role: str, structured_sources: bool = False):
     """Homogeneous record lists avoid provider union-branch field mixing."""
     if len(ALLOWED_KINDS[role]) == 1:
+        if structured_sources and role in {'design_analyst', 'requirement_generator', 'requirement_reviewer'}:
+            from .domain import Fact, Requirement, Review, SourceObligation, ClaimReview, LogicComparison
+            if role == 'requirement_generator':
+                criterion = create_model('SourceCriterion', __base__=StrictModel,
+                    criterion=(str,Field(min_length=1)), source=(SourceObligation,Field()))
+                record = create_model(role + 'SourceRecord', __base__=StrictModel, **{
+                    **{key:(field.annotation,field) for key,field in Requirement.model_fields.items()
+                       if key not in {'acceptance_criteria','source_obligations'}},
+                    'statement_source':(SourceObligation,Field()),
+                    'acceptance_criteria':(list[criterion],Field(min_length=1))})
+                return create_model(role + 'SourceSubmission', __base__=ModelStageOutput,
+                                    records=(list[record],Field(description='Every criterion paired with its own source constraints')))
+            base = {'design_analyst': Fact, 'requirement_generator': Requirement, 'requirement_reviewer': Review}[role]
+            key, item = ('claim_reviews', ClaimReview) if role == 'requirement_reviewer' else ('source_obligations', SourceObligation)
+            if role == 'requirement_reviewer':
+                item = create_model('SourceClaimReview', __base__=ClaimReview,
+                                    logic_comparisons=(list[LogicComparison], Field(min_length=1)))
+            record = create_model(role + 'SourceRecord', __base__=base, **{key: (list[item], Field(min_length=1))})
+            return create_model(role + 'SourceSubmission', __base__=ModelStageOutput,
+                                records=(list[record], Field(description='Complete source-grounded results')))
+        if role in {'design_analyst', 'requirement_generator', 'requirement_reviewer'}:
+            # Archived skill revisions keep their original output protocol.
+            # Do not expose v4 fields to a baseline that predates those methods.
+            from . import domain
+            kind = next(iter(ALLOWED_KINDS[role]))
+            base = getattr(domain, kind.capitalize())
+            legacy = create_model(kind.capitalize(), __base__=StrictModel, **{
+                key: (field.annotation, field) for key, field in base.model_fields.items()
+                if key not in {'source_obligations', 'claim_reviews'}})
+            return create_model(role + 'LegacySubmission', __base__=ModelStageOutput,
+                                records=(list[legacy], Field(description='Explicit scoped results')))
         return stage_schema(role)
     from . import domain
     groups = create_model(role + 'RecordGroups', __base__=StrictModel, **{
@@ -83,8 +114,25 @@ def scoped_checker_submission_model(requirement_id: str):
                         summary=(str,Field(min_length=1)))
 
 
-def parse_submission(role: str, value) -> StageOutput:
-    schema = submission_model(role)
+@lru_cache
+def scoped_review_submission_model(subject_id: str, criterion_count: int):
+    from .domain import Review, ClaimReview, LogicComparison
+    entry = create_model('ScopedClaimReview', __base__=StrictModel, **{
+        **{key:(field.annotation,field) for key,field in ClaimReview.model_fields.items()
+           if key not in {'claim','claim_index','logic_comparisons'}},
+        'logic_comparisons':(list[LogicComparison],Field(min_length=1))})
+    slots = create_model('ScopedClaimSlots', __base__=StrictModel, **{
+        key:(entry,Field()) for key in ['statement', *[f'criterion_{i+1}' for i in range(criterion_count)]]})
+    record = create_model('ScopedSourceReview', __base__=StrictModel, **{
+        **{key:(field.annotation,field) for key,field in Review.model_fields.items()
+           if key not in {'subject_id','claim_reviews'}},
+        'subject_id':(Literal[subject_id],Field()), 'claim_reviews':(slots,Field())})
+    return create_model('ScopedReviewSubmission', __base__=ModelStageOutput,
+                        records=(list[record],Field(min_length=1,max_length=1)))
+
+
+def parse_submission(role: str, value, *, structured_sources: bool = False) -> StageOutput:
+    schema = submission_model(role, structured_sources)
     parsed = schema.model_validate_json(value) if isinstance(value, str) else schema.model_validate(value)
     if len(ALLOWED_KINDS[role]) == 1:
         return parsed
@@ -120,8 +168,15 @@ class AdkExecutor:
         owned_check = task['scope']['requirement_id'] if bundle.skill_id=='requirement_checker' else None
         schema = (scoped_checker_submission_model(owned_check) if owned_check else
                   scoped_pci_submission_model(owned_provenance['clause_ids'][0]) if owned_provenance else
-                  submission_model(bundle.skill_id))
+                  submission_model(bundle.skill_id, structured_sources=bundle.version == '0.4.0'))
+        if bundle.skill_id == 'requirement_reviewer' and bundle.version == '0.4.0':
+            subjects = task['scope'].get('subject_ids', [])
+            if len(subjects) == 1:
+                target = next(r for r in self.store.records(run_id,'requirement') if r['id'] == subjects[0])
+                schema = scoped_review_submission_model(subjects[0], len(target['acceptance_criteria']))
         references = SourceReferences()
+        storage_schema = stage_schema(bundle.skill_id) if bundle.version == '0.4.0' else schema
+        submitted_via_tool = False
         invocation_reads: set[str] = set()
         instruction_observed = False
 
@@ -139,6 +194,34 @@ class AdkExecutor:
             if required_reads - invocation_reads:
                 raise OutputContractError('本阶段指定的设计材料尚未全部读取，不能提交已完成结果')
 
+        def project_submission(value, *, receipt=False):
+            if bundle.version != '0.4.0':
+                return value
+            import copy
+            from .output_projection import project_empty_extras, resolve_claim_indices
+            value, removed = copy.deepcopy(value), []
+            targets = {r['id']: r for r in self.store.records(run_id, 'requirement')
+                       if r['id'] in task['scope'].get('subject_ids', [])}
+            if bundle.skill_id == 'requirement_reviewer':
+                for index, record in enumerate(value.get('records', [])):
+                    target = targets.get(record.get('subject_id'), {})
+                    for key in ('origin', 'clause_ids'):
+                        if key in record and key in target:
+                            if record[key] != target[key]:
+                                raise OutputContractError('复核返回的来源注释与原需求冲突')
+                            removed.append({'path':['records',index,key], 'value':record.pop(key),
+                                            'rule':'exact_target_annotation_echo'})
+            value, empty_removed = project_empty_extras(value, schema.model_json_schema())
+            removed.extend(empty_removed)
+            schema.model_validate(value)
+            value = resolve_claim_indices(value, bundle.skill_id, targets)
+            if receipt and removed:
+                self.store.save_model_output(task['id'], json.dumps({
+                    'transport':'stage_output_projection_v1', 'removed':removed,
+                    'rule':'Undeclared empty decoration or exact target-owned annotation only; no analytical values changed'},
+                    ensure_ascii=False))
+            return value
+
         def submission_schema():
             result = schema.model_json_schema()
             read_ids = sorted(invocation_reads)
@@ -147,6 +230,32 @@ class AdkExecutor:
                 self.store.read_evidence(run_id,eid)['source_type']=='code' for eid in read_ids)
             for definition in result.get('$defs', {}).values():
                 fields = definition.get('properties', {})
+                if bundle.version == '0.4.0' and ('source_obligations' in fields or 'claim_reviews' in fields or 'statement_source' in fields):
+                    for key in ('evidence_ids', 'engine', 'native_id', 'native_status', 'native_data'):
+                        fields.pop(key, None)
+                    definition['required'] = [key for key in definition.get('required', []) if key in fields]
+                if bundle.version == '0.4.0' and 'claim_index' in fields:
+                    if bundle.skill_id == 'requirement_reviewer':
+                        fields.pop('claim', None)
+                        fields['claim_index'] = {'type':'integer', 'minimum':0,
+                            'description':'0 = statement, 1..N = acceptance criteria in exact order; cover each index once'}
+                        if bundle.skill_id == 'requirement_reviewer':
+                            counts = [len(r['acceptance_criteria']) for r in self.store.records(run_id,'requirement')
+                                      if r['id'] in task['scope'].get('subject_ids', [])]
+                            if counts:
+                                fields['claim_index']['enum'] = list(range(max(counts) + 1))
+                    elif bundle.skill_id == 'requirement_generator':
+                        fields.pop('claim', None)
+                        fields.pop('claim_index', None)
+                    else:
+                        fields.pop('claim_index', None)
+                    definition['required'] = [key for key in definition.get('required', []) if key in fields]
+                if bundle.version == '0.4.0' and 'quote_id' in fields and 'text' in fields:
+                    definition['properties'] = {'quote_id': {'type': 'string',
+                        'description': 'Exact Qxxxxx paragraph ID from the current read_evidence result',
+                        **({'enum': list(references.by_quote)} if references.by_quote else {'pattern': '^Q[0-9]{5}$'})}}
+                    definition['required'] = ['quote_id']
+                    continue
                 if bundle.skill_id=='requirement_checker' and 'id' in fields:
                     fields['id']['pattern'] = '^'+task['id']+'_[a-zA-Z0-9_-]+$'
                     fields['id']['description'] = 'New result ID in the current task namespace; never reuse an upstream requirement ID'
@@ -174,6 +283,8 @@ class AdkExecutor:
                 for name in ('evidence_ids', 'counter_evidence_ids'):
                     if name in fields and allowed:
                         fields[name]['items']['enum'] = references.encode(allowed)
+                if 'evidence_id' in fields and allowed:
+                    fields['evidence_id']['enum'] = references.encode(allowed)
                 if 'subject_id' in fields and task['scope'].get('subject_ids'):
                     fields['subject_id']['enum'] = task['scope']['subject_ids']
                 if 'clause_id' in fields and task['scope'].get('clause_ids'):
@@ -200,15 +311,17 @@ class AdkExecutor:
                     parameters_json_schema=submission_schema())
 
             async def run_async(self, *, args, tool_context):
+                nonlocal submitted_via_tool
                 # Validation errors stop the run, never return repair feedback to a model.
                 try:
                     verify_material_completion()
-                    result = schema.model_validate(references.decode_submission(args))
+                    result = storage_schema.model_validate(references.decode_submission(project_submission(args, receipt=True), quote_handles_required=bundle.version == '0.4.0'))
                 except (ValueError, OutputContractError) as exc:
                     failure = exc if isinstance(exc, OutputContractError) else OutputContractError('模型提交的阶段结果未通过结构化校验')
                     failures.append(failure)
                     raise failure from None
                 tool_context.actions.set_model_response = result.model_dump()
+                submitted_via_tool = True
                 return result.model_dump()
 
         def list_evidence(source_type: str = "", page: int = 1, page_size: int = 30) -> dict:
@@ -230,6 +343,11 @@ class AdkExecutor:
                 raise ValueError("此角色不能读取该类材料")
             self.store.note_read(task["id"], row['id'])
             invocation_reads.add(row['id'])
+            if bundle.version == '0.4.0' and row['source_type'] in {'document', 'standard'}:
+                row['passages'] = references.register_quotes(row)
+                row.pop('content')  # All original paragraphs are present once, not duplicated.
+                self.store.save_model_output(task['id'], json.dumps({'transport': 'quote_reference_catalog_v1',
+                    'references': references.by_quote}, ensure_ascii=False))
             text = json.dumps(references.encode(row), ensure_ascii=False)
             return wrap_untrusted_content(SecretScrubber.scrub(text), filename=row["locator"])
 
@@ -402,7 +520,7 @@ class AdkExecutor:
             else:
                 self.store.save_model_output(task['id'], ''.join(part.text or '' for part in parts))
             try:
-                validate_native_response(llm_response, schema)
+                validate_native_response(llm_response, storage_schema, projector=project_submission)
             except OutputContractError as exc:
                 failures.append(exc)
                 raise
@@ -570,9 +688,15 @@ class AdkExecutor:
                     payload['records'] = [{**record, **owned_provenance} for record in payload['records']]
                     parsed = stage_schema(bundle.skill_id).model_validate(payload)
                 else:
-                    parsed = parse_submission(bundle.skill_id, final)
+                    if bundle.version == '0.4.0':
+                        payload = json.loads(final)
+                        if not submitted_via_tool:
+                            payload = project_submission(payload, receipt=True)
+                        parsed = storage_schema.model_validate(payload)
+                    else:
+                        parsed = parse_submission(bundle.skill_id, final)
                 output = stage_schema(bundle.skill_id).model_validate(
-                    references.decode_submission(parsed.model_dump()))
+                    references.decode_submission(parsed.model_dump(), quote_handles_required=bundle.version == '0.4.0'))
                 if any(eid not in invocation_reads for record in output.records
                        for eid in record.evidence_ids+getattr(record,'counter_evidence_ids',[])):
                     raise OutputContractError('引用的原始来源尚未在本次调用中读取，阶段未完成')

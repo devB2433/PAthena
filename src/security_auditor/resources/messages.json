@@ -201,5 +201,10 @@
   "代码检查依据不足": "Insufficient code evidence",
   "无法通过代码验证": "Cannot verify from code",
   "标准控制": "Standard control",
-  "该安全要求依赖实际部署或运营状态，无法通过代码验证。": "This security requirement depends on deployed or operational state and cannot be verified from code."
+  "该安全要求依赖实际部署或运营状态，无法通过代码验证。": "This security requirement depends on deployed or operational state and cannot be verified from code.",
+  "原文支持": "Supported by source",
+  "与原文或需求冲突": "Conflicts with source or requirement",
+  "依据不成立": "Unsupported claim",
+  "材料不足": "Insufficient context",
+  "原文与判定依据": "Source and reasoning"
 }

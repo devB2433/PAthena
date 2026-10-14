@@ -94,8 +94,8 @@ async def test_invalid_first_batch_stops_queued_model_calls_but_keeps_inventory(
 
 
 def test_output_allowance_is_separate_from_total_token_budget(settings):
-    assert settings.agent_output_tokens == 16384
-    assert replace(settings, max_tokens=0).agent_output_tokens == 16384
+    assert settings.agent_output_tokens == 32768
+    assert replace(settings, max_tokens=0).agent_output_tokens == 32768
     for invalid in (4095, 32769):
         with pytest.raises(ValueError):
             replace(settings, agent_output_tokens=invalid)

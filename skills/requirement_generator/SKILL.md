@@ -1,6 +1,6 @@
 ---
 name: requirement_generator
-version: 0.3.0
+version: 0.4.0
 description: 从设计事实和原文建立原子安全要求，以威胁场景推导补充控制，并给出逐项可检查的验收条件。
 ---
 
@@ -88,3 +88,40 @@ description: 从设计事实和原文建立原子安全要求，以威胁场景�
 完成 required_document_reads 后提交。所有需求引用本次实际读取的设计原文；rationale 说明控制目的、来源分类和必要前提。最终结构以 set_model_response 的工具声明为准，不输出实现状态或风险评级，不在提交后追加模型解释。
 
 使用 read_evidence_batch 完成剩余来源，用 search_evidence 分页定位关联章节。read_upstream_records 的 remaining_ids 也要继续处理。references/cases.md 给出原子化、条件保留和错误推导案例。
+
+## [REQUIREMENT_GENERATOR-09] 对正文和每条验收项建立原文约束账本
+
+source_obligations 必须恰好逐一对应 statement 和每一条 acceptance_criteria，claim 逐字复制目标文本。每项填写 quotes、subject、action、modality、conditions、quantifier、trigger、time_anchor、exceptions。quote.text 是本次已读来源中的连续原文；保持原语言，不翻译引文、不把上游 Fact 的摘要当引文。一个约束需要多处依据时用多条 quotes。
+
+重读原文后独立建立这份账本，再对照 Fact；Fact 与原文冲突时以原文为依据，并把上游漂移写入 gaps。先确定控制的逻辑，再成文：
+
+- 资格筛选采用逐谓词检查。正向条件与负向条件分别写入 conditions；括号里的定义不得被后面的否定吞掉。“已登记且未挂载”不能生成“未登记且未挂载”。
+- 量词覆盖准确的主体集合。“全部节点启用才开始”和“任意节点关闭即停止”分别写清，不缩写为“开关决定状态”。
+- 写出事件 → 前提 → 动作 → 后置状态。失败尝试发生的动作不能改写成恢复成功后的动作。
+- 每个等待阶段记录开始事件、可配置周期、重置事件。二次等待从第一次状态改变起算时，不可沿用初始闲置时间。
+- 每项都须在其规范文本中保留成立条件和例外。rationale 或结构化账本写对但验收项遗漏条件，仍是不完整需求。
+- 默认值、示例值、建议方式和可能的替代方案不能变成唯一强制配置。可配置的默认周期须明确可配置；A 或 B 不能验收为 A 且 B。
+
+推导控制使用 INFERRED_SECURITY 和 INFERRED modality，quotes 支持其业务对象和风险前提，rationale 给出风险链。推导的授权约束必须保留原文许可的管理员恢复、运维读取和其他合法操作；不要把“防止未授权修改”写成“只准某组件读取/写入”。原文没有恢复追溯策略、算法或部署阈值时，不加未经支持的策略。
+
+最后做正文与验收项的两向对照：每一项是否比正文更强或相反？所有验收项同时成立是否可能？把每项条件反转、ALL/ANY 互换或时钟起点移动，哪一条原文会直接反驳？无法找到依据时收回额外明确承诺，或保持有具体风险链的独立推导需求，不能用“实现细节”掩盖新增约束。
+
+## 原文段落引用协议（本节优先于手工复制引文的示例）
+
+read_evidence/read_evidence_batch 为每个原始段落返回 quote_id（Q00001 等）与完整 text。所有原文段落按原顺序提供，段落编号用于引用，不要求分段开展业务分析。sources 的 S 编号仍用于读取与 evidence_ids。
+
+最终 quotes 只提交 [{"quote_id":"本次已读段落的 Q 编号"}]。不要自己生成、抄写、翻译或拼接 text，不额外填 evidence_id；程序按固定查找表还原该段原文及其来源入库。这只是精确引用投影，没有推理、纠错或翻译。需要多段支持时选多个段落，必须真正支持本条主张，不能只选同话题段落。
+
+Q 编号属于当前调用，不能照抄案例、其他任务或上游产物的 Q 编号。先实际读取原文，选择返回表中的编号；没有读到的段落不可引用。未读、伪造或相互冲突的引用直接失败，不会再调用模型修复。原文语义、条件、例外和判定仍由你负责；精确引用不能保证主张受支持。
+
+## 正文和验收项的编号绑定（提交协议优先）
+
+生成角色的 source_obligations 与复核角色的 claim_reviews 都提交 claim_index：0 代表本需求 statement，1..N 按顺序代表 acceptance_criteria。每个编号必须恰好一次，不能重复、跳号或越界；一项有多个子约束，在同一个编号下给出所需原文、条件或逻辑对照。不要生成或抄写 claim 字段。程序按编号绑定原始规范文本入库，不修改 statement、验收项、条件、理由、问题码或判定。复核不更改被审查需求。
+
+记录的 evidence_ids 由已选择 Q 段落的原始来源编号确定性归集，最终工具不要求你重复填写根层 evidence_ids；读取工具仍使用 S 编号。不得因为有精确段落编号而跳过语义判断。其他分析字段全部保持你的原始判断；程序不推导规范强度、条件、结论或问题类型。
+
+## 生成提交的成对结构（覆盖前面生成阶段的平行编号列表示例）
+
+生成结果用 statement_source 保存正文的原文约束；acceptance_criteria 是对象列表，每个对象同时包含 criterion（验收文本）和 source（这条验收文本的原文约束）。source 与 statement_source 都包含 quotes、subject、action、modality、conditions、quantifier、trigger、time_anchor、exceptions。quotes 仅选当前已读 Q 段落。
+
+不要提交独立 source_obligations 数组，也不生成 claim 或 claim_index。这些编号与规范文本由成对结构确定性关联入库。源约束必须与同一个对象的 criterion 对应，不得用另外一个验收项的依据冒充。本结构把每条验收项和其来源放在一起，不会因为遗漏平行列表的最后一项而错配；生成者仍须确保约束真实、完整且独立。

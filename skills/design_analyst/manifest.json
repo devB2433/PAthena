@@ -1,14 +1,15 @@
 {
   "id": "design_analyst",
-  "version": "0.3.0",
-  "sha256": "8eac741195a60b5d09f85427fcce881d41a861981ea47f2a0ac7b2d0e2e559c2",
+  "version": "0.4.0",
+  "sha256": "52362b42dfbb379d5ab4df3522ed3ac089d1f2b2dfb717d9cf4a8cedd0005eb3",
   "mandatory_rules": [
     "METHOD",
     "DESIGN_ANALYST-01",
     "DESIGN_ANALYST-02",
     "DESIGN_ANALYST-03",
     "DESIGN_ANALYST-04",
-    "DESIGN_ANALYST-05"
+    "DESIGN_ANALYST-05",
+    "DESIGN_ANALYST-06"
   ],
   "source": {
     "repository": "google/mantis",
@@ -18,9 +19,9 @@
   },
   "profile": "static",
   "output_schema": "StageOutput",
-  "revision": "role-specific-investigation-manuals-v3",
+  "revision": "source-obligation-and-per-claim-review-v4",
   "references": {
-    "references/cases.md": "39d9c21e174efa5f3e83ede7a09862977c97e283494aa98d37e21ff047441405"
+    "references/cases.md": "71295bf52ab23bfc46a2e71e8b386ea70abcfc1868bd04b33e86f1faad458f4f"
   },
   "derivation": "Project-authored role method; cited upstream is a methodological reference, not a verbatim port."
 }
