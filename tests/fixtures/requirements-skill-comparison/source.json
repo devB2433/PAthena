@@ -1,0 +1,10 @@
+{
+  "repository": "kubernetes/enhancements",
+  "path": "keps/sig-auth/2799-reduction-of-secret-based-service-account-token/README.md",
+  "commit": "cc0bf79747754951d2604c2e2780ef7c4cb3d58a",
+  "url": "https://github.com/kubernetes/enhancements/blob/cc0bf79747754951d2604c2e2780ef7c4cb3d58a/keps/sig-auth/2799-reduction-of-secret-based-service-account-token/README.md",
+  "sha256": "682d082cfbaf202b2baf6fc03ea5377b6c247f926d353126f09e5990e4c69fb3",
+  "lines": 505,
+  "bytes": 19499,
+  "selection": "New real design document; not used for skill drafting; includes conditions, exceptions and lifecycle transitions."
+}

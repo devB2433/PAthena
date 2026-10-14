@@ -45,3 +45,31 @@ Scripted model responses establish contract behavior, not semantic accuracy.
 These methods have not yet received an independent real-model accuracy study;
 length or number of checks is not evidence of equal accuracy to the original
 code-audit system. Existing reports remain tied to their original skill versions.
+
+## Real-model pilot, 2026-10-14
+
+The pinned 505-line KEP-2799 document was tested with the same production
+executor, deepseek-flash, Chinese output, temperature 0 and disabled thinking.
+The reference behaviors were fixed before responses. Two paired rounds fully
+retained 12 / 9 of 13 behaviors with 0.2.0 and 12 / 12 with 0.3.0. Mean tokens
+for design plus generation rose 16.46%. With identical fixed design facts,
+full behavior coverage was 12 / 13 versus 13 / 13; those facts deliberately
+contain the expected behaviors and do not test document extraction.
+
+Both reviewers got six fixed source-backed challenge cases right. Reviewing
+every first-round generated draft was a separate exploratory extension:
+the old reviewer accepted two requirements with reversed association conditions;
+the new reviewer accepted an additional recovery policy unsupported by the
+document. Each version also had one round with the association condition
+reversed in an upstream Fact. Longer instructions and rationales did not
+eliminate semantic errors or ensure effective independent review.
+
+The development agent authored the gold criteria and adjudicated outputs. This
+was not blind, independent human-expert acceptance. All raw outputs remain
+unchanged in an isolated local experiment, and no production projects were
+created. See `tools/evaluate_requirement_skills.py` and
+`tests/fixtures/requirements-skill-comparison/README.md`. The actual skill
+files were verified against their pinned Git revisions, not substituted by
+evaluation summaries. These results call for additional source-condition
+fidelity and review tests on fresh documents, not prompt tuning on KEP-2799
+followed by a claim of independent validation.

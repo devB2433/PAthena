@@ -1,0 +1,242 @@
+{
+  "protocol": "requirements_skill_comparison_v1",
+  "baseline_commit": "d5611bc",
+  "candidate_commit": "beb40cc",
+  "versions": [
+    "0.2.0",
+    "0.3.0"
+  ],
+  "language": "zh-CN",
+  "model": "deepseek-flash",
+  "runtime": "same current production AdkExecutor, tools, source gates and schema for both arms",
+  "primary": "Two paired end-to-end design_analyst -> requirement_generator rounds; order reversed in round two",
+  "isolation": "One additional requirement_generator run per arm using identical frozen design facts",
+  "review": "Six identical original-source-backed challenge requirements per arm, one task per requirement",
+  "source": "source.json",
+  "scoring": "Ground truth frozen before responses; manual source-based assessment, no grading model; coverage 0/0.5/1, preserve all required conditions for full credit; each output requirement independently classified for source faithfulness, atomicity, checkability and duplication",
+  "scope": "Design/security requirements only. No standard catalog matching or code scanning.",
+  "positives": [
+    {
+      "id": "G01",
+      "behavior": "启用对应功能时停止自动生成 Secret 令牌",
+      "source_lines": [
+        82,
+        91,
+        133,
+        137
+      ],
+      "full_credit": [
+        "控制自动生成行为",
+        "保留功能条件"
+      ]
+    },
+    {
+      "id": "G02",
+      "behavior": "保留显式请求的 Secret 令牌，不把它们纳入自动清理",
+      "source_lines": [
+        85,
+        87,
+        205,
+        209
+      ],
+      "full_credit": [
+        "排除手动/显式请求令牌"
+      ]
+    },
+    {
+      "id": "G03",
+      "behavior": "清理范围限定为双向关联的自动生成令牌且不被 Pod 挂载/引用",
+      "source_lines": [
+        103,
+        107,
+        159,
+        160
+      ],
+      "full_credit": [
+        "自动生成与双向关联",
+        "Pod 引用或挂载例外"
+      ]
+    },
+    {
+      "id": "G04",
+      "behavior": "跟踪 ConfigMap 不可用时禁止删除 Secret",
+      "source_lines": [
+        171,
+        171,
+        460,
+        464
+      ],
+      "full_credit": [
+        "数据不足时停止破坏性删除"
+      ]
+    },
+    {
+      "id": "G05",
+      "behavior": "按可配置闲置周期标记失效，保留默认值与可配置性的区别",
+      "source_lines": [
+        125,
+        129,
+        162,
+        164
+      ],
+      "full_credit": [
+        "闲置条件",
+        "可配置周期",
+        "默认一年不是不可更改"
+      ]
+    },
+    {
+      "id": "G06",
+      "behavior": "最后使用时间以跟踪 since 为下界，缺失/更早时回退 since",
+      "source_lines": [
+        166,
+        169
+      ],
+      "full_credit": [
+        "仅采用晚于 since 的 last-used",
+        "否则使用 since"
+      ]
+    },
+    {
+      "id": "G07",
+      "behavior": "失效状态记录 invalid-since 日期",
+      "source_lines": [
+        173,
+        175
+      ],
+      "full_credit": [
+        "失效标记与日期"
+      ]
+    },
+    {
+      "id": "G08",
+      "behavior": "使用失效令牌时验证器返回错误及恢复/替代路径提示",
+      "source_lines": [
+        176,
+        180
+      ],
+      "full_credit": [
+        "失效鉴别",
+        "错误信息",
+        "恢复或 TokenRequest 提示"
+      ]
+    },
+    {
+      "id": "G09",
+      "behavior": "失效令牌使用尝试也更新 last-used 日期",
+      "source_lines": [
+        176,
+        180
+      ],
+      "full_credit": [
+        "失效尝试仍更新使用日期"
+      ]
+    },
+    {
+      "id": "G10",
+      "behavior": "标记失效后仍未使用且再经过配置周期才最终删除",
+      "source_lines": [
+        181,
+        183
+      ],
+      "full_credit": [
+        "失效后再次等待周期",
+        "仍未使用"
+      ]
+    },
+    {
+      "id": "G11",
+      "behavior": "最终删除前允许在恢复窗口重新激活令牌",
+      "source_lines": [
+        125,
+        129,
+        176,
+        180
+      ],
+      "full_credit": [
+        "恢复窗口",
+        "更新标签恢复"
+      ]
+    },
+    {
+      "id": "G12",
+      "behavior": "跟踪启用时记录使用：警告、按日期更新 last-used 与指标",
+      "source_lines": [
+        146,
+        151
+      ],
+      "full_credit": [
+        "跟踪条件",
+        "警告",
+        "日期粒度",
+        "指标"
+      ]
+    },
+    {
+      "id": "G13",
+      "behavior": "全部 API Server 启用跟踪才建立 since；任一禁用时周期删除 ConfigMap",
+      "source_lines": [
+        146,
+        155
+      ],
+      "full_credit": [
+        "全部启用条件",
+        "记录 since",
+        "任一禁用删除"
+      ]
+    }
+  ],
+  "traps": [
+    {
+      "id": "T01",
+      "behavior": "清理所有手动创建/显式请求令牌"
+    },
+    {
+      "id": "T02",
+      "behavior": "清理仍被 Pod 引用/挂载的令牌"
+    },
+    {
+      "id": "T03",
+      "behavior": "把默认一年变成管理员不可调整的固定值"
+    },
+    {
+      "id": "T04",
+      "behavior": "失效即立即删除，取消恢复/二次等待阶段"
+    },
+    {
+      "id": "T05",
+      "behavior": "因为设计涉及令牌就声称 PCI DSS 正式适用"
+    },
+    {
+      "id": "T06",
+      "behavior": "强制所有消费者只用 TokenRequest，禁止原文允许的手动 Secret 请求"
+    },
+    {
+      "id": "T07",
+      "behavior": "将发布审批、测试覆盖率或测试计划直接当作产品安全需求"
+    },
+    {
+      "id": "T08",
+      "behavior": "用文中仅供参考的指标决定自动回滚"
+    }
+  ],
+  "ambiguity": [
+    {
+      "id": "A01",
+      "description": "Integration-test summary says unused tokens deleted after one cleanup interval, while detailed design specifies invalidation then another interval; preserve/report the apparent lifecycle ambiguity rather than inventing a final policy.",
+      "source_lines": [
+        173,
+        183,
+        198,
+        202
+      ]
+    }
+  ],
+  "limitations": [
+    "One document, two end-to-end repeats, one isolated repeat; no significance/general accuracy claim.",
+    "The same author prepared gold criteria and scores; not independent expert adjudication.",
+    "Security hardening inferred beyond text is not automatically wrong; it must be labeled inferred with an actual design risk chain.",
+    "Shared current transport gates isolate prompt effects; this is not a comparison of historical software releases."
+  ],
+  "results_policy": "Keep original failed submissions and raw results; no semantic repair, selective reruns or prompt tuning on this document."
+}
