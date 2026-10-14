@@ -70,15 +70,29 @@ def test_application_skills_are_versioned_complete_methods_and_legacy_audit_role
     loader = SkillLoader(ROOT / 'skills')
     assert {r['id'] for r in loader.catalog()} == set(PROJECT_ROLES)
     for row in loader.catalog():
-        assert row['version'] == '0.2.0'
+        assert row['version'] == '0.3.0'
         bundle = loader.resolve(row['id'], row['id'], row['version'])
         prompt, _ = compile_instruction(bundle)
         assert bundle.instruction in prompt and '[METHOD]' in bundle.instruction
+        source = ROOT / 'skills' / row['id'] / 'references/cases.md'
+        assert source.read_text() in prompt
     for role in ['code_architect', 'threat_modeler', 'vulnerability_planner', 'vulnerability_researcher',
                  'finding_reviewer', 'finding_critic', 'risk_calibrator']:
         assert not (ROOT / 'skills' / role).exists()
         with pytest.raises(ValueError):
-            loader.resolve(role, role, '0.2.0')
+            loader.resolve(role, role, '0.3.0')
+
+
+@pytest.mark.parametrize('missing', [False, True])
+def test_application_reference_is_mandatory_and_cannot_be_shortened(tmp_path, missing):
+    shutil.copytree(ROOT / 'skills', tmp_path / 'skills')
+    cases = tmp_path / 'skills/requirement_checker/references/cases.md'
+    if missing:
+        cases.unlink()
+    else:
+        cases.write_text('Summary instead of the original role cases')
+    with pytest.raises((ValueError, FileNotFoundError)):
+        SkillLoader(tmp_path / 'skills').resolve('requirement_checker', 'requirement_checker', '0.3.0')
 
 
 def test_static_grep_bridge_preserves_full_call_site_inventory_and_snapshot_bounds(tmp_path):

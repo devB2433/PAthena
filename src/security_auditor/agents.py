@@ -8,7 +8,7 @@ from typing import Annotated, Union, Literal
 from .config import Settings
 from .domain import ALLOWED_SOURCES, ALLOWED_KINDS, StageOutput, Record, StrictModel
 from pydantic import Field, create_model
-from .skills import SkillBundle, compile_instruction
+from .skills import SkillBundle, compile_instruction, digest
 from .store import Store
 from .source_references import SourceReferences
 from .model_contract import accounted_response
@@ -123,6 +123,7 @@ class AdkExecutor:
                   submission_model(bundle.skill_id))
         references = SourceReferences()
         invocation_reads: set[str] = set()
+        instruction_observed = False
 
         def source_ids():
             identifiers = [e['id'] for e in self.store.evidence(run_id) if e['source_type'] in allowed_sources]
@@ -130,6 +131,13 @@ class AdkExecutor:
             return identifiers
 
         source_ids()
+        required_reads = (set(task['scope'].get('evidence_ids', [])) if bundle.skill_id == 'design_analyst'
+                          else {e['id'] for e in self.store.evidence(run_id, 'document')}
+                          if bundle.skill_id == 'requirement_generator' else set())
+
+        def verify_material_completion():
+            if required_reads - invocation_reads:
+                raise OutputContractError('本阶段指定的设计材料尚未全部读取，不能提交已完成结果')
 
         def submission_schema():
             result = schema.model_json_schema()
@@ -194,8 +202,9 @@ class AdkExecutor:
             async def run_async(self, *, args, tool_context):
                 # Validation errors stop the run, never return repair feedback to a model.
                 try:
+                    verify_material_completion()
                     result = schema.model_validate(references.decode_submission(args))
-                except ValueError as exc:
+                except (ValueError, OutputContractError) as exc:
                     failure = exc if isinstance(exc, OutputContractError) else OutputContractError('模型提交的阶段结果未通过结构化校验')
                     failures.append(failure)
                     raise failure from None
@@ -224,17 +233,19 @@ class AdkExecutor:
             text = json.dumps(references.encode(row), ensure_ascii=False)
             return wrap_untrusted_content(SecretScrubber.scrub(text), filename=row["locator"])
 
-        def search_evidence(query: str, source_type: str = "", limit: int = 20) -> dict:
-            """Search local evidence. Search ranking cannot remove inventory obligations."""
+        def search_evidence(query: str, source_type: str = "", limit: int = 20, offset: int = 0) -> dict:
+            """Literal source search with total/has_more/next_offset; read hits separately. Not semantic coverage."""
             # Literal bounded search handles Chinese without a remote embedding service.
-            if len(query) > 200:
-                raise ValueError("查询过长")
+            if not query.strip() or len(query) > 200 or offset < 0:
+                raise ValueError("查询为空、过长或分页位置无效")
+            page_limit = min(max(limit, 1), 50)
+            filters = (run_id, query, query, source_type, source_type, *sorted(allowed_sources))
+            condition = ("run_id=? AND (instr(lower(content),lower(?))>0 OR instr(lower(locator),lower(?))>0) "
+                         "AND (?='' OR source_type=?) AND source_type IN (" + ','.join('?' for _ in allowed_sources) + ")")
+            total = self.store.rows('SELECT count(*) AS n FROM evidence WHERE ' + condition, filters)[0]['n']
             rows = self.store.rows(
-                "SELECT id,source_type,locator FROM evidence WHERE run_id=? "
-                "AND (instr(lower(content),lower(?))>0 OR instr(lower(locator),lower(?))>0) "
-                "AND (?='' OR source_type=?) AND source_type IN (" + ','.join('?' for _ in allowed_sources) + ") "
-                "ORDER BY locator LIMIT ?",
-                (run_id, query, query, source_type, source_type, *sorted(allowed_sources), min(max(limit, 1), 50)),
+                'SELECT id,source_type,locator FROM evidence WHERE ' + condition + ' ORDER BY locator,id LIMIT ? OFFSET ?',
+                (*filters, page_limit, offset),
             )
             source_ids()
             return references.encode({
@@ -243,7 +254,9 @@ class AdkExecutor:
                     for row in rows
                     if row["source_type"] in allowed_sources
                     and (not source_type or row["source_type"] == source_type)
-                ]
+                ], 'total': total, 'has_more': offset + len(rows) < total,
+                'next_offset': offset + len(rows), 'read_required': True,
+                'coverage': 'Literal search of registered source blocks; not semantic reachability or proof of absence.'
             })
 
         def read_evidence_batch(evidence_ids: list[str]) -> dict:
@@ -340,6 +353,12 @@ class AdkExecutor:
             return {"result": wrap_untrusted_content(SecretScrubber.scrub(result["result"]), filename="mantis-model")}
 
         def before_model(callback_context, llm_request):
+            nonlocal instruction_observed
+            if not instruction_observed:
+                with self.store.connect() as db:
+                    db.execute('UPDATE tasks SET instruction_hash=? WHERE id=?',
+                               (digest(str(llm_request.config.system_instruction).encode()), task['id']))
+                instruction_observed = True
             # Source references are a closed set, not text a model may approximate.
             # Bind read-tool arguments too, preserving the original IDs unchanged.
             allowed = references.encode(source_ids())
@@ -510,6 +529,7 @@ class AdkExecutor:
                 'Use read_upstream_records for full original statements, rationale and missing scope facts. '
                 'Only the original sources delivered in design_materials/target_materials or explicitly '
                 'read through source tools can be cited; upstream records are analysis leads.')
+        context = {**context, 'required_document_reads': sorted(required_reads)}
         message = json.dumps(references.encode(context), ensure_ascii=False)
         limit = 160000 if bundle.skill_id in {'pci_mapper', 'pci_requirement_generator'} else 80000
         if len(message.encode()) > limit:
@@ -556,6 +576,7 @@ class AdkExecutor:
                 if any(eid not in invocation_reads for record in output.records
                        for eid in record.evidence_ids+getattr(record,'counter_evidence_ids',[])):
                     raise OutputContractError('引用的原始来源尚未在本次调用中读取，阶段未完成')
+                verify_material_completion()
                 return output
             except OutputContractError:
                 raise

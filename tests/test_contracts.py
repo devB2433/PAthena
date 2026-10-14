@@ -13,7 +13,7 @@ from security_auditor.store import BudgetExceeded
 
 def test_skill_is_full_and_tampering_fails(settings, tmp_path):
     loader = SkillLoader(settings.skills_dir)
-    bundle = loader.resolve("requirement_checker", "requirement_checker", "0.2.0")
+    bundle = loader.resolve("requirement_checker", "requirement_checker", "0.3.0")
     instruction, _ = compile_instruction(bundle)
     assert len(instruction) > 1000
     assert instruction.index("[REQUIREMENT_CHECKER-07]") > 1000
@@ -22,12 +22,12 @@ def test_skill_is_full_and_tampering_fails(settings, tmp_path):
     file = tmp_path / "skills/requirement_checker/SKILL.md"
     file.write_text(file.read_text() + "injected")
     with pytest.raises(ValueError, match="摘要"):
-        SkillLoader(tmp_path / "skills").resolve("requirement_checker", "requirement_checker", "0.2.0")
+        SkillLoader(tmp_path / "skills").resolve("requirement_checker", "requirement_checker", "0.3.0")
 
 
 def test_no_missing_or_incompatible_skill_fallback(settings):
     with pytest.raises(ValueError):
-        SkillLoader(settings.skills_dir).resolve("code_architect", "missing", "0.2.0")
+        SkillLoader(settings.skills_dir).resolve("code_architect", "missing", "0.3.0")
     with pytest.raises(ValueError):
         SkillLoader(settings.skills_dir).resolve("requirement_checker", "requirement_checker", "0.9.0")
 

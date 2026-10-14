@@ -42,10 +42,15 @@ class SkillLoader:
         if digest(content) != manifest["sha256"]:
             raise ValueError("技能内容摘要不匹配")
         instruction = content.decode()
+        for name, expected in sorted(manifest.get('references', {}).items()):
+            resource = contained_file(folder, name).read_bytes()
+            if digest(resource) != expected:
+                raise ValueError('技能参考资料摘要不匹配')
+            instruction += '\n\nROLE METHOD REFERENCE: ' + name + '\n' + resource.decode()
         rule_ids = tuple(manifest["mandatory_rules"])
         if not rule_ids or any(f"[{rule}]" not in instruction for rule in rule_ids):
             raise ValueError("技能缺少必选规则")
-        return SkillBundle(skill_id, version, digest(content), instruction, rule_ids)
+        return SkillBundle(skill_id, version, digest(instruction.encode()), instruction, rule_ids)
 
     def catalog(self) -> list[dict]:
         return [

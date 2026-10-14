@@ -1,15 +1,9 @@
 {
   "id": "requirement_checker",
-  "version": "0.2.0",
-  "sha256": "ef9dbd4c642069cf7e961266ff32e29bdb19ee1bf9cc982d4968bb2b2be85f2d",
+  "version": "0.3.0",
+  "sha256": "20c6aaa11344a20ada6cf53bf534bc91b1cbe5f7f6051160f075764a01099ba0",
   "mandatory_rules": [
-    "SNAPSHOT",
-    "EVIDENCE",
-    "UNKNOWN",
-    "BOUNDARY",
-    "INVENTORY",
-    "STATIC",
-    "OUTPUT",
+    "METHOD",
     "REQUIREMENT_CHECKER-01",
     "REQUIREMENT_CHECKER-02",
     "REQUIREMENT_CHECKER-03",
@@ -17,8 +11,7 @@
     "REQUIREMENT_CHECKER-05",
     "REQUIREMENT_CHECKER-06",
     "REQUIREMENT_CHECKER-07",
-    "REQUIREMENT_CHECKER-08",
-    "METHOD"
+    "REQUIREMENT_CHECKER-08"
   ],
   "source": {
     "repository": "google/mantis",
@@ -28,5 +21,9 @@
   },
   "profile": "static",
   "output_schema": "StageOutput",
-  "revision": "complete-methods-v2"
+  "revision": "role-specific-investigation-manuals-v3",
+  "references": {
+    "references/cases.md": "2c89ac9f3f61fbdf9dd2b276bcdbe490decc74139dd65f03b411dbcfb7ebe315"
+  },
+  "derivation": "Project-authored role method; cited upstream is a methodological reference, not a verbatim port."
 }

@@ -1,15 +1,9 @@
 {
   "id": "pci_mapper",
-  "version": "0.2.0",
-  "sha256": "bea862c389c713c3717896656a6d47e52689c292bef6e50af75ea5e0cc8ffa7d",
+  "version": "0.3.0",
+  "sha256": "59578a8e501d276215eb55a8a77e7e91553e4ac0e0bb930f1532585678a2c7e5",
   "mandatory_rules": [
-    "SNAPSHOT",
-    "EVIDENCE",
-    "UNKNOWN",
-    "BOUNDARY",
-    "INVENTORY",
-    "STATIC",
-    "OUTPUT",
+    "METHOD",
     "PCI_MAPPER-01",
     "PCI_MAPPER-02",
     "PCI_MAPPER-03",
@@ -17,8 +11,7 @@
     "PCI_MAPPER-05",
     "PCI_MAPPER-06",
     "PCI_MAPPER-07",
-    "PCI_MAPPER-08",
-    "METHOD"
+    "PCI_MAPPER-08"
   ],
   "source": {
     "repository": "google/mantis",
@@ -28,5 +21,9 @@
   },
   "profile": "static",
   "output_schema": "StageOutput",
-  "revision": "complete-methods-v2"
+  "revision": "role-specific-investigation-manuals-v3",
+  "references": {
+    "references/cases.md": "a53369e79da7a27f8d0e8de6aa03348d04e46baf8b8ccf1756d1586f086a8875"
+  },
+  "derivation": "Project-authored role method; cited upstream is a methodological reference, not a verbatim port."
 }

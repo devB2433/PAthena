@@ -1,15 +1,9 @@
 {
   "id": "requirement_generator",
-  "version": "0.2.0",
-  "sha256": "5be4106e2d06b36012e943ce40a04219310c085406fbe32d28de4f94c4f99704",
+  "version": "0.3.0",
+  "sha256": "e3074f0f6ae59dd6fa3ef37d77037f9820d4468c79aeffdc48d6dde8e1bc831e",
   "mandatory_rules": [
-    "SNAPSHOT",
-    "EVIDENCE",
-    "UNKNOWN",
-    "BOUNDARY",
-    "INVENTORY",
-    "STATIC",
-    "OUTPUT",
+    "METHOD",
     "REQUIREMENT_GENERATOR-01",
     "REQUIREMENT_GENERATOR-02",
     "REQUIREMENT_GENERATOR-03",
@@ -17,8 +11,7 @@
     "REQUIREMENT_GENERATOR-05",
     "REQUIREMENT_GENERATOR-06",
     "REQUIREMENT_GENERATOR-07",
-    "REQUIREMENT_GENERATOR-08",
-    "METHOD"
+    "REQUIREMENT_GENERATOR-08"
   ],
   "source": {
     "repository": "google/mantis",
@@ -28,5 +21,9 @@
   },
   "profile": "static",
   "output_schema": "StageOutput",
-  "revision": "complete-methods-v2"
+  "revision": "role-specific-investigation-manuals-v3",
+  "references": {
+    "references/cases.md": "8a311d087b5a2a58203c691fd75ac7318febfb97b996c650bd07b4d6919addc9"
+  },
+  "derivation": "Project-authored role method; cited upstream is a methodological reference, not a verbatim port."
 }

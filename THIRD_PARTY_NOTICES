@@ -27,7 +27,7 @@ documents but are not enabled in the static runtime graph.
 
 The six project-defined requirement methods are versioned independently.
 They expand document interpretation, requirement generation, stored-control
-matching, requirement review, standard preparation compatibility, and static
+matching, requirement review, legacy structured-standard compatibility, and static
 implementation checks. Their manifests record source references and hashes.
 The new domain schemas, storage,
 task scheduler, API and frontend are independent implementations.

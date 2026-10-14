@@ -1,23 +1,29 @@
 {
   "id": "requirement_reviewer",
-  "version": "0.2.0",
-  "sha256": "f8379f30b8b2e6d32a215fbe92d50286e31ae08328dfb07fd5ff74e7676bb7bd",
+  "version": "0.3.0",
+  "sha256": "46e05db405dc48a64618ee6f86415f0175dc0539e3609724cb7c7f930b48f47a",
   "mandatory_rules": [
-    "SNAPSHOT",
-    "EVIDENCE",
-    "UNKNOWN",
-    "BOUNDARY",
-    "INVENTORY",
-    "STATIC",
-    "OUTPUT",
+    "METHOD",
     "REQUIREMENT_REVIEWER-01",
     "REQUIREMENT_REVIEWER-02",
     "REQUIREMENT_REVIEWER-03",
+    "REQUIREMENT_REVIEWER_CHECK-01",
+    "REQUIREMENT_REVIEWER_CHECK-02",
+    "REQUIREMENT_REVIEWER_CHECK-03",
+    "REQUIREMENT_REVIEWER_CHECK-04",
+    "REQUIREMENT_REVIEWER_CHECK-05",
+    "REQUIREMENT_REVIEWER_CHECK-06",
+    "REQUIREMENT_REVIEWER_CHECK-07",
+    "REQUIREMENT_REVIEWER_CHECK-08",
+    "REQUIREMENT_REVIEWER_CHECK-09",
+    "REQUIREMENT_REVIEWER_CHECK-10",
+    "REQUIREMENT_REVIEWER_CHECK-11",
+    "REQUIREMENT_REVIEWER_CHECK-12",
+    "REQUIREMENT_REVIEWER_CHECK-13",
     "REQUIREMENT_REVIEWER-04",
     "REQUIREMENT_REVIEWER-05",
     "REQUIREMENT_REVIEWER-06",
-    "REQUIREMENT_REVIEWER-07",
-    "METHOD"
+    "REQUIREMENT_REVIEWER-07"
   ],
   "source": {
     "repository": "google/mantis",
@@ -27,5 +33,9 @@
   },
   "profile": "static",
   "output_schema": "StageOutput",
-  "revision": "complete-methods-v2"
+  "revision": "role-specific-investigation-manuals-v3",
+  "references": {
+    "references/cases.md": "7dc2ea9a12914c180b1034197b987de6085113ab68b7cec67b60739924ce3e2c"
+  },
+  "derivation": "Project-authored role method; cited upstream is a methodological reference, not a verbatim port."
 }

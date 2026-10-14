@@ -22,7 +22,7 @@ async def test_invalid_output_is_saved_and_never_sent_for_model_repair(settings,
     executor = InvalidExecutor()
     scheduler = Scheduler(settings, store, executor)
     parent = store.add_task(run["id"], "design_model", {}, wave="stage")
-    node = {"id": "design_model", "role": "design_analyst", "skill_id": "design_analyst", "skill_version": "0.2.0"}
+    node = {"id": "design_model", "role": "design_analyst", "skill_id": "design_analyst", "skill_version": "0.3.0"}
     with pytest.raises(OutputContractError) as error:
         await scheduler.child(run["id"], node, parent, {"evidence_ids": [eid]})
     assert error.value.code == 'output'

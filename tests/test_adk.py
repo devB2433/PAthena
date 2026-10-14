@@ -49,7 +49,7 @@ class ScriptedModel(BaseLlm):
 
 async def test_real_adk_runner_loads_full_skill_and_executes_jailed_tool(settings, store, sample_run):
     _, run, eid = sample_run
-    bundle = SkillLoader(settings.skills_dir).resolve("pci_mapper", "pci_mapper", "0.2.0")
+    bundle = SkillLoader(settings.skills_dir).resolve("pci_mapper", "pci_mapper", "0.3.0")
     tid = store.add_task(run["id"], "pci_mapping", {})
     _, instruction_hash = compile_instruction(bundle)
     store.start_task(tid, bundle, instruction_hash)
@@ -60,6 +60,9 @@ async def test_real_adk_runner_loads_full_skill_and_executes_jailed_tool(setting
     assert output.summary == "ADK tool round trip verified"
     assert model._calls == 2
     assert all(f"[{rule}]" in model._instructions[0] for rule in bundle.rule_ids)
+    assert bundle.instruction in model._instructions[0]
+    from security_auditor.skills import digest
+    assert store.task(tid)['instruction_hash'] == digest(model._instructions[0].encode())
     assert "UNTRUSTED" in model._tool_response
     assert "query_all" in model._tool_response
     assert store.run(run["id"])["usage"] == {"requests": 2, "tokens": 100}
@@ -75,7 +78,7 @@ async def test_explicit_unbounded_adk_run_still_accounts_calls(settings, store, 
     from dataclasses import replace
 
     _, run, eid = sample_run
-    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.2.0')
+    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.3.0')
     limited = store.add_task(run['id'], 'pci_mapping', {'attempt': 'bounded'})
     limited_model = ScriptedModel(evidence_id=eid)
     # ADK exposes invocation limits as error events; the adapter rejects them.
@@ -98,7 +101,7 @@ async def test_explicit_unbounded_adk_run_still_accounts_calls(settings, store, 
 async def test_disabled_budget_ignores_configured_adk_call_limit(settings, store, sample_run):
     from dataclasses import replace
     _, run, eid = sample_run
-    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.2.0')
+    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.3.0')
     tid = store.add_task(run['id'], 'pci_mapping', {})
     model = ScriptedModel(evidence_id=eid)
     output = await AdkExecutor(replace(settings, enforce_budgets=False, agent_max_calls=1), store,
@@ -111,7 +114,7 @@ async def test_disabled_budget_ignores_configured_adk_call_limit(settings, store
 async def test_oversized_input_is_not_misreported_as_an_invalid_model_response(settings,store,sample_run):
     _,run,eid=sample_run
     task=store.add_task(run['id'],'pci_mapping',{})
-    bundle=SkillLoader(settings.skills_dir).resolve('pci_mapper','pci_mapper','0.2.0')
+    bundle=SkillLoader(settings.skills_dir).resolve('pci_mapper','pci_mapper','0.3.0')
     model=ScriptedModel(evidence_id=eid)
     with pytest.raises(OutputContractError) as error:
         await AdkExecutor(settings,store,model_factory=lambda:model).execute(
@@ -126,7 +129,7 @@ async def test_litellm_adapter_routes_tool_and_structured_response(settings, sto
     from litellm import ModelResponse
 
     _, run, eid = sample_run
-    bundle = SkillLoader(settings.skills_dir).resolve("pci_mapper", "pci_mapper", "0.2.0")
+    bundle = SkillLoader(settings.skills_dir).resolve("pci_mapper", "pci_mapper", "0.3.0")
     tid = store.add_task(run["id"], "pci_mapping", {"fixture": "adapter"})
     store.start_task(tid, bundle, compile_instruction(bundle)[1])
     captured = []
@@ -176,7 +179,7 @@ async def test_litellm_adapter_routes_tool_and_structured_response(settings, sto
 async def test_requirement_role_cannot_read_code(settings, store, sample_run):
     _, run, eid = sample_run
     bundle = SkillLoader(settings.skills_dir).resolve(
-        "requirement_generator", "requirement_generator", "0.2.0"
+        "requirement_generator", "requirement_generator", "0.3.0"
     )
     tid = store.add_task(run["id"], "requirements", {})
     store.start_task(tid, bundle, compile_instruction(bundle)[1])
@@ -195,7 +198,7 @@ async def test_explicit_stage_submission_ends_without_another_model_call(setting
     from security_auditor.agents import stage_schema
     _, run, _ = sample_run
     tid = store.add_task(run['id'], 'requirements', {})
-    bundle = SkillLoader(settings.skills_dir).resolve('requirement_generator', 'requirement_generator', '0.2.0')
+    bundle = SkillLoader(settings.skills_dir).resolve('requirement_generator', 'requirement_generator', '0.3.0')
     class SubmissionModel(BaseLlm):
         model: str = 'submission-test'
         _calls: int = PrivateAttr(default=0)
@@ -232,7 +235,7 @@ async def test_adk_error_event_preserves_retry_pause_and_budget_categories(setti
     from security_auditor import agents
     _, run, _ = sample_run
     tid = store.add_task(run['id'], 'requirements', {})
-    bundle = SkillLoader(settings.skills_dir).resolve('requirement_generator', 'requirement_generator', '0.2.0')
+    bundle = SkillLoader(settings.skills_dir).resolve('requirement_generator', 'requirement_generator', '0.3.0')
     failure = {'transport': ProviderUnavailable('timeout', code='transport'),
                'balance': ProviderBlocked('balance', code='balance'),
                'budget': BudgetExceeded('budget')}[failure_type]
@@ -253,7 +256,7 @@ async def test_final_json_uses_the_same_declared_role_schema(settings, store, sa
     eid = store.add_evidence(run['id'], 'document', 'design:1', 'Authentication is required.', {})
     tid = store.add_task(run['id'], 'requirements', {})
     store.start_task(tid)
-    bundle = SkillLoader(settings.skills_dir).resolve('requirement_generator', 'requirement_generator', '0.2.0')
+    bundle = SkillLoader(settings.skills_dir).resolve('requirement_generator', 'requirement_generator', '0.3.0')
     submitted = {'records': [{'id': 'req-auth', 'title': 'Authentication', 'module': 'API',
                              'statement': 'Require authentication.', 'acceptance_criteria': ['Reject unauthenticated requests.'],
                              'origin': 'EXPLICIT_DESIGN', 'evidence_ids': [eid], 'rationale': 'Original design'}],
@@ -315,7 +318,7 @@ async def test_pci_submission_commits_unchanged_or_stops_without_repair(settings
             yield LlmResponse(content=types.Content(role='model', parts=[types.Part(
                 function_call=types.FunctionCall(name='set_model_response', args=submitted))]))
     model = Model()
-    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.2.0')
+    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.3.0')
     executor = AdkExecutor(settings, store, model_factory=lambda: model)
     if mixed_fields:
         with pytest.raises(OutputContractError):
