@@ -1,7 +1,7 @@
 {
   "contract_version": "0.2-mantis-native",
   "id": "design_to_static_assurance",
-  "version": 18,
+  "version": 19,
   "standard_use_policy": "precomputed_controls_vector_matching_v3",
   "source_reference_transport": "exact_task_local_handles_v1",
   "dispatch_policy": "ready_tasks_with_bounded_concurrency",
@@ -47,7 +47,7 @@
       "kind": "agent",
       "role": "design_analyst",
       "skill_id": "design_analyst",
-      "skill_version": "0.5.1",
+      "skill_version": "0.6.0",
       "depends_on": [
         "document_ingest"
       ],
@@ -58,7 +58,7 @@
       "kind": "agent",
       "role": "requirement_generator",
       "skill_id": "requirement_generator",
-      "skill_version": "0.5.1",
+      "skill_version": "0.6.0",
       "depends_on": [
         "design_model"
       ],
@@ -70,7 +70,7 @@
       "kind": "agent",
       "role": "pci_mapper",
       "skill_id": "pci_mapper",
-      "skill_version": "0.5.1",
+      "skill_version": "0.6.0",
       "depends_on": [
         "requirements",
         "standard_load",
@@ -97,7 +97,7 @@
       "kind": "agent",
       "role": "requirement_reviewer",
       "skill_id": "requirement_reviewer",
-      "skill_version": "0.5.1",
+      "skill_version": "0.6.0",
       "depends_on": [
         "pci_requirements"
       ],
@@ -120,7 +120,7 @@
       "kind": "agent",
       "role": "requirement_checker",
       "skill_id": "requirement_checker",
-      "skill_version": "0.5.1",
+      "skill_version": "0.6.0",
       "depends_on": [
         "threat_model"
       ],

@@ -1,0 +1,411 @@
+{
+  "status": "concrete_control_coverage_improved_semantic_acceptance_not_established",
+  "adjudication": "Developer-authored known synthetic development sample, non-blind. Best-match goal coverage is not precision or exhaustive recall. Scope/provenance defects are separately retained.",
+  "versions": {
+    "0.5.1": {
+      "facts": 22,
+      "requirements": 12,
+      "criteria": 29,
+      "coverage": {
+        "FULL": 8,
+        "PARTIAL": 2,
+        "MISSING": 3
+      },
+      "generation_usage": {
+        "requests": 4,
+        "known_tokens": 73822,
+        "reserved_tokens": 0,
+        "unknown_tokens": 0,
+        "unknown_requests": 0,
+        "tokens": 73822
+      },
+      "fixed_reviews_correct": 6
+    },
+    "0.6.0": {
+      "facts": 20,
+      "requirements": 15,
+      "criteria": 35,
+      "coverage": {
+        "FULL": 13
+      },
+      "generation_usage": {
+        "requests": 4,
+        "known_tokens": 90589,
+        "reserved_tokens": 0,
+        "unknown_tokens": 0,
+        "unknown_requests": 0,
+        "tokens": 90589
+      },
+      "fixed_reviews_correct": 6
+    }
+  },
+  "coverage": [
+    {
+      "id": "Q01",
+      "behavior": "Invoice object authorization",
+      "ratings": {
+        "0.5.1": {
+          "status": "FULL",
+          "requirement_index": 1,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        },
+        "0.6.0": {
+          "status": "FULL",
+          "requirement_index": 2,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        }
+      }
+    },
+    {
+      "id": "Q02",
+      "behavior": "Preserve authorization through service-identity execution",
+      "ratings": {
+        "0.5.1": {
+          "status": "FULL",
+          "requirement_index": 2,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        },
+        "0.6.0": {
+          "status": "FULL",
+          "requirement_index": 2,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        }
+      }
+    },
+    {
+      "id": "Q03",
+      "behavior": "Protect status and result access",
+      "ratings": {
+        "0.5.1": {
+          "status": "FULL",
+          "requirement_index": 3,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        },
+        "0.6.0": {
+          "status": "FULL",
+          "requirement_index": 4,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        }
+      }
+    },
+    {
+      "id": "Q04",
+      "behavior": "Cancellation completion ordering",
+      "ratings": {
+        "0.5.1": {
+          "status": "FULL",
+          "requirement_index": 5,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        },
+        "0.6.0": {
+          "status": "FULL",
+          "requirement_index": 6,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        }
+      }
+    },
+    {
+      "id": "Q05",
+      "behavior": "At-least-once delivery idempotence",
+      "ratings": {
+        "0.5.1": {
+          "status": "FULL",
+          "requirement_index": 6,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        },
+        "0.6.0": {
+          "status": "FULL",
+          "requirement_index": 7,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        }
+      }
+    },
+    {
+      "id": "Q06",
+      "behavior": "Expiry restricts result reads",
+      "ratings": {
+        "0.5.1": {
+          "status": "FULL",
+          "requirement_index": 7,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        },
+        "0.6.0": {
+          "status": "FULL",
+          "requirement_index": 8,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        }
+      }
+    },
+    {
+      "id": "Q07",
+      "behavior": "Attributable export audit",
+      "ratings": {
+        "0.5.1": {
+          "status": "FULL",
+          "requirement_index": 9,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        },
+        "0.6.0": {
+          "status": "FULL",
+          "requirement_index": 10,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        }
+      }
+    },
+    {
+      "id": "Q08",
+      "behavior": "Shared-service capacity protection",
+      "ratings": {
+        "0.5.1": {
+          "status": "PARTIAL",
+          "requirement_index": 8,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        },
+        "0.6.0": {
+          "status": "FULL",
+          "requirement_index": 9,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        }
+      }
+    },
+    {
+      "id": "Q09",
+      "behavior": "Protect sensitive information in broader-access logs",
+      "ratings": {
+        "0.5.1": {
+          "status": "PARTIAL",
+          "requirement_index": 10,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        },
+        "0.6.0": {
+          "status": "FULL",
+          "requirement_index": 11,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        }
+      }
+    },
+    {
+      "id": "Q10",
+      "behavior": "Actual production audit retention",
+      "ratings": {
+        "0.5.1": {
+          "status": "FULL",
+          "requirement_index": 11,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        },
+        "0.6.0": {
+          "status": "FULL",
+          "requirement_index": 12,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        }
+      }
+    },
+    {
+      "id": "Q11",
+      "behavior": "Cancel operation authorization, independently of cancelled-state publication gate",
+      "ratings": {
+        "0.5.1": {
+          "status": "MISSING",
+          "requirement_index": null,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        },
+        "0.6.0": {
+          "status": "FULL",
+          "requirement_index": 5,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        }
+      }
+    },
+    {
+      "id": "Q12",
+      "behavior": "Browser treats user-controlled export title as text",
+      "ratings": {
+        "0.5.1": {
+          "status": "MISSING",
+          "requirement_index": null,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        },
+        "0.6.0": {
+          "status": "FULL",
+          "requirement_index": 13,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        }
+      }
+    },
+    {
+      "id": "Q13",
+      "behavior": "Protection does not fail open",
+      "ratings": {
+        "0.5.1": {
+          "status": "MISSING",
+          "requirement_index": null,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        },
+        "0.6.0": {
+          "status": "FULL",
+          "requirement_index": 15,
+          "reason": "按最佳匹配规范句/验收判读，范围及分类错误另记，不构成准确率"
+        }
+      }
+    }
+  ],
+  "issues": [
+    {
+      "version": "0.6.0",
+      "requirements": [
+        2,
+        5
+      ],
+      "type": "授权范围表述",
+      "detail": "“其他客户发票不读取”“以他人任务标识取消不改变状态”没有在相应验收项中保留有效委托例外；正文虽然保留管理员，验收仍应明确限定未授权对象/普通未获委托用户。"
+    },
+    {
+      "version": "0.6.0",
+      "requirements": [
+        3
+      ],
+      "type": "可信字段与合法输入边界",
+      "detail": "正文将所选发票与主体/客户一并规定为客户端不得改写的字段，可能阻断用户合法选择发票；应区分用户选择输入、服务端授权校验和任务保存后的可信绑定。"
+    },
+    {
+      "version": "0.6.0",
+      "requirements": [
+        9
+      ],
+      "type": "来源分类",
+      "detail": "新增的有界准入、拒绝/延迟及资源释放是风险推导的控制机制，不能整条标为 EXPLICIT_DESIGN。"
+    },
+    {
+      "version": "0.6.0",
+      "requirements": [
+        7,
+        8
+      ],
+      "type": "正例仍需保留独立约束",
+      "detail": "“下载入口返回同一结果”“未到期可正常下载”等正例应明确仍受授权、取消和其他业务拒绝条件约束，不用正例覆盖其他需求。"
+    },
+    {
+      "version": "0.5.1",
+      "requirements": [
+        12
+      ],
+      "type": "功能复述代替对应安全控制",
+      "detail": "把显示标题限定用途单列为安全需求，却未生成实际浏览器输出不执行 HTML/脚本的约束。"
+    },
+    {
+      "version": "0.5.1",
+      "requirements": [
+        10
+      ],
+      "type": "保护不足",
+      "detail": "控制了发票正文进入运行日志，未包含会话 bearer 凭证。"
+    }
+  ],
+  "fixed_review_results": [
+    {
+      "version": "0.5.1",
+      "case": "cancel_permission",
+      "expected": "SUPPORTED",
+      "actual": "SUPPORTED",
+      "correct": true
+    },
+    {
+      "version": "0.5.1",
+      "case": "bearer_logging",
+      "expected": "SUPPORTED",
+      "actual": "SUPPORTED",
+      "correct": true
+    },
+    {
+      "version": "0.5.1",
+      "case": "title_xss",
+      "expected": "SUPPORTED",
+      "actual": "SUPPORTED",
+      "correct": true
+    },
+    {
+      "version": "0.5.1",
+      "case": "admin_exception",
+      "expected": "REJECTED",
+      "actual": "REJECTED",
+      "correct": true
+    },
+    {
+      "version": "0.5.1",
+      "case": "authorization_not_success",
+      "expected": "REJECTED",
+      "actual": "REJECTED",
+      "correct": true
+    },
+    {
+      "version": "0.5.1",
+      "case": "invented_path",
+      "expected": "REJECTED",
+      "actual": "REJECTED",
+      "correct": true
+    },
+    {
+      "version": "0.6.0",
+      "case": "cancel_permission",
+      "expected": "SUPPORTED",
+      "actual": "SUPPORTED",
+      "correct": true
+    },
+    {
+      "version": "0.6.0",
+      "case": "bearer_logging",
+      "expected": "SUPPORTED",
+      "actual": "SUPPORTED",
+      "correct": true
+    },
+    {
+      "version": "0.6.0",
+      "case": "title_xss",
+      "expected": "SUPPORTED",
+      "actual": "SUPPORTED",
+      "correct": true
+    },
+    {
+      "version": "0.6.0",
+      "case": "admin_exception",
+      "expected": "REJECTED",
+      "actual": "REJECTED",
+      "correct": true
+    },
+    {
+      "version": "0.6.0",
+      "case": "authorization_not_success",
+      "expected": "REJECTED",
+      "actual": "REJECTED",
+      "correct": true
+    },
+    {
+      "version": "0.6.0",
+      "case": "invented_path",
+      "expected": "REJECTED",
+      "actual": "REJECTED",
+      "correct": true
+    }
+  ],
+  "usage": {
+    "physical_requests": 32,
+    "known_tokens": 494645,
+    "unknown_requests": 0,
+    "unknown_reserved_estimate": 0
+  },
+  "limitations": [
+    "Same 40-line development design previously inspected; expectations authored and rated by the developer, not independent expert acceptance.",
+    "13 frozen goals are not exhaustive security recall and do not validate all OWASP categories.",
+    "The six review challenges use the same historical ServiceAccount module label in both arms, while statements/premises/source are LedgerBridge.",
+    "No review of every actual new draft, no code scan or mapper/catalog semantic acceptance in this experiment."
+  ],
+  "source_method": {
+    "path": "skills/_shared/security-requirements.md",
+    "sha256": "f07993fe0b629d17951ed247eb4a4eca79b8876b25569e3d3335f1d29c956006",
+    "top10_version": "2025",
+    "asvs_version": "5.0.0",
+    "research_date": "2026-10-15",
+    "runtime_network": "No OWASP web access; complete pinned repository resource"
+  },
+  "native_corpus_unchanged": true
+}

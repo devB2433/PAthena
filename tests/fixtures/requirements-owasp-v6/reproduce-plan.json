@@ -1,0 +1,278 @@
+{
+  "experiment": "owasp-patterns-to-specific-requirements-v6",
+  "model": "deepseek-flash",
+  "versions": [
+    "0.5.1",
+    "0.6.0"
+  ],
+  "baseline_commit": "a620f2400620d6199e72bfba540a3e41403c1fe3",
+  "candidate_commit": "WORKTREE",
+  "language": "zh-CN",
+  "temperature": 0,
+  "thinking": "disabled: production forced-tool transport",
+  "max_output_tokens": 32768,
+  "hard_budgets": false,
+  "selective_retries": false,
+  "dataset_role": "Previously inspected synthetic development source; expanded rubric frozen before these calls, not held out",
+  "tasks": [
+    [
+      "pipeline",
+      1,
+      "0.5.1"
+    ],
+    [
+      "pipeline",
+      1,
+      "0.6.0"
+    ],
+    [
+      "review",
+      1,
+      "0.5.1"
+    ],
+    [
+      "review",
+      1,
+      "0.6.0"
+    ]
+  ],
+  "positives": [
+    {
+      "id": "Q01",
+      "behavior": "Invoice object authorization",
+      "full_credit": [
+        "Every selected invoice is within the requester's authorized scope, including mixed batches",
+        "Explicit cross-customer delegation is allowed, not prohibited"
+      ],
+      "expected_origin": "INFERRED_SECURITY"
+    },
+    {
+      "id": "Q02",
+      "behavior": "Preserve authorization through service-identity execution",
+      "full_credit": [
+        "Worker uses the job-bound requester/object scope and cannot expand to arbitrary invoices merely because its service account can read all customers"
+      ],
+      "expected_origin": "INFERRED_SECURITY"
+    },
+    {
+      "id": "Q03",
+      "behavior": "Protect status and result access",
+      "full_credit": [
+        "Status and download check own-job or explicitly delegated scope",
+        "Sequential job ID alone is not authorization"
+      ],
+      "expected_origin": "EXPLICIT_DESIGN"
+    },
+    {
+      "id": "Q04",
+      "behavior": "Cancellation completion ordering",
+      "full_credit": [
+        "Cancellation before completion prevents publication including concurrent completion"
+      ],
+      "expected_origin": "EXPLICIT_DESIGN"
+    },
+    {
+      "id": "Q05",
+      "behavior": "At-least-once delivery idempotence",
+      "full_credit": [
+        "Retry does not publish a second final result or a second chargeable export"
+      ],
+      "expected_origin": "EXPLICIT_DESIGN"
+    },
+    {
+      "id": "Q06",
+      "behavior": "Expiry restricts result reads",
+      "full_credit": [
+        "Expired result bytes cannot be returned even while private object still exists"
+      ],
+      "expected_origin": "EXPLICIT_DESIGN"
+    },
+    {
+      "id": "Q07",
+      "behavior": "Attributable export audit",
+      "full_credit": [
+        "Request, download and cancel records identify actor, job and time including delegated administrators"
+      ],
+      "expected_origin": "EXPLICIT_DESIGN"
+    },
+    {
+      "id": "Q08",
+      "behavior": "Shared-service capacity protection",
+      "full_credit": [
+        "Bounded admission or resource allocation prevents one customer from exhausting shared export service",
+        "No fabricated mandatory numeric limit or specific algorithm"
+      ],
+      "expected_origin": "INFERRED_SECURITY"
+    },
+    {
+      "id": "Q09",
+      "behavior": "Protect sensitive information in broader-access logs",
+      "full_credit": [
+        "Operational logs do not disclose invoice body/financial personal data or bearer credentials to unauthorized support readers",
+        "Public job IDs and authorized audit identifiers are not prohibited from logs"
+      ],
+      "expected_origin": "INFERRED_SECURITY"
+    },
+    {
+      "id": "Q10",
+      "behavior": "Actual production audit retention",
+      "full_credit": [
+        "Actual production retention is 90 days, distinguished from code merely offering configuration",
+        "External operational responsibility remains, not falsely proved by source"
+      ],
+      "expected_origin": "EXPLICIT_DESIGN"
+    },
+    {
+      "id": "Q11",
+      "behavior": "Cancel operation authorization, independently of cancelled-state publication gate",
+      "expected_origin": "INFERRED_SECURITY",
+      "full_credit": [
+        "Only job owner or valid delegated actor may cancel that job",
+        "Unauthorized cancellation leaves task state unchanged",
+        "Preserve legitimate delegated access"
+      ]
+    },
+    {
+      "id": "Q12",
+      "behavior": "Browser treats user-controlled export title as text",
+      "expected_origin": "INFERRED_SECURITY",
+      "full_credit": [
+        "Browser rendering does not interpret title as executable HTML/script",
+        "Does not invent SQL, OS command or path sinks for display-only title"
+      ]
+    },
+    {
+      "id": "Q13",
+      "behavior": "Protection does not fail open",
+      "expected_origin": "INFERRED_SECURITY",
+      "full_credit": [
+        "Missing/indeterminate identity or permission result cannot grant protected object access or state changes",
+        "Names protected operations, rather than only generic catch exceptions"
+      ]
+    }
+  ],
+  "negative_controls": [
+    "No blanket prohibition of delegated cross-customer administration",
+    "No fabricated cipher, WAF product, fixed rate or file deletion deadline",
+    "No new MFA mandate or absolute ban inferred from non-goals",
+    "No 80% test coverage requirement controlling export access",
+    "No invented PCI formal applicability, PAN storage or employee training obligation",
+    "No forced BOTH optional performance metric and performance audit event",
+    "No path/SQL/command injection control inferred solely from display-only title",
+    "No immediate delegation-revocation guarantee absent design agreement"
+  ],
+  "adjudication": "Developer manual semantic judgment; all normative material graded, partial separated, no model judge or result repair",
+  "generated_review_versions": [
+    "0.6.0"
+  ],
+  "quality_rubric": [
+    "Every requirement identifies an actual object/action and restrictive behavior",
+    "Concrete denied case states prohibited side effect",
+    "Legitimate delegated actor is not blocked by a blanket all-users rule",
+    "Authorization is necessary and does not guarantee successful creation/download despite capacity/cancellation/expiry",
+    "Design premises support inferred protection; method guidance does not become project evidence",
+    "Pure engineering or performance-monitoring option is not a standalone security requirement",
+    "No invented sinks, deployment facts, formal OWASP compliance, PCI applicability, numeric quotas or crypto products"
+  ],
+  "review_cases": [
+    [
+      "cancel_permission",
+      "取消任务的对象授权",
+      "取消导出任务前，服务端必须以当前可信身份校验该主体对该任务的取消权限；未授权时不得改变任务状态。",
+      [
+        "普通用户替换成他人任务标识提交取消时，任务状态保持不变。",
+        "有效委托范围内的支持管理员不得仅因任务跨客户而被拒绝；其他生命周期条件仍适用。"
+      ],
+      [
+        1
+      ],
+      "SUPPORTED",
+      "INFERRED_SECURITY",
+      "设计存在私有任务、顺序可枚举任务标识、普通用户和明确委托管理员，取消会改变任务状态；控制阻止一个用户影响其他主体的任务可用性，不要求原文已经写出鉴权机制。"
+    ],
+    [
+      "bearer_logging",
+      "运行日志不暴露认证秘密",
+      "导出 API 和工作器的运行日志不得向无相应权限的读者暴露 bearer 会话凭证或私有发票正文。",
+      [
+        "成功、拒绝、异常或调试日志均不得直接包含可用于认证的会话 bearer 凭证。",
+        "运维日志不得暴露发票正文；仍允许不具有认证能力的操作关联标识。"
+      ],
+      [
+        1
+      ],
+      "SUPPORTED",
+      "INFERRED_SECURITY",
+      "已读设计说明日志读者更广、发票私有、身份服务使用 bearer 会话凭证；直接记录凭证会扩大认证能力，禁止这种披露是最小保护而不是另建认证服务。"
+    ],
+    [
+      "title_xss",
+      "显示标题保持文本语义",
+      "用户提交的导出显示标题在浏览器任务页面展示时，不得作为可执行 HTML 或脚本解释。",
+      [
+        "标题含 HTML 标签或事件属性时，页面仍将其作为文本展示，不创建可执行节点。",
+        "正常文字与 Unicode 标题仍可展示，不要求把所有标点删除。"
+      ],
+      [
+        1
+      ],
+      "SUPPORTED",
+      "INFERRED_SECURITY",
+      "设计明确用户提交标题且标题在 UI 显示；这是已知的浏览器输出边界，不要求原文承诺已经实现输出编码。"
+    ],
+    [
+      "admin_exception",
+      "所有非本人任务均拒绝",
+      "任何已认证主体只能访问自己的任务，即使是获有效跨客户委托的支持管理员也必须拒绝。",
+      [
+        "所有请求者访问非本人任务均拒绝，不保留委托管理员例外。"
+      ],
+      [
+        1
+      ],
+      "REJECTED",
+      "INFERRED_SECURITY",
+      "复核是否忠实保留明确委托例外。"
+    ],
+    [
+      "authorization_not_success",
+      "有权就保证结果返回",
+      "只要主体拥有下载权限，就必须始终返回完整结果，不受任务取消、未完成或文件到期影响。",
+      [
+        "有权限的管理员下载已过期或已取消任务时仍返回结果。"
+      ],
+      [
+        1
+      ],
+      "REJECTED",
+      "INFERRED_SECURITY",
+      "复核授权条件是否错误覆盖取消和到期规则。"
+    ],
+    [
+      "invented_path",
+      "展示标题需要文件路径防护",
+      "系统必须将仅作 UI 展示的导出标题限制为文件名，拒绝斜杠和路径点，防止标题写入任意文件路径。",
+      [
+        "所有包含斜杠的合法标题均拒绝，以防标题控制文件路径。"
+      ],
+      [
+        1
+      ],
+      "REJECTED",
+      "INFERRED_SECURITY",
+      "设计明确标题不作为路径使用，检查是否捏造数据流或用泛化注入风险禁止合法展示内容。"
+    ]
+  ],
+  "expected_packet_hashes": {
+    "0.5.1": {
+      "design_analyst": "d0c7106db0992ea5554f3d83aaad5f1afafecea0e4cb24840c103c1bb570c1d8",
+      "requirement_generator": "3c4f704f6a9ae1f4b5878a1bdae574716378196f928b85a4b84b266c04201acd",
+      "requirement_reviewer": "d3eacd45b97b575d55d5fb2cfa12a3fcc7a4a8e3dd77755d6bd5b7b7ddc475d0"
+    },
+    "0.6.0": {
+      "design_analyst": "61f23bf449e0f6cd9ef7bdf3f296a606ae5b0cb22e0ad2cb2c2094952ef77ca7",
+      "requirement_generator": "017a1138095a2421c1686d1b3edb4098597d35bfb69810b1de79e7aaf330ec0f",
+      "requirement_reviewer": "dff4a6ac6d354f2f50263631d53e52e156d9e2b9d062c14a1fa46175df099545"
+    }
+  }
+}

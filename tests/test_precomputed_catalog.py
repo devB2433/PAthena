@@ -304,7 +304,7 @@ async def test_real_adk_selects_read_precomputed_controls_without_generating_req
     store.commit_output(tid, 'requirement_generator', StageOutput(records=[req], summary='Design'))
     scope = Scheduler(settings, store).scopes(run['id'], 'pci_mapper')[0]
     task = store.add_task(run['id'], 'pci_mapping', scope)
-    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.5.1')
+    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.6.0')
 
     class CatalogModel(BaseLlm):
         model: str = 'prepared-catalog-fixture'

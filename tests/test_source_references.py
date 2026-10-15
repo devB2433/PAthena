@@ -55,7 +55,7 @@ async def test_adk_direct_short_source_submission_persists_original_ids(settings
                                  'missing_facts': ['持卡人数据环境范围'], 'evidence_ids': [handle],
                                  'rationale': '文档未声明部署范围'}], 'gaps': [], 'summary': '适用性待确认'}))]))
     model = Model()
-    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.5.1')
+    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.6.0')
     output = await AdkExecutor(settings, store, model_factory=lambda: model).execute(store.task(tid), bundle, {})
     store.commit_output(tid, 'pci_mapper', output)
     assert store.records(run['id'])[0]['evidence_ids'] == [eid]
@@ -72,7 +72,10 @@ async def test_checker_searches_paths_filters_before_limit_and_rebinds_read_sour
     from security_auditor.agents import AdkExecutor
     from security_auditor.domain import Requirement, StageOutput
     from security_auditor.skills import SkillLoader
-    _, run, _ = sample_run
+    project, _, _ = sample_run
+    # This exercises four source/transport turns, not cumulative-budget exhaustion.
+    # Scripted responses omit usage, so each turn reserves the full output allowance.
+    run = store.create_run(project['id'], 'full', {}, False, 100, 1000000)
     for index in range(51):
         store.add_evidence(run['id'], 'document', f'A-doc-{index:03d}', 'needle design claim', {})
     code = store.add_evidence(run['id'], 'code', 'auth.go:1', 'func needle() {}', {})
@@ -155,7 +158,7 @@ async def test_checker_searches_paths_filters_before_limit_and_rebinds_read_sour
             yield LlmResponse(content=types.Content(role='model', parts=[types.Part(
                 function_call=types.FunctionCall(name=name, args=args))]))
     model = Model()
-    bundle = SkillLoader(settings.skills_dir).resolve('requirement_checker','requirement_checker','0.5.1')
+    bundle = SkillLoader(settings.skills_dir).resolve('requirement_checker','requirement_checker','0.6.0')
     executor=AdkExecutor(settings,store,model_factory=lambda:model)
     if case in {'omitted_links','exact_echo'}:
         output = await executor.execute(store.task(tid),bundle,{})

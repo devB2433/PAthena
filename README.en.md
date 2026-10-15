@@ -693,7 +693,7 @@ PDF tests require models prepared in advance and explicitly skip when resources 
 
 ## Skill versions and runtime consistency
 
-All skills and references are checked into `skills/`. All six application methods use 0.5.1: design analysis, requirement generation and review, compliance mapping, implementation checking, and historical structured-standard compatibility. Code auditing retains the complete original skills and references from a pinned source. Static execution boundaries, tool mappings, and structured submission protocols reside in a separate adapter. Seven obsolete abbreviated code-audit skills have been removed.
+All skills and references are checked into `skills/`. All six application methods use 0.6.0: design analysis, requirement generation and review, compliance mapping, implementation checking, and historical structured-standard compatibility. Code auditing retains the complete original skills and references from a pinned source. Static execution boundaries, tool mappings, and structured submission protocols reside in a separate adapter. Seven obsolete abbreviated code-audit skills have been removed.
 
 Production and tests use the same loaders and full instructions, validating provenance, versions, and digests. Missing or rewritten original skills stop execution. Automated tests check the skill bodies in actual ADK requests and database task receipts; controlled responses do not establish security-analysis accuracy. Skill changes require a new analysis run; existing reports retain their original version. Run `.venv/bin/python tools/check_skill_corpus.py` to inspect the checked-in corpus.
 
@@ -781,3 +781,51 @@ that is not a bill. Final design/requirement generation used four requests and
 review. Semantic tests cover design, generation and review only. The other three
 methods received content improvements and integration regression, not semantic
 validation from this experiment. See [recorded results](tests/fixtures/requirements-quality-v5/result-summary.json); raw responses and reports remain local.
+
+### From OWASP risks to concrete requirements: 0.6.0
+
+All six application skills share a complete, hash-pinned [security requirement
+reference](skills/_shared/security-requirements.md). Eighteen conditional patterns
+combine the risk perspective of [OWASP Top 10:2025](https://top10.owasp.org/2025/),
+verification granularity from [ASVS 5.0.0](https://github.com/OWASP/ASVS/tree/v5.0.0/5.0/docs_en),
+and official Cheat Sheet practices. Each pattern defines design triggers, concrete
+constraints, adversarial acceptance cases, legitimate exceptions and exclusions.
+
+For a design with export cancellation, a requirement should say that the server
+checks the current trusted actor's permission to cancel the specific job before
+changing state; replacing the job ID with someone else's must leave state unchanged,
+and valid delegation remains allowed. This is distinct from preventing publication
+after cancellation. Browser-displayed titles require safe text rendering, not
+fictional SQL/path controls. Logs need separate checks for bearer credentials,
+private content and attributable events rather than a generic "improve logging."
+
+Inferred controls retain actual design passages as their premises; missing controls
+do not make established business facts unknown. Guidance is not project evidence or
+a formal compliance clause. Coverage uses real operations, applicable invariants
+and boundaries rather than a quota per Top 10 category. Standard mapping still
+reuses prepared controls and vectors. No OWASP web access is needed at runtime.
+The shared research document is separately marked CC BY-SA 4.0 with attribution;
+code and native skills retain their respective licenses.
+
+The [development experiment](tests/fixtures/requirements-owasp-v6/README.md) uses
+a previously inspected synthetic design, not independent blind validation. It
+records concrete-control coverage, added obligations, review judgments and output
+failures separately.
+
+The first v0.6.0 output contained 15 requirements and 35 criteria, including
+cancellation authorization, bearer-credential log protection, browser title
+rendering and failure-closed controls. Of 13 predeclared goals, the baseline had
+eight full matches, two partial and three missing; the new output contained full
+control descriptions for all thirteen. Delegation scope, trusted-field boundaries
+and explicit/inferred classification still had defects. **Coverage does not mean
+all thirteen are correct or semantic accuracy acceptance passed.** Both methods
+passed the six fixed review challenges; review accuracy improvement is not
+established, and not every actual draft was reviewed.
+
+Both arms used deepseek-flash, Chinese, temperature zero, disabled thinking and
+32K output capacity. Generation used four requests each and 73,822 / 90,589 tokens;
+including all fixed reviews, 32 requests used 494,645 known tokens, with no unknown
+usage. This is a non-blind comparison on a known synthetic development sample,
+not whole-project cost, exhaustive recall or independent accuracy. See the
+[recorded results](tests/fixtures/requirements-owasp-v6/result-summary.json); full
+reports and raw responses remain local.

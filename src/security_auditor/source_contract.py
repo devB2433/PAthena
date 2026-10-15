@@ -9,7 +9,11 @@ from collections import Counter
 
 def uses_source_contract(role: str, version: str | None) -> bool:
     """Explicit protocol compatibility; a method revision must not disable it."""
-    return role in {'design_analyst', 'requirement_generator', 'requirement_reviewer'} and version in {'0.4.0', '0.5.0', '0.5.1'}
+    if role not in {'design_analyst', 'requirement_generator', 'requirement_reviewer'}:
+        return False
+    if version not in {None, '0.2.0', '0.3.0', '0.4.0', '0.5.0', '0.5.1', '0.6.0'}:
+        raise ValueError('未登记文档技能的来源协议版本')
+    return version in {'0.4.0', '0.5.0', '0.5.1', '0.6.0'}
 
 
 def validate_source_contract(store, task, role, record, known, read_ids):

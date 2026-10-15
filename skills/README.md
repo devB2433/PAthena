@@ -7,7 +7,7 @@ no shortened evaluation-only skill set and no fallback to a user-local skill.
 
 The five active application roles are `design_analyst`, `requirement_generator`,
 `pci_mapper`, `requirement_reviewer`, and `requirement_checker`. All six application methods, including the historical compatibility role,
-are at 0.5.1.
+are at 0.6.0.
 The skills define investigation steps, decision rubrics, inventory obligations,
 source requirements, and completion conditions. Each role includes a casebook
 of investigation trajectories, counterexamples, and decision boundaries.
@@ -122,3 +122,30 @@ excluded from Git. This is not blind validation. Coverage, unreasonable controls
 provenance errors, review mistakes and output failures are measured separately.
 The mapper, checker and legacy generator method revisions are not semantically
 validated by a requirements-only experiment.
+
+## OWASP risk-to-requirement methods, v0.6.0
+
+`_shared/security-requirements.md` is the canonical professional reference for
+all six application methods, including the legacy role. It contains 18 conditional
+patterns, concrete constraints, adversarial acceptance cases, legitimate exceptions
+and exclusion boundaries. The risk organization uses OWASP Top 10:2025; ASVS 5.0.0
+informs verification granularity, with official Cheat Sheet sources documented in
+the resource. Pattern identifiers are project-local and are not OWASP clause IDs.
+
+Each manifest pins `shared_references`; the loader includes the complete shared
+resource and incorporates it in the packet digest. Missing/modified content stops
+the stage. Older snapshots without shared references preserve their exact original
+packets. No runtime web fetch or alternate evaluation-only resource is permitted.
+The shared research document is marked CC BY-SA 4.0 with OWASP attribution; code
+and native skill licenses remain separate.
+
+Coverage is assessed per real operation, applicable security invariant and boundary.
+Cancellation authorization is distinct from cancellation/publish ordering. Browser
+text safety is distinct from nonexistent SQL/file sinks. Logs are checked separately
+for audit usefulness, private data and bearer credentials. Design premises remain
+the required source for inferred requirements; method references cannot substitute
+for evidence or regenerate immutable compliance controls.
+
+The v6 known-design experiment has predeclared coverage and concrete-control rubrics
+under `tests/fixtures/requirements-owasp-v6/`. Its semantics and output failures are
+reported separately from integration tests. Original native skills are unchanged.

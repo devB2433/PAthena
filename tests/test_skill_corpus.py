@@ -71,18 +71,20 @@ def test_application_skills_are_versioned_complete_methods_and_legacy_audit_role
     assert {r['id'] for r in loader.catalog()} == set(PROJECT_ROLES)
     legacy = json.loads((ROOT / 'skills/pci_requirement_generator/manifest.json').read_text())
     for row in [*loader.catalog(), legacy]:
-        assert row['version'] == '0.5.1'
+        assert row['version'] == '0.6.0'
         bundle = loader.resolve(row['id'], row['id'], row['version'])
         prompt, _ = compile_instruction(bundle)
         assert bundle.instruction in prompt and '[METHOD]' in bundle.instruction
         manifest = json.loads((ROOT / 'skills' / row['id'] / 'manifest.json').read_text())
         for reference in manifest['references']:
             assert (ROOT / 'skills' / row['id'] / reference).read_text() in prompt
+        for reference in manifest.get('shared_references', {}):
+            assert (ROOT / 'skills/_shared' / reference).read_text() in prompt
     for role in ['code_architect', 'threat_modeler', 'vulnerability_planner', 'vulnerability_researcher',
                  'finding_reviewer', 'finding_critic', 'risk_calibrator']:
         assert not (ROOT / 'skills' / role).exists()
         with pytest.raises(ValueError):
-            loader.resolve(role, role, '0.5.1')
+            loader.resolve(role, role, '0.6.0')
 
 
 @pytest.mark.parametrize('missing', [False, True])
@@ -94,7 +96,21 @@ def test_application_reference_is_mandatory_and_cannot_be_shortened(tmp_path, mi
     else:
         cases.write_text('Summary instead of the original role cases')
     with pytest.raises((ValueError, FileNotFoundError)):
-        SkillLoader(tmp_path / 'skills').resolve('requirement_checker', 'requirement_checker', '0.5.1')
+        SkillLoader(tmp_path / 'skills').resolve('requirement_checker', 'requirement_checker', '0.6.0')
+
+
+@pytest.mark.parametrize('missing', [False, True])
+def test_shared_security_method_integrity_is_enforced_for_every_application_role(tmp_path, missing):
+    shutil.copytree(ROOT / 'skills', tmp_path / 'skills')
+    shared = tmp_path / 'skills/_shared/security-requirements.md'
+    if missing:
+        shared.unlink()
+    else:
+        shared.write_text('Shortened test-only knowledge is forbidden')
+    for manifest_path in (tmp_path / 'skills').glob('*/manifest.json'):
+        row = json.loads(manifest_path.read_text())
+        with pytest.raises((ValueError, FileNotFoundError)):
+            SkillLoader(tmp_path / 'skills').resolve(row['id'], row['id'], row['version'])
 
 
 def test_static_grep_bridge_preserves_full_call_site_inventory_and_snapshot_bounds(tmp_path):

@@ -1,7 +1,7 @@
 {
   "id": "pci_mapper",
-  "version": "0.5.1",
-  "sha256": "e95106fa72b60953d10f9f15d07c4605b411ac26c16d6dfa6b3043b871d85a63",
+  "version": "0.6.0",
+  "sha256": "af5e02542650f72f129f8f59d29c89fcb2398811ddd97c934848f9fe58f39c6f",
   "mandatory_rules": [
     "METHOD",
     "PCI_MAPPER-01",
@@ -16,7 +16,8 @@
     "PCI_MAPPER-10",
     "PCI_MAPPER-11",
     "PCI_MAPPER-12",
-    "PCI_MAPPER-13"
+    "PCI_MAPPER-13",
+    "SECURITY-PATTERNS"
   ],
   "source": {
     "repository": "google/mantis",
@@ -26,10 +27,13 @@
   },
   "profile": "static",
   "output_schema": "StageOutput",
-  "revision": "security-necessity-minimal-sufficiency-and-flow-coverage-v5.1",
+  "revision": "owasp-risk-to-concrete-requirements-v6",
   "references": {
     "references/cases.md": "a53369e79da7a27f8d0e8de6aa03348d04e46baf8b8ccf1756d1586f086a8875",
     "references/quality-method.md": "65d78075708ea14a6f117db81541e3148e16359fc5fbe8cd2fe118dbefea4aca"
   },
-  "derivation": "Project-authored role method; cited upstream is a methodological reference, not a verbatim port."
+  "derivation": "Project-authored role method; cited upstream is a methodological reference, not a verbatim port.",
+  "shared_references": {
+    "security-requirements.md": "f07993fe0b629d17951ed247eb4a4eca79b8876b25569e3d3335f1d29c956006"
+  }
 }

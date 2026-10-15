@@ -6,7 +6,7 @@
     "0.5.1"
   ],
   "baseline_commit": "230dcd7",
-  "candidate_commit": "WORKTREE",
+  "candidate_commit": "a620f2400620d6199e72bfba540a3e41403c1fe3",
   "language": "zh-CN",
   "temperature": 0,
   "thinking": "disabled: production forced-tool transport",

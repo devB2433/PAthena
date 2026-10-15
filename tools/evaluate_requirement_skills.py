@@ -66,6 +66,10 @@ def prepare(directory: Path):
                 original = ((ROOT / 'skills' / role / relative).read_bytes() if ref == 'WORKTREE'
                             else git('show', ref + ':skills/' + role + '/' + relative))
                 assert original == (folder / role / relative).read_bytes(), relative
+            for relative in manifest.get('shared_references', {}):
+                original = ((ROOT / 'skills/_shared' / relative).read_bytes() if ref == 'WORKTREE'
+                            else git('show', ref + ':skills/_shared/' + relative))
+                assert original == (folder / '_shared' / relative).read_bytes(), relative
             items.append({'role': role, 'packet_hash': bundle.content_hash})
         identity[name] = {'commit': git('rev-parse', 'HEAD' if ref == 'WORKTREE' else ref).decode().strip(),
                           'worktree_candidate': ref == 'WORKTREE', 'skills': items}

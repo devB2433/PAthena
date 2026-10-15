@@ -1,7 +1,7 @@
 {
   "id": "requirement_checker",
-  "version": "0.5.1",
-  "sha256": "736e2eaf45b38d2a3f4714e82be941126d5cf45af09c6b090c37602c3ffb666a",
+  "version": "0.6.0",
+  "sha256": "a38c25ff8fffe88ddf9c6c3ee3129421b658bb2426e99420142fec4541b30f28",
   "mandatory_rules": [
     "METHOD",
     "REQUIREMENT_CHECKER-01",
@@ -16,7 +16,8 @@
     "REQUIREMENT_CHECKER-10",
     "REQUIREMENT_CHECKER-11",
     "REQUIREMENT_CHECKER-12",
-    "REQUIREMENT_CHECKER-13"
+    "REQUIREMENT_CHECKER-13",
+    "SECURITY-PATTERNS"
   ],
   "source": {
     "repository": "google/mantis",
@@ -26,10 +27,13 @@
   },
   "profile": "static",
   "output_schema": "StageOutput",
-  "revision": "security-necessity-minimal-sufficiency-and-flow-coverage-v5.1",
+  "revision": "owasp-risk-to-concrete-requirements-v6",
   "references": {
     "references/cases.md": "2c89ac9f3f61fbdf9dd2b276bcdbe490decc74139dd65f03b411dbcfb7ebe315",
     "references/quality-method.md": "2d1474a7e20378656ccd0d799612cecc1bc531c3968639670400a185b5791c07"
   },
-  "derivation": "Project-authored role method; cited upstream is a methodological reference, not a verbatim port."
+  "derivation": "Project-authored role method; cited upstream is a methodological reference, not a verbatim port.",
+  "shared_references": {
+    "security-requirements.md": "f07993fe0b629d17951ed247eb4a4eca79b8876b25569e3d3335f1d29c956006"
+  }
 }

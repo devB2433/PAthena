@@ -171,7 +171,7 @@ async def test_real_adk_reads_catalog_and_directly_commits_requirement_clause_ma
     run,_,_,doc,req=catalog
     task=store.add_task(run['id'],'pci_mapping',{'requirement_id':req.id,
                                              'compliance_scope_policy':'code_related_v2'})
-    bundle=SkillLoader(settings.skills_dir).resolve('pci_mapper','pci_mapper','0.5.1')
+    bundle=SkillLoader(settings.skills_dir).resolve('pci_mapper','pci_mapper','0.6.0')
     class CatalogModel(BaseLlm):
         model:str='structured-catalog-fixture'
         _calls:int=PrivateAttr(default=0)
@@ -272,7 +272,7 @@ async def test_atomic_provenance_is_task_owned_and_never_repairs_analytical_outp
     scheduler=Scheduler(settings,store)
     scope=scheduler.scopes(run['id'],'pci_requirement_generator')[0]
     tid=store.add_task(run['id'],'pci_requirements',scope)
-    bundle=SkillLoader(settings.skills_dir).resolve('pci_requirement_generator','pci_requirement_generator','0.5.1')
+    bundle=SkillLoader(settings.skills_dir).resolve('pci_requirement_generator','pci_requirement_generator','0.6.0')
     expected=Requirement(id='owned-result',title='Authenticate identity',module='api',
                          statement='For in-scope deployment authenticate identity.',acceptance_criteria=['Identity is authenticated'],
                          origin='PCI_DSS',clause_ids=['8.3.1'],evidence_ids=[doc,eid],rationale='Original normative control')
