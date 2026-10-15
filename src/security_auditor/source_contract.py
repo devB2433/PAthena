@@ -7,10 +7,15 @@ structured results from being committed as a successful review.
 from collections import Counter
 
 
+def uses_source_contract(role: str, version: str | None) -> bool:
+    """Explicit protocol compatibility; a method revision must not disable it."""
+    return role in {'design_analyst', 'requirement_generator', 'requirement_reviewer'} and version in {'0.4.0', '0.5.0', '0.5.1'}
+
+
 def validate_source_contract(store, task, role, record, known, read_ids):
     obligations = getattr(record, 'source_obligations', [])
     judgments = getattr(record, 'claim_reviews', [])
-    required = task.get('skill_version') == '0.4.0'
+    required = uses_source_contract(role, task.get('skill_version'))
     if role in {'design_analyst', 'requirement_generator'} and required and not obligations:
         raise ValueError('缺少结构化原文约束')
     if role == 'requirement_reviewer' and required and not judgments:

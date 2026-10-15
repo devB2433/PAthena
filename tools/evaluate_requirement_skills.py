@@ -72,8 +72,9 @@ def prepare(directory: Path):
         spec = json.loads((ROOT / 'design/workflow.json').read_text())
         for node in spec['nodes']:
             if node['kind'] == 'agent':
-                if node.get('role') in {'design_analyst', 'requirement_generator', 'requirement_reviewer'}:
-                    node['skill_version'] = name
+                role = node.get('role')
+                if role and (folder / role / 'manifest.json').exists():
+                    node['skill_version'] = json.loads((folder / role / 'manifest.json').read_text())['version']
         write(directory / ('workflow-' + name + '.json'), spec)
     write(directory / 'skill-identities.json', identity)
     Store(directory / 'state/auditor.sqlite3', enforce_budgets=False)

@@ -1,0 +1,130 @@
+{
+  "experiment": "requirements-reasonableness-and-completeness-v5",
+  "model": "deepseek-flash",
+  "versions": [
+    "0.4.0",
+    "0.5.0"
+  ],
+  "baseline_commit": "230dcd7",
+  "candidate_commit": "WORKTREE",
+  "language": "zh-CN",
+  "temperature": 0,
+  "thinking": "disabled: production forced-tool transport",
+  "max_output_tokens": 32768,
+  "hard_budgets": false,
+  "selective_retries": false,
+  "dataset_role": "Synthetic developer-owned development benchmark, not blind validation",
+  "tasks": [
+    [
+      "pipeline",
+      1,
+      "0.4.0"
+    ],
+    [
+      "pipeline",
+      1,
+      "0.5.0"
+    ]
+  ],
+  "positives": [
+    {
+      "id": "Q01",
+      "behavior": "Invoice object authorization",
+      "full_credit": [
+        "Every selected invoice is within the requester's authorized scope, including mixed batches",
+        "Explicit cross-customer delegation is allowed, not prohibited"
+      ],
+      "expected_origin": "INFERRED_SECURITY"
+    },
+    {
+      "id": "Q02",
+      "behavior": "Preserve authorization through service-identity execution",
+      "full_credit": [
+        "Worker uses the job-bound requester/object scope and cannot expand to arbitrary invoices merely because its service account can read all customers"
+      ],
+      "expected_origin": "INFERRED_SECURITY"
+    },
+    {
+      "id": "Q03",
+      "behavior": "Protect status and result access",
+      "full_credit": [
+        "Status and download check own-job or explicitly delegated scope",
+        "Sequential job ID alone is not authorization"
+      ],
+      "expected_origin": "EXPLICIT_DESIGN"
+    },
+    {
+      "id": "Q04",
+      "behavior": "Cancellation completion ordering",
+      "full_credit": [
+        "Cancellation before completion prevents publication including concurrent completion"
+      ],
+      "expected_origin": "EXPLICIT_DESIGN"
+    },
+    {
+      "id": "Q05",
+      "behavior": "At-least-once delivery idempotence",
+      "full_credit": [
+        "Retry does not publish a second final result or a second chargeable export"
+      ],
+      "expected_origin": "EXPLICIT_DESIGN"
+    },
+    {
+      "id": "Q06",
+      "behavior": "Expiry restricts result reads",
+      "full_credit": [
+        "Expired result bytes cannot be returned even while private object still exists"
+      ],
+      "expected_origin": "EXPLICIT_DESIGN"
+    },
+    {
+      "id": "Q07",
+      "behavior": "Attributable export audit",
+      "full_credit": [
+        "Request, download and cancel records identify actor, job and time including delegated administrators"
+      ],
+      "expected_origin": "EXPLICIT_DESIGN"
+    },
+    {
+      "id": "Q08",
+      "behavior": "Shared-service capacity protection",
+      "full_credit": [
+        "Bounded admission or resource allocation prevents one customer from exhausting shared export service",
+        "No fabricated mandatory numeric limit or specific algorithm"
+      ],
+      "expected_origin": "INFERRED_SECURITY"
+    },
+    {
+      "id": "Q09",
+      "behavior": "Protect sensitive information in broader-access logs",
+      "full_credit": [
+        "Operational logs do not disclose invoice body/financial personal data or bearer credentials to unauthorized support readers",
+        "Public job IDs and authorized audit identifiers are not prohibited from logs"
+      ],
+      "expected_origin": "INFERRED_SECURITY"
+    },
+    {
+      "id": "Q10",
+      "behavior": "Actual production audit retention",
+      "full_credit": [
+        "Actual production retention is 90 days, distinguished from code merely offering configuration",
+        "External operational responsibility remains, not falsely proved by source"
+      ],
+      "expected_origin": "EXPLICIT_DESIGN"
+    }
+  ],
+  "negative_controls": [
+    "No blanket prohibition of delegated cross-customer administration",
+    "No fabricated cipher, WAF product, fixed rate or file deletion deadline",
+    "No new MFA mandate or absolute ban inferred from non-goals",
+    "No 80% test coverage requirement controlling export access",
+    "No invented PCI formal applicability, PAN storage or employee training obligation",
+    "No forced BOTH optional performance metric and performance audit event",
+    "No path/SQL/command injection control inferred solely from display-only title",
+    "No immediate delegation-revocation guarantee absent design agreement"
+  ],
+  "adjudication": "Developer manual semantic judgment; all normative material graded, partial separated, no model judge or result repair",
+  "generated_review_versions": [
+    "0.5.0"
+  ]
+}

@@ -1,7 +1,7 @@
 {
   "id": "requirement_checker",
-  "version": "0.3.0",
-  "sha256": "20c6aaa11344a20ada6cf53bf534bc91b1cbe5f7f6051160f075764a01099ba0",
+  "version": "0.5.1",
+  "sha256": "736e2eaf45b38d2a3f4714e82be941126d5cf45af09c6b090c37602c3ffb666a",
   "mandatory_rules": [
     "METHOD",
     "REQUIREMENT_CHECKER-01",
@@ -11,7 +11,12 @@
     "REQUIREMENT_CHECKER-05",
     "REQUIREMENT_CHECKER-06",
     "REQUIREMENT_CHECKER-07",
-    "REQUIREMENT_CHECKER-08"
+    "REQUIREMENT_CHECKER-08",
+    "REQUIREMENT_CHECKER-09",
+    "REQUIREMENT_CHECKER-10",
+    "REQUIREMENT_CHECKER-11",
+    "REQUIREMENT_CHECKER-12",
+    "REQUIREMENT_CHECKER-13"
   ],
   "source": {
     "repository": "google/mantis",
@@ -21,9 +26,10 @@
   },
   "profile": "static",
   "output_schema": "StageOutput",
-  "revision": "role-specific-investigation-manuals-v3",
+  "revision": "security-necessity-minimal-sufficiency-and-flow-coverage-v5.1",
   "references": {
-    "references/cases.md": "2c89ac9f3f61fbdf9dd2b276bcdbe490decc74139dd65f03b411dbcfb7ebe315"
+    "references/cases.md": "2c89ac9f3f61fbdf9dd2b276bcdbe490decc74139dd65f03b411dbcfb7ebe315",
+    "references/quality-method.md": "2d1474a7e20378656ccd0d799612cecc1bc531c3968639670400a185b5791c07"
   },
   "derivation": "Project-authored role method; cited upstream is a methodological reference, not a verbatim port."
 }

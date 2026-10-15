@@ -43,7 +43,7 @@ async def test_registered_source_search_can_reach_matches_beyond_first_page(sett
         store.add_evidence(run['id'], 'document', f'design:{index:03d}', 'shared_control context', {})
     store.add_evidence(run['id'], 'code', 'not-a-document.py:1', 'shared_control', {})
     tid = store.add_task(run['id'], 'pci_mapping', {})
-    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.3.0')
+    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.5.1')
     model = PaginatedSearch()
     output = await AdkExecutor(settings, store, model_factory=lambda: model).execute(store.task(tid), bundle, {})
     assert output.summary == 'Source search pages complete' and model._calls == 3
@@ -82,7 +82,7 @@ async def test_document_completion_cannot_skip_readable_assigned_material(
     _, run, _ = sample_run
     ids = [store.add_evidence(run['id'], 'document', f'design:{i}', f'Business flow {i}', {}) for i in range(2)]
     tid = store.add_task(run['id'], 'document_method', {'evidence_ids': ids} if role == 'design_analyst' else {})
-    bundle = SkillLoader(settings.skills_dir).resolve(role, role, '0.4.0')
+    bundle = SkillLoader(settings.skills_dir).resolve(role, role, '0.5.1')
     model = DocumentCompletion(read_all=read_all, use_final_tool=use_final_tool)
     executor = AdkExecutor(settings, store, model_factory=lambda: model)
     if read_all:

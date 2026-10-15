@@ -40,7 +40,7 @@ def setup_source(settings, store, sample_run, role):
         seed, "requirement_generator", StageOutput(records=[req], summary="Seed archived record")
     )
     tid = store.add_task(run["id"], role, {"subject_ids": ["req"]})
-    bundle = SkillLoader(settings.skills_dir).resolve(role, role, "0.4.0")
+    bundle = SkillLoader(settings.skills_dir).resolve(role, role, "0.5.1")
     store.start_task(tid, bundle)
     store.note_read(tid, eid)
     return tid, eid, req
@@ -194,3 +194,11 @@ def test_generator_inventory_is_exact(settings, store, sample_run):
     ]
     with pytest.raises(ValueError, match="全部验收项"):
         store.commit_output(tid, "requirement_generator", StageOutput(records=[req], summary="X"))
+
+
+@pytest.mark.parametrize('version,expected', [('0.3.0', False), ('0.4.0', True), ('0.5.0', True), ('0.5.1', True)])
+def test_method_upgrade_preserves_source_protocol_without_enabling_it_on_other_roles(version, expected):
+    from security_auditor.source_contract import uses_source_contract
+    assert uses_source_contract('requirement_generator', version) is expected
+    assert not uses_source_contract('requirement_checker', version)
+    assert not uses_source_contract('pci_mapper', version)

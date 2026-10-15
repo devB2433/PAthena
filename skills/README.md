@@ -6,8 +6,8 @@ no shortened evaluation-only skill set and no fallback to a user-local skill.
 ## Application methods
 
 The five active application roles are `design_analyst`, `requirement_generator`,
-`pci_mapper`, `requirement_reviewer`, and `requirement_checker`. Document analysis,
-generation and review are at 0.4.0; mapping and implementation checks remain at 0.3.0.
+`pci_mapper`, `requirement_reviewer`, and `requirement_checker`. All six application methods, including the historical compatibility role,
+are at 0.5.1.
 The skills define investigation steps, decision rubrics, inventory obligations,
 source requirements, and completion conditions. Each role includes a casebook
 of investigation trajectories, counterexamples, and decision boundaries.
@@ -91,3 +91,34 @@ criterion slots per task. Storage retains the common Requirement and Review
 models with numbered original claims. The final 2026-10-14 requirements workflow
 completed, but semantic acceptance did not: both versions judged only 5/8
 repair cases correctly. Complete reference binding is not entailment proof.
+
+## Requirement quality investigation, v0.5.1
+
+Every application method includes a mandatory, hash-pinned
+`references/quality-method.md`, loaded in full in production and evaluations.
+The methods distinguish security-relevant obligations from ordinary functional
+statements; infer minimal controls from actual ownership, controllable inputs,
+trust changes and failure paths; challenge overconstraint using legitimate
+operations; and reconcile real flows with controls and explicit gaps.
+
+Design analysis hands off sensitive-flow facts and unknowns. Generation records
+flow-to-requirement coverage in the existing summary and checks necessity,
+minimal sufficiency, provenance and legal positive/negative cases. Review checks
+those arguments independently, distinguishes valid inference from unsupported
+addition, and records omissions without rejecting unrelated valid controls.
+Mapping checks obligation intersections and query coverage against frozen
+controls; implementation checking challenges concrete source paths and shared
+controls; the legacy generator reconciles normative obligations with subsystem
+responsibility. Native original skills and their adapter remain unchanged.
+
+The source protocol is explicitly compatible with 0.4.0, 0.5.0 and 0.5.1 for
+the three document roles. Changing a method version cannot silently disable
+source binding, or enable that protocol on mapper/checker roles. Older snapshots
+retain their original versions and output shape.
+
+The synthetic development benchmark and rubric are checked in under
+`tests/fixtures/requirements-quality-v5/`; raw responses and local reports are
+excluded from Git. This is not blind validation. Coverage, unreasonable controls,
+provenance errors, review mistakes and output failures are measured separately.
+The mapper, checker and legacy generator method revisions are not semantically
+validated by a requirements-only experiment.

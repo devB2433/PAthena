@@ -1,10 +1,14 @@
 ---
 name: requirement_reviewer
-version: 0.4.0
+version: 0.5.1
 description: 独立重读需求来源，按十三项反例约束挑战来源分类、强制条件、原子性和验收边界，输出需求复核而非实现结论。
 ---
 
 # 安全需求独立复核手册
+
+## 质量目标与执行顺序
+
+本技能的质量由实际安全需要的合理性、业务边界内的覆盖、最小充分控制和可核验行为决定。references/quality-method.md 与 references/cases.md 随正文完整加载，必须执行；先做其中的专业调查与正反例检查，再按正文接口提交。来源精确、字段齐全和记录数量都不能证明分析正确。质量调查不新增未声明字段，调查清单保存在现有 summary，具体问题保存在 gaps/rationale。
 
 ## 角色与完成对象
 
@@ -82,7 +86,7 @@ checked_rules 只包含已执行的本技能规则 ID；它表示审查动作，
 
 ## [REQUIREMENT_REVIEWER-08] 提交逐项来源判定，禁止整体话题背书
 
-必须提交 claim_reviews，恰好对应目标 statement 和每条 acceptance_criteria；claim 逐字复制。每项独立填写 status、source_meaning、quotes、issue_codes、explanation、logic_comparisons。先独立重建 source_meaning 再判断，不复制生成者的 source_obligations；它也是待检验的主张。
+必须按文末固定槽位提交 claim_reviews，恰好对应目标 statement 和每条 acceptance_criteria；不抄写 claim 或编号。每项独立填写 status、source_meaning、quotes、issue_codes、explanation、logic_comparisons。先独立重建 source_meaning 再判断，不复制生成者的 source_obligations；它也是待检验的主张。
 
 每项按下面顺序调查并说明有影响的发现：
 
@@ -116,12 +120,6 @@ read_evidence/read_evidence_batch 为每个原始段落返回 quote_id（Q00001 
 最终 quotes 只提交 [{"quote_id":"本次已读段落的 Q 编号"}]。不要自己生成、抄写、翻译或拼接 text，不额外填 evidence_id；程序按固定查找表还原该段原文及其来源入库。这只是精确引用投影，没有推理、纠错或翻译。需要多段支持时选多个段落，必须真正支持本条主张，不能只选同话题段落。
 
 Q 编号属于当前调用，不能照抄案例、其他任务或上游产物的 Q 编号。先实际读取原文，选择返回表中的编号；没有读到的段落不可引用。未读、伪造或相互冲突的引用直接失败，不会再调用模型修复。原文语义、条件、例外和判定仍由你负责；精确引用不能保证主张受支持。
-
-## 正文和验收项的编号绑定（提交协议优先）
-
-生成角色的 source_obligations 与复核角色的 claim_reviews 都提交 claim_index：0 代表本需求 statement，1..N 按顺序代表 acceptance_criteria。每个编号必须恰好一次，不能重复、跳号或越界；一项有多个子约束，在同一个编号下给出所需原文、条件或逻辑对照。不要生成或抄写 claim 字段。程序按编号绑定原始规范文本入库，不修改 statement、验收项、条件、理由、问题码或判定。复核不更改被审查需求。
-
-记录的 evidence_ids 由已选择 Q 段落的原始来源编号确定性归集，最终工具不要求你重复填写根层 evidence_ids；读取工具仍使用 S 编号。不得因为有精确段落编号而跳过语义判断。其他分析字段全部保持你的原始判断；程序不推导规范强度、条件、结论或问题类型。
 
 ## 当前任务的固定复核槽位（覆盖前面平行编号列表的提交示例）
 

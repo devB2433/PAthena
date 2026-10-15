@@ -1,7 +1,7 @@
 {
   "id": "design_analyst",
-  "version": "0.4.0",
-  "sha256": "52362b42dfbb379d5ab4df3522ed3ac089d1f2b2dfb717d9cf4a8cedd0005eb3",
+  "version": "0.5.1",
+  "sha256": "8926d67893b428d400b8cd1a488eef55d8e69c7a107c969124ea6c674daa53a4",
   "mandatory_rules": [
     "METHOD",
     "DESIGN_ANALYST-01",
@@ -9,7 +9,11 @@
     "DESIGN_ANALYST-03",
     "DESIGN_ANALYST-04",
     "DESIGN_ANALYST-05",
-    "DESIGN_ANALYST-06"
+    "DESIGN_ANALYST-06",
+    "DESIGN_ANALYST-07",
+    "DESIGN_ANALYST-08",
+    "DESIGN_ANALYST-09",
+    "DESIGN_ANALYST-10"
   ],
   "source": {
     "repository": "google/mantis",
@@ -19,9 +23,10 @@
   },
   "profile": "static",
   "output_schema": "StageOutput",
-  "revision": "source-obligation-and-per-claim-review-v4",
+  "revision": "security-necessity-minimal-sufficiency-and-flow-coverage-v5.1",
   "references": {
-    "references/cases.md": "71295bf52ab23bfc46a2e71e8b386ea70abcfc1868bd04b33e86f1faad458f4f"
+    "references/cases.md": "71295bf52ab23bfc46a2e71e8b386ea70abcfc1868bd04b33e86f1faad458f4f",
+    "references/quality-method.md": "d8d90426c9c96cb632bb98ebfc9333e32da4e758f36c3bcb120f46ac57511301"
   },
   "derivation": "Project-authored role method; cited upstream is a methodological reference, not a verbatim port."
 }

@@ -1,7 +1,7 @@
 {
   "id": "requirement_reviewer",
-  "version": "0.4.0",
-  "sha256": "ba40a10c7f576ddebe1bcaf7effe3f3279a430e99339508375e0e24d6dc86120",
+  "version": "0.5.1",
+  "sha256": "187d93f23b7e9885168a776d9650dfbdb210695c99b652a65769d4ad18462c0e",
   "mandatory_rules": [
     "METHOD",
     "REQUIREMENT_REVIEWER-01",
@@ -24,7 +24,12 @@
     "REQUIREMENT_REVIEWER-05",
     "REQUIREMENT_REVIEWER-06",
     "REQUIREMENT_REVIEWER-07",
-    "REQUIREMENT_REVIEWER-08"
+    "REQUIREMENT_REVIEWER-08",
+    "REQUIREMENT_REVIEWER-09",
+    "REQUIREMENT_REVIEWER-10",
+    "REQUIREMENT_REVIEWER-11",
+    "REQUIREMENT_REVIEWER-12",
+    "REQUIREMENT_REVIEWER-13"
   ],
   "source": {
     "repository": "google/mantis",
@@ -34,9 +39,10 @@
   },
   "profile": "static",
   "output_schema": "StageOutput",
-  "revision": "source-obligation-and-per-claim-review-v4",
+  "revision": "security-necessity-minimal-sufficiency-and-flow-coverage-v5.1",
   "references": {
-    "references/cases.md": "0a19d3a4d0a7e32038e30d292de78f421c54c9e1cb6c5eb57704f1727c9514d5"
+    "references/cases.md": "0a19d3a4d0a7e32038e30d292de78f421c54c9e1cb6c5eb57704f1727c9514d5",
+    "references/quality-method.md": "d961777f5ec5533eebe39b47d62f2c04131eb943855932cbb712675e2d0fbb67"
   },
   "derivation": "Project-authored role method; cited upstream is a methodological reference, not a verbatim port."
 }

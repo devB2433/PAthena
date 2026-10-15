@@ -1,7 +1,7 @@
 {
   "id": "pci_mapper",
-  "version": "0.3.0",
-  "sha256": "59578a8e501d276215eb55a8a77e7e91553e4ac0e0bb930f1532585678a2c7e5",
+  "version": "0.5.1",
+  "sha256": "e95106fa72b60953d10f9f15d07c4605b411ac26c16d6dfa6b3043b871d85a63",
   "mandatory_rules": [
     "METHOD",
     "PCI_MAPPER-01",
@@ -11,7 +11,12 @@
     "PCI_MAPPER-05",
     "PCI_MAPPER-06",
     "PCI_MAPPER-07",
-    "PCI_MAPPER-08"
+    "PCI_MAPPER-08",
+    "PCI_MAPPER-09",
+    "PCI_MAPPER-10",
+    "PCI_MAPPER-11",
+    "PCI_MAPPER-12",
+    "PCI_MAPPER-13"
   ],
   "source": {
     "repository": "google/mantis",
@@ -21,9 +26,10 @@
   },
   "profile": "static",
   "output_schema": "StageOutput",
-  "revision": "role-specific-investigation-manuals-v3",
+  "revision": "security-necessity-minimal-sufficiency-and-flow-coverage-v5.1",
   "references": {
-    "references/cases.md": "a53369e79da7a27f8d0e8de6aa03348d04e46baf8b8ccf1756d1586f086a8875"
+    "references/cases.md": "a53369e79da7a27f8d0e8de6aa03348d04e46baf8b8ccf1756d1586f086a8875",
+    "references/quality-method.md": "65d78075708ea14a6f117db81541e3148e16359fc5fbe8cd2fe118dbefea4aca"
   },
   "derivation": "Project-authored role method; cited upstream is a methodological reference, not a verbatim port."
 }

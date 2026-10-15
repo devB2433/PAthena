@@ -693,7 +693,7 @@ PDF tests require models prepared in advance and explicitly skip when resources 
 
 ## Skill versions and runtime consistency
 
-All skills and references are checked into `skills/`. Design analysis, requirement generation, and requirement review use 0.4.0; compliance matching, implementation checking, and the historical structured-standard compatibility method remain at 0.3.0. Code auditing retains the complete original skills and references from a pinned source. Static execution boundaries, tool mappings, and structured submission protocols reside in a separate adapter. Seven obsolete abbreviated code-audit skills have been removed.
+All skills and references are checked into `skills/`. All six application methods use 0.5.1: design analysis, requirement generation and review, compliance mapping, implementation checking, and historical structured-standard compatibility. Code auditing retains the complete original skills and references from a pinned source. Static execution boundaries, tool mappings, and structured submission protocols reside in a separate adapter. Seven obsolete abbreviated code-audit skills have been removed.
 
 Production and tests use the same loaders and full instructions, validating provenance, versions, and digests. Missing or rewritten original skills stop execution. Automated tests check the skill bodies in actual ADK requests and database task receipts; controlled responses do not establish security-analysis accuracy. Skill changes require a new analysis run; existing reports retain their original version. Run `.venv/bin/python tools/check_skill_corpus.py` to inspect the checked-in corpus.
 
@@ -727,3 +727,57 @@ The final 2026-10-14 test used pinned [KEP-4193](https://github.com/kubernetes/e
 **Semantic accuracy acceptance did not pass.** Both versions correctly judged 5 of 8 repair challenges. The candidate still accepted reversed conditions and excessive recovery-permission restrictions, and rejected a valid inference. Best-match coverage remained 8 of 9 frozen behaviors, with incomplete lifecycle boundaries; coverage does not establish consistency across drafts. Fresh-document review also missed some gate and cross-requirement conflicts. This iteration improves traceability, exact correspondence and receipt reliability; it does not establish more accurate security judgments.
 
 Both arms used deepseek-flash, Chinese output, temperature 0, disabled thinking and a 32K response allowance. Expectations and source-based scoring came from the development agent, without blind independent expert review. The new document was not used to tune semantic results, but was used repeatedly to debug receipt protocols; all development failures remain archived and count toward consumption. Development plus acceptance totaled 300 physical requests and 4,396,009 known tokens, with 2 unknown-usage requests (102,223 reserved estimate, not actual billing). This is not one project's cost. No code scan or compliance-mapper validation was performed. Experiment databases and reports remain local. See the [reproduction fixtures](tests/fixtures/requirements-skill-iteration/README.md).
+
+### Requirement reasonableness and completeness: 0.5.1 methods
+
+All six application skills now include a mandatory, fully loaded, hash-pinned
+`references/quality-method.md`. Native code-audit skills remain unchanged.
+
+- **Reasonableness:** establish the actual asset, plausible failure, minimal
+  sufficient protection and subsystem responsibility. Test legitimate delegation,
+  recovery, cancellation and expiry to expose overconstraint. Ordinary functional
+  descriptions, engineering metrics and nonexistent dangerous data flows do not
+  automatically become security obligations.
+- **Completeness:** reconcile real flows, identity changes, object scope, sensitive
+  copies and lifecycle transitions with controls; trace each requirement back to
+  its business premise. Record the investigation ledger in the existing stage
+  summary and concrete omissions in gaps. Counts are not completeness evidence.
+- **Valid inference:** private ownership, user-controlled identifiers and a stronger
+  worker identity can justify object authorization and scope preservation even
+  when the design does not explicitly specify an authorization mechanism. Keep
+  inferred controls distinct from explicit design promises.
+- **Downstream investigation:** review necessity, weakest conforming implementations
+  and legitimate counterexamples; map immutable standard obligations by object,
+  responsibility and conditions; investigate actual source paths, shared controls
+  and bypasses during implementation checks. Project matching still reuses the
+  prepared control catalog and vectors.
+
+This iteration uses an original 40-line synthetic design for development
+comparison, plus eight known review challenges from the previous public design.
+See the [frozen material and rubric](tests/fixtures/requirements-quality-v5/README.md).
+The sample covers asynchronous exports, cross-customer delegation, cancellation,
+retries, expiry, logs and operational responsibility. Gold requirements are not
+provided to generation. First outputs and failures are retained unchanged; later
+refinements have separate receipts. Developer adjudication is not blind review,
+and complete contracts, improved coverage or all-supported reviews do not prove
+semantic accuracy.
+
+The final method fully covered 9 of 10 frozen protection goals, with one partial;
+the 0.4.0 baseline had eight full and two partial. The intermediate development
+method reached ten, so generation was not stable. The final method removed an
+extra display-title prohibition and correctly classified admission control as
+inference, but omitted bearer-credential log protection and retained some
+positive cases that override legitimate cancellation/expiry rejection. Missing
+authorization for cancellation was found post hoc and is not added to the frozen
+score. All eleven final requirements received SUPPORTED reviews despite these
+issues. **Stable semantic accuracy acceptance has not passed.** In the eight
+known review challenges, both rerun 0.4.0 and 0.5.0 had six correct; the latter
+also had one output-contract failure. That set was not rerun for 0.5.1.
+
+All development, regression and review used 91 physical requests and 1,345,785
+known tokens; one request has unknown usage, with a 61,721 reservation estimate
+that is not a bill. Final design/requirement generation used four requests and
+73,635 tokens, with another 22 requests and 301,144 tokens for per-requirement
+review. Semantic tests cover design, generation and review only. The other three
+methods received content improvements and integration regression, not semantic
+validation from this experiment. See [recorded results](tests/fixtures/requirements-quality-v5/result-summary.json); raw responses and reports remain local.

@@ -11,6 +11,7 @@ from pydantic import Field, create_model
 from .skills import SkillBundle, compile_instruction, digest
 from .store import Store
 from .source_references import SourceReferences
+from .source_contract import uses_source_contract
 from .model_contract import accounted_response
 from .provider import OutputContractError, ProviderUnavailable, ProviderBlocked, BudgetExceeded
 from .vendor.mantis_llm_gateway import SecretScrubber, wrap_untrusted_content
@@ -159,6 +160,7 @@ class AdkExecutor:
 
         run_id = task["run_id"]
         allowed_sources = ALLOWED_SOURCES[bundle.skill_id]
+        structured_sources = uses_source_contract(bundle.skill_id, bundle.version)
         pending_requests: list[str] = []
         failures: list[Exception] = []
         owned_provenance = ({'origin':'PCI_DSS','clause_ids':task['scope']['clause_ids']}
@@ -168,14 +170,14 @@ class AdkExecutor:
         owned_check = task['scope']['requirement_id'] if bundle.skill_id=='requirement_checker' else None
         schema = (scoped_checker_submission_model(owned_check) if owned_check else
                   scoped_pci_submission_model(owned_provenance['clause_ids'][0]) if owned_provenance else
-                  submission_model(bundle.skill_id, structured_sources=bundle.version == '0.4.0'))
-        if bundle.skill_id == 'requirement_reviewer' and bundle.version == '0.4.0':
+                  submission_model(bundle.skill_id, structured_sources=structured_sources))
+        if bundle.skill_id == 'requirement_reviewer' and structured_sources:
             subjects = task['scope'].get('subject_ids', [])
             if len(subjects) == 1:
                 target = next(r for r in self.store.records(run_id,'requirement') if r['id'] == subjects[0])
                 schema = scoped_review_submission_model(subjects[0], len(target['acceptance_criteria']))
         references = SourceReferences()
-        storage_schema = stage_schema(bundle.skill_id) if bundle.version == '0.4.0' else schema
+        storage_schema = stage_schema(bundle.skill_id) if structured_sources else schema
         submitted_via_tool = False
         invocation_reads: set[str] = set()
         instruction_observed = False
@@ -195,7 +197,7 @@ class AdkExecutor:
                 raise OutputContractError('本阶段指定的设计材料尚未全部读取，不能提交已完成结果')
 
         def project_submission(value, *, receipt=False):
-            if bundle.version != '0.4.0':
+            if not structured_sources:
                 return value
             import copy
             from .output_projection import project_empty_extras, resolve_claim_indices
@@ -230,11 +232,11 @@ class AdkExecutor:
                 self.store.read_evidence(run_id,eid)['source_type']=='code' for eid in read_ids)
             for definition in result.get('$defs', {}).values():
                 fields = definition.get('properties', {})
-                if bundle.version == '0.4.0' and ('source_obligations' in fields or 'claim_reviews' in fields or 'statement_source' in fields):
+                if structured_sources and ('source_obligations' in fields or 'claim_reviews' in fields or 'statement_source' in fields):
                     for key in ('evidence_ids', 'engine', 'native_id', 'native_status', 'native_data'):
                         fields.pop(key, None)
                     definition['required'] = [key for key in definition.get('required', []) if key in fields]
-                if bundle.version == '0.4.0' and 'claim_index' in fields:
+                if structured_sources and 'claim_index' in fields:
                     if bundle.skill_id == 'requirement_reviewer':
                         fields.pop('claim', None)
                         fields['claim_index'] = {'type':'integer', 'minimum':0,
@@ -250,7 +252,7 @@ class AdkExecutor:
                     else:
                         fields.pop('claim_index', None)
                     definition['required'] = [key for key in definition.get('required', []) if key in fields]
-                if bundle.version == '0.4.0' and 'quote_id' in fields and 'text' in fields:
+                if structured_sources and 'quote_id' in fields and 'text' in fields:
                     definition['properties'] = {'quote_id': {'type': 'string',
                         'description': 'Exact Qxxxxx paragraph ID from the current read_evidence result',
                         **({'enum': list(references.by_quote)} if references.by_quote else {'pattern': '^Q[0-9]{5}$'})}}
@@ -315,7 +317,7 @@ class AdkExecutor:
                 # Validation errors stop the run, never return repair feedback to a model.
                 try:
                     verify_material_completion()
-                    result = storage_schema.model_validate(references.decode_submission(project_submission(args, receipt=True), quote_handles_required=bundle.version == '0.4.0'))
+                    result = storage_schema.model_validate(references.decode_submission(project_submission(args, receipt=True), quote_handles_required=structured_sources))
                 except (ValueError, OutputContractError) as exc:
                     failure = exc if isinstance(exc, OutputContractError) else OutputContractError('模型提交的阶段结果未通过结构化校验')
                     failures.append(failure)
@@ -343,7 +345,7 @@ class AdkExecutor:
                 raise ValueError("此角色不能读取该类材料")
             self.store.note_read(task["id"], row['id'])
             invocation_reads.add(row['id'])
-            if bundle.version == '0.4.0' and row['source_type'] in {'document', 'standard'}:
+            if structured_sources and row['source_type'] in {'document', 'standard'}:
                 row['passages'] = references.register_quotes(row)
                 row.pop('content')  # All original paragraphs are present once, not duplicated.
                 self.store.save_model_output(task['id'], json.dumps({'transport': 'quote_reference_catalog_v1',
@@ -688,7 +690,7 @@ class AdkExecutor:
                     payload['records'] = [{**record, **owned_provenance} for record in payload['records']]
                     parsed = stage_schema(bundle.skill_id).model_validate(payload)
                 else:
-                    if bundle.version == '0.4.0':
+                    if structured_sources:
                         payload = json.loads(final)
                         if not submitted_via_tool:
                             payload = project_submission(payload, receipt=True)
@@ -696,7 +698,7 @@ class AdkExecutor:
                     else:
                         parsed = parse_submission(bundle.skill_id, final)
                 output = stage_schema(bundle.skill_id).model_validate(
-                    references.decode_submission(parsed.model_dump(), quote_handles_required=bundle.version == '0.4.0'))
+                    references.decode_submission(parsed.model_dump(), quote_handles_required=structured_sources))
                 if any(eid not in invocation_reads for record in output.records
                        for eid in record.evidence_ids+getattr(record,'counter_evidence_ids',[])):
                     raise OutputContractError('引用的原始来源尚未在本次调用中读取，阶段未完成')

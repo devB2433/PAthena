@@ -1,7 +1,7 @@
 {
   "id": "requirement_generator",
-  "version": "0.4.0",
-  "sha256": "ac97c5a8d2dfe4a86f6300e047fcbf3cc5a5b9fa3e0697ab50f66bafef6560f1",
+  "version": "0.5.1",
+  "sha256": "13bce247fae3fbda6e3fd50de61c0e0623dc7d125b69ce6f2c83d4908fe3aafe",
   "mandatory_rules": [
     "METHOD",
     "REQUIREMENT_GENERATOR-01",
@@ -12,7 +12,13 @@
     "REQUIREMENT_GENERATOR-06",
     "REQUIREMENT_GENERATOR-07",
     "REQUIREMENT_GENERATOR-08",
-    "REQUIREMENT_GENERATOR-09"
+    "REQUIREMENT_GENERATOR-09",
+    "REQUIREMENT_GENERATOR-10",
+    "REQUIREMENT_GENERATOR-11",
+    "REQUIREMENT_GENERATOR-12",
+    "REQUIREMENT_GENERATOR-13",
+    "REQUIREMENT_GENERATOR-14",
+    "REQUIREMENT_GENERATOR-15"
   ],
   "source": {
     "repository": "google/mantis",
@@ -22,9 +28,10 @@
   },
   "profile": "static",
   "output_schema": "StageOutput",
-  "revision": "source-obligation-and-per-claim-review-v4",
+  "revision": "security-necessity-minimal-sufficiency-and-flow-coverage-v5.1",
   "references": {
-    "references/cases.md": "33132948148f9286edb00b65b8cb2a8bf2361844708b67025a8f1a0fd30c71aa"
+    "references/cases.md": "33132948148f9286edb00b65b8cb2a8bf2361844708b67025a8f1a0fd30c71aa",
+    "references/quality-method.md": "77588f267ec35ded5ab18a17544608fbd365987025e7e0fbe8e4e5965b1de789"
   },
   "derivation": "Project-authored role method; cited upstream is a methodological reference, not a verbatim port."
 }

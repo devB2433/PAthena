@@ -1,0 +1,469 @@
+{
+  "status": "semantic_acceptance_not_passed",
+  "scope": "Six methods updated; real-model semantic tests cover design/generation/review only. Other three roles have method/integration verification, not this semantic benchmark.",
+  "adjudication": "Developer-authored, non-blind. 10 frozen goals are not exhaustive security recall; extra cancellation-authorization omission was identified post hoc. Normative coverage does not establish correctness or precision.",
+  "versions": {
+    "0.4.0": {
+      "facts": 19,
+      "requirements": 13,
+      "criteria": 30,
+      "coverage": {
+        "FULL": 8,
+        "PARTIAL": 2
+      },
+      "primary_calls": 4,
+      "primary_tokens": 66416
+    },
+    "0.5.0": {
+      "facts": 22,
+      "requirements": 12,
+      "criteria": 28,
+      "coverage": {
+        "FULL": 10
+      },
+      "primary_calls": 4,
+      "primary_tokens": 76375
+    },
+    "0.5.1": {
+      "facts": 20,
+      "requirements": 11,
+      "criteria": 25,
+      "coverage": {
+        "FULL": 9,
+        "PARTIAL": 1
+      },
+      "primary_calls": 4,
+      "primary_tokens": 73635
+    }
+  },
+  "coverage": [
+    {
+      "id": "Q01",
+      "behavior": "Invoice object authorization",
+      "ratings": {
+        "0.4.0": {
+          "status": "FULL",
+          "requirement_id": "a44408bd44d482ac55394d49955d76a0_001",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.0": {
+          "status": "FULL",
+          "requirement_id": "c245a9121a4fdcd9b7c59278ec460178_001",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.1": {
+          "status": "FULL",
+          "requirement_id": "ae513cd93c6c23a5a4947b07b39d432b_001",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        }
+      }
+    },
+    {
+      "id": "Q02",
+      "behavior": "Preserve authorization through service-identity execution",
+      "ratings": {
+        "0.4.0": {
+          "status": "FULL",
+          "requirement_id": "a44408bd44d482ac55394d49955d76a0_002",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.0": {
+          "status": "FULL",
+          "requirement_id": "c245a9121a4fdcd9b7c59278ec460178_002",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.1": {
+          "status": "FULL",
+          "requirement_id": "ae513cd93c6c23a5a4947b07b39d432b_002",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        }
+      }
+    },
+    {
+      "id": "Q03",
+      "behavior": "Protect status and result access",
+      "ratings": {
+        "0.4.0": {
+          "status": "FULL",
+          "requirement_id": "a44408bd44d482ac55394d49955d76a0_003",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.0": {
+          "status": "FULL",
+          "requirement_id": "c245a9121a4fdcd9b7c59278ec460178_003",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.1": {
+          "status": "FULL",
+          "requirement_id": "ae513cd93c6c23a5a4947b07b39d432b_003",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        }
+      }
+    },
+    {
+      "id": "Q04",
+      "behavior": "Cancellation completion ordering",
+      "ratings": {
+        "0.4.0": {
+          "status": "FULL",
+          "requirement_id": "a44408bd44d482ac55394d49955d76a0_004",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.0": {
+          "status": "FULL",
+          "requirement_id": "c245a9121a4fdcd9b7c59278ec460178_004",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.1": {
+          "status": "FULL",
+          "requirement_id": "ae513cd93c6c23a5a4947b07b39d432b_004",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        }
+      }
+    },
+    {
+      "id": "Q05",
+      "behavior": "At-least-once delivery idempotence",
+      "ratings": {
+        "0.4.0": {
+          "status": "FULL",
+          "requirement_id": "a44408bd44d482ac55394d49955d76a0_005",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.0": {
+          "status": "FULL",
+          "requirement_id": "c245a9121a4fdcd9b7c59278ec460178_005",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.1": {
+          "status": "FULL",
+          "requirement_id": "ae513cd93c6c23a5a4947b07b39d432b_005",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        }
+      }
+    },
+    {
+      "id": "Q06",
+      "behavior": "Expiry restricts result reads",
+      "ratings": {
+        "0.4.0": {
+          "status": "FULL",
+          "requirement_id": "a44408bd44d482ac55394d49955d76a0_006",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.0": {
+          "status": "FULL",
+          "requirement_id": "c245a9121a4fdcd9b7c59278ec460178_006",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.1": {
+          "status": "FULL",
+          "requirement_id": "ae513cd93c6c23a5a4947b07b39d432b_006",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        }
+      }
+    },
+    {
+      "id": "Q07",
+      "behavior": "Attributable export audit",
+      "ratings": {
+        "0.4.0": {
+          "status": "FULL",
+          "requirement_id": "a44408bd44d482ac55394d49955d76a0_009",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.0": {
+          "status": "FULL",
+          "requirement_id": "c245a9121a4fdcd9b7c59278ec460178_009",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.1": {
+          "status": "FULL",
+          "requirement_id": "ae513cd93c6c23a5a4947b07b39d432b_008",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        }
+      }
+    },
+    {
+      "id": "Q08",
+      "behavior": "Shared-service capacity protection",
+      "ratings": {
+        "0.4.0": {
+          "status": "PARTIAL",
+          "requirement_id": "a44408bd44d482ac55394d49955d76a0_012",
+          "reason": "只有共享可用性目标，未形成准入/资源分配约束"
+        },
+        "0.5.0": {
+          "status": "FULL",
+          "requirement_id": "c245a9121a4fdcd9b7c59278ec460178_008",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.1": {
+          "status": "FULL",
+          "requirement_id": "ae513cd93c6c23a5a4947b07b39d432b_007",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        }
+      }
+    },
+    {
+      "id": "Q09",
+      "behavior": "Protect sensitive information in broader-access logs",
+      "ratings": {
+        "0.4.0": {
+          "status": "PARTIAL",
+          "requirement_id": "a44408bd44d482ac55394d49955d76a0_011",
+          "reason": "限制了发票正文日志，但未覆盖会话 bearer 凭证"
+        },
+        "0.5.0": {
+          "status": "FULL",
+          "requirement_id": "c245a9121a4fdcd9b7c59278ec460178_011",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.1": {
+          "status": "PARTIAL",
+          "requirement_id": "ae513cd93c6c23a5a4947b07b39d432b_009",
+          "reason": "限制了发票正文日志，但未覆盖会话 bearer 凭证"
+        }
+      }
+    },
+    {
+      "id": "Q10",
+      "behavior": "Actual production audit retention",
+      "ratings": {
+        "0.4.0": {
+          "status": "FULL",
+          "requirement_id": "a44408bd44d482ac55394d49955d76a0_010",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.0": {
+          "status": "FULL",
+          "requirement_id": "c245a9121a4fdcd9b7c59278ec460178_010",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        },
+        "0.5.1": {
+          "status": "FULL",
+          "requirement_id": "ae513cd93c6c23a5a4947b07b39d432b_010",
+          "reason": "正文或验收项覆盖冻结目标；其他表达错误另计"
+        }
+      }
+    }
+  ],
+  "issues": [
+    {
+      "version": "0.4.0",
+      "requirements": [
+        8,
+        13
+      ],
+      "type": "安全价值/义务扩张",
+      "detail": "把展示用途说明和性能监控选项单列为安全需求，缺少独立安全后果；安全目标之外的功能摘录增加了基线噪声。"
+    },
+    {
+      "version": "0.5.0",
+      "requirements": [
+        7
+      ],
+      "type": "不必要的强制义务",
+      "detail": "仍把显示标题的当前用途扩成对路径、URL、SQL 等用途的永久禁止，未证明真实危险解释流。"
+    },
+    {
+      "version": "0.5.0",
+      "requirements": [
+        8
+      ],
+      "type": "来源分类",
+      "detail": "准入控制是由共享可用性目标推导的新机制，整条却标为 EXPLICIT_DESIGN。"
+    },
+    {
+      "version": "0.5.0",
+      "requirements": [
+        4
+      ],
+      "type": "过度限制内部动作",
+      "detail": "原文禁止取消后发布，验收加入“不得写出或发布”，扩大到了未披露的私有临时写入。"
+    },
+    {
+      "version": "0.5.1",
+      "requirements": [
+        11
+      ],
+      "type": "安全价值待删减",
+      "detail": "性能监控择一仍被单列为安全需求；它与争议调查审计不同，缺少独立安全保护目的。"
+    },
+    {
+      "version": "0.5.1",
+      "requirements": [
+        3
+      ],
+      "type": "正文与验收范围冲突",
+      "detail": "正文允许委派管理员访问，首条验收却笼统拒绝“已认证用户”访问非本人任务，没有保留管理员例外。"
+    },
+    {
+      "version": "0.5.1",
+      "requirements": [
+        1,
+        2,
+        3
+      ],
+      "type": "许可条件被写成成功保证",
+      "detail": "部分正例要求全部对象授权即创建任务、管理员即生成结果、任务完成即返回；未保留准入、取消和到期等独立拒绝条件。"
+    },
+    {
+      "version": "0.5.1",
+      "requirements": [
+        9
+      ],
+      "type": "完备度缺口",
+      "detail": "日志控制覆盖发票敏感内容，但遗漏文档已描述的会话 bearer 凭证，已在冻结 Q09 中计 PARTIAL。"
+    },
+    {
+      "version": "ALL",
+      "requirements": [],
+      "type": "后验额外观察，不计冻结分数",
+      "detail": "取消是改变他人任务可用性的敏感操作；各版都约束取消/发布状态，却没有单独约束取消操作的主体授权。现有“流程对应一个需求”仍不足以证明每个安全不变量已覆盖。"
+    }
+  ],
+  "generated_reviews": {
+    "0.5.0": {
+      "requirements": 12,
+      "verdicts": {
+        "SUPPORTED": 12
+      },
+      "failures": [],
+      "calls": 24,
+      "known_tokens": 328450
+    },
+    "0.5.1": {
+      "requirements": 11,
+      "verdicts": {
+        "SUPPORTED": 11
+      },
+      "failures": [],
+      "calls": 22,
+      "known_tokens": 301144
+    }
+  },
+  "known_regression": [
+    {
+      "version": "0.4.0",
+      "case": "polarity",
+      "expected": "REJECTED",
+      "observed": "SUPPORTED",
+      "correct": false
+    },
+    {
+      "version": "0.4.0",
+      "case": "recovery_permission",
+      "expected": "REJECTED",
+      "observed": "REJECTED",
+      "correct": true
+    },
+    {
+      "version": "0.4.0",
+      "case": "unsupported_recovery",
+      "expected": "REJECTED",
+      "observed": "REJECTED",
+      "correct": true
+    },
+    {
+      "version": "0.4.0",
+      "case": "internal_contradiction",
+      "expected": "REJECTED",
+      "observed": "REJECTED",
+      "correct": true
+    },
+    {
+      "version": "0.4.0",
+      "case": "exclusive_read",
+      "expected": "REJECTED",
+      "observed": "REJECTED",
+      "correct": true
+    },
+    {
+      "version": "0.4.0",
+      "case": "wrong_clock",
+      "expected": "REJECTED",
+      "observed": "REJECTED",
+      "correct": true
+    },
+    {
+      "version": "0.4.0",
+      "case": "wrong_quantifier",
+      "expected": "REJECTED",
+      "observed": "REJECTED",
+      "correct": true
+    },
+    {
+      "version": "0.4.0",
+      "case": "valid_recovery",
+      "expected": "SUPPORTED",
+      "observed": "REJECTED",
+      "correct": false
+    },
+    {
+      "version": "0.5.0",
+      "case": "polarity",
+      "expected": "REJECTED",
+      "observed": "OUTPUT_FAILED",
+      "correct": false
+    },
+    {
+      "version": "0.5.0",
+      "case": "recovery_permission",
+      "expected": "REJECTED",
+      "observed": "REJECTED",
+      "correct": true
+    },
+    {
+      "version": "0.5.0",
+      "case": "unsupported_recovery",
+      "expected": "REJECTED",
+      "observed": "REJECTED",
+      "correct": true
+    },
+    {
+      "version": "0.5.0",
+      "case": "internal_contradiction",
+      "expected": "REJECTED",
+      "observed": "REJECTED",
+      "correct": true
+    },
+    {
+      "version": "0.5.0",
+      "case": "exclusive_read",
+      "expected": "REJECTED",
+      "observed": "REJECTED",
+      "correct": true
+    },
+    {
+      "version": "0.5.0",
+      "case": "wrong_clock",
+      "expected": "REJECTED",
+      "observed": "REJECTED",
+      "correct": true
+    },
+    {
+      "version": "0.5.0",
+      "case": "wrong_quantifier",
+      "expected": "REJECTED",
+      "observed": "REJECTED",
+      "correct": true
+    },
+    {
+      "version": "0.5.0",
+      "case": "valid_recovery",
+      "expected": "SUPPORTED",
+      "observed": "REJECTED",
+      "correct": false
+    }
+  ],
+  "usage_all_development": {
+    "physical_requests": 91,
+    "known_requests": 90,
+    "known_tokens": 1345785,
+    "unknown_requests": 1,
+    "unknown_reserved_estimate": 61721
+  },
+  "source_lines": 40,
+  "native_corpus_unchanged": true
+}
