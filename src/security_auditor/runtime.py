@@ -177,6 +177,14 @@ class Scheduler:
             records = [r if r['id'] in targets else {key: r[key] for key in
                        ('id', 'kind', 'title', 'module', 'origin', 'clause_ids')}
                        for r in records if r['kind'] == 'requirement']
+        if role in {'requirement_generator', 'pci_mapper'}:
+            # Facts are a complete navigation inventory, not a second copy of
+            # every quote/obligation in the design. Preserve originals in the
+            # store and expose them through read_upstream_records. Document
+            # completion gates still require every original design block.
+            fields = ('id', 'kind', 'title', 'module', 'fact_type', 'basis', 'evidence_ids')
+            records = [{key: r[key] for key in fields if key in r} if r['kind'] == 'fact' else r
+                       for r in records]
         if role in {'pci_requirement_generator', 'requirement_checker'}:
             # Association inventories can contain many repetitions of a long
             # rationale. Keep IDs and all declared conditions in the initial

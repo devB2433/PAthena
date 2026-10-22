@@ -657,6 +657,10 @@ The API adds `requirement_check_scope` to existing modes: obtain options from `/
 
 Isolated automated checks use scripted models to verify inventories, dispatch, and exports, plus the actual ADK runner with checked-in skills for submission-contract testing. They do not establish real-model analytical accuracy or measured token savings. Expected savings primarily concern implementation checks; modeling and independent auditing retain their original work.
 
+### Fact inventory and original-source reads
+
+Requirement generation and standard matching receive the complete fact navigation inventory (ID, title, module, type, and source references), without repeating every quote and source obligation in the initial context. Full fact records remain unchanged and available through `read_upstream_records`. Requirement generation must still read every assigned original design block before submission. This preserves the skill, fact inventory, and original documents; it does not enlarge the model context window.
+
 ## Budgets, result submission, and recovery
 
 API request counts, cumulative tokens, and per-task model call limits are temporarily disabled, with `AUDITOR_ENFORCE_BUDGETS=false` by default. This switch applies to the analysis service, outbound gateway, ADK, and static audit adapter. Saved budgets on historical runs no longer block execution, while original budgets and cumulative usage are retained. Budget settings are hidden in the UI, new analyses have no limits, and legacy limits submitted through the API have no effect.

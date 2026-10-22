@@ -652,6 +652,13 @@ class AdkExecutor:
             if task['scope'].get('control_id'):
                 context['selected_control'] = read_standard_control(task['scope']['control_id'])
         context = {**context, 'required_document_reads': sorted(required_reads)}
+        if bundle.skill_id == 'requirement_generator':
+            context['upstream_record_mode'] = (
+                'Complete fact navigation inventory. Long original quotes, source obligations and rationale '
+                'remain unchanged in storage; use read_upstream_records for full original facts. '
+                'An index entry is not evidence or proof of document completion. Read every required '
+                'original design block before submitting requirements; preserve business conditions '
+                'and cross-module relationships from those original sources.')
         message = json.dumps(references.encode(context), ensure_ascii=False)
         limit = 160000 if bundle.skill_id in {'pci_mapper', 'pci_requirement_generator'} else 80000
         if len(message.encode()) > limit:
