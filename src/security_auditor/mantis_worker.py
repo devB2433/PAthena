@@ -449,7 +449,15 @@ async def execute_job(job: dict, model_factory=None) -> dict:
             raise ValueError("Mantis 工作流未完成，保留原始运行记录")
         required = {"architect": "record_summary", "threat_modeler": "record_threat_model",
                     "planner": "record_plan", "researcher": "report_findings"}
-        for stage, campaign in stage_tasks:
+        # A resumed ADK graph can advance past a failed artifact tool without
+        # invoking its model again. Include the persisted inventory, rather than
+        # checking only stages touched during this process.
+        observed = set(stage_tasks)
+        for task in store.rows("SELECT stage,scope FROM tasks WHERE run_id=? AND wave='native'", (run['id'],)):
+            scope = json.loads(task['scope'])
+            if scope.get('phase') == phase:
+                observed.add((task['stage'].removeprefix('mantis_'), scope.get('campaign', '')))
+        for stage, campaign in observed:
             if stage in required and not any(s["stage"] == stage and s["tool"] == required[stage]
                                             and s["campaign"] == campaign for s in submissions):
                 raise OutputContractError(f"Mantis {stage} 未提交约定结构化产物，阶段未完成")

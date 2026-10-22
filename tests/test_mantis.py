@@ -23,6 +23,7 @@ class NativeScript(BaseLlm):
     reject: bool = False
     source_path: str = "orders.py"
     bad_summary: bool = False
+    bad_plan: bool = False
     final_artifacts: bool = False
     citation_retry: bool = False
     premature_metadata: bool = False
@@ -59,7 +60,7 @@ class NativeScript(BaseLlm):
                 "threats": [("title: 租户数据泄露; target_component: 订单; attack_vector: 导出; impact: 数据泄露" if self.language == "zh-CN" else "title: Tenant data exposure; target_component: orders; attack_vector: export; impact: disclosure")],
             }}
         elif stage == "planner" and i == 1:
-            call, args = "record_plan", {"plan": {"investigations": [
+            call, args = "record_plan", {"plan": {} if self.bad_plan else {"investigations": [
                 {"title": ("跨租户导出" if self.language == "zh-CN" else "Tenant export"), "target_files": ["orders.py"], "question": ("导出是否限制租户范围？" if self.language == "zh-CN" else "Does export constrain tenants?")}
             ]}}
         elif stage == "researcher" and i == 2:
@@ -377,3 +378,76 @@ async def test_native_export_retry_reuses_valid_result_and_recovers_partial_file
     assert (await engine.invoke(run["id"], {"phase": "model"}, "model"))["engine"] == "mantis"
     assert (await engine.invoke(run["id"], {"phase": "model"}, "model"))["engine"] == "mantis"
     assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_rejected_planner_checkpoint_cannot_skip_its_artifact_on_resume(settings, store, tmp_path):
+    from security_auditor.provider import OutputContractError
+    root = tmp_path / 'repo'
+    root.mkdir()
+    (root / 'orders.py').write_text('def export_orders(db):\n    return db.query_all()\n')
+    manifest = {'root': str(root), 'files': repository_inventory(root, 50)}
+    project = store.create_project('checkpoint regression')
+    run = store.create_run(project['id'], 'code_only', {'repository': manifest}, False, 100, 200000)
+    engine = MantisEngine(settings, store)
+    work = engine.workspace(run['id'])
+    work.mkdir(parents=True)
+    job = {'phase': 'audit', 'run_id': run['id'], 'task_id': store.add_task(run['id'], 'audit', {}, wave='engine'),
+           'work': str(work), 'repository': manifest, 'application_db': str(store.path),
+           'gateway': 'http://invalid.test', 'model_id': 'deepseek-flash', 'snapshot_id': 'fixed',
+           'skills_dir': str(settings.skills_dir)}
+
+    def models(bad=False):
+        instances = {}
+        def factory(stage):
+            return instances.setdefault(stage, NativeScript(stage=stage, bad_plan=bad,
+                source_path=str(work / 'snapshot/orders.py')))
+        return instances, factory
+
+    rejected, factory = models(True)
+    with pytest.raises(OutputContractError, match='产物为空'):
+        await execute_job(job, factory)
+    assert rejected['planner']._calls == 1
+    assert not any(m._calls for stage, m in rejected.items() if stage != 'planner')
+
+    # ADK can restore beyond the failed tool. This must never pass the phase
+    # completion gate, even though no planner model is called on this attempt.
+    skipped, factory = models()
+    with pytest.raises(OutputContractError, match='planner 未提交'):
+        await execute_job(job, factory)
+    assert 'planner' not in skipped
+    assert not store.records(run['id'])
+
+    # Simulate the worker's ordinary error export, then exercise the production
+    # retry policy. Archive only execution state, never edit failed analysis.
+    (work / 'audit-output.json').write_text(json.dumps({'error': 'OutputContractError'}))
+    (work / 'model-output.json').write_text('{"retained":"model"}')
+    original_usage = store.run(run['id'])['usage']
+    checkpoint = (work / 'audit-sessions.db').read_bytes()
+    archive = engine.archive_rejected_checkpoint(run['id'], 'audit')
+    assert archive and (archive / 'audit-sessions.db').read_bytes() == checkpoint
+    assert (archive / 'knowledge.db').is_file() and (work / 'knowledge.db').is_file()
+    assert (work / 'model-output.json').read_text() == '{"retained":"model"}'
+    assert not (work / 'audit-sessions.db').exists()
+    assert store.run(run['id'])['usage'] == original_usage
+    receipt = json.loads((archive / 'receipt.json').read_text())
+    assert receipt['files']['audit-sessions.db'] == digest(checkpoint)
+
+    replayed, factory = models()
+    result = await execute_job(job, factory)
+    assert result['phase'] == 'audit' and replayed['planner']._calls >= 1
+    submissions = json.loads((work / 'audit-submissions.json').read_text())
+    assert any(s['stage'] == 'planner' and s['tool'] == 'record_plan' for s in submissions)
+    assert not store.records(run['id'])  # No synthetic application conclusions.
+
+
+@pytest.mark.parametrize('error', ['budget', 'ProviderUnavailable', None])
+def test_valid_or_transient_native_checkpoint_is_not_reset(settings, store, sample_run, error):
+    _, run, _ = sample_run
+    engine = MantisEngine(settings, store)
+    work = engine.workspace(run['id'])
+    work.mkdir(parents=True)
+    (work / 'audit-output.json').write_text(json.dumps({'error': error}))
+    (work / 'audit-sessions.db').write_bytes(b'untouched')
+    assert engine.archive_rejected_checkpoint(run['id'], 'audit') is None
+    assert (work / 'audit-sessions.db').read_bytes() == b'untouched'

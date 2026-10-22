@@ -679,6 +679,8 @@ Project-defined roles use strict function argument contracts. Responses are arch
 
 Security judgments can cite only material actually read in the current session. Search results, summaries, and historical reads do not replace current source reads. Conclusions of implementation support, partial implementation, or requirement violations must have actual source references. Static audits use investigation loops to submit structured conclusions, with no dynamic reproduction or target program execution permissions.
 
+Native phase completion checks include persisted tasks from earlier attempts, rather than only roles invoked after resuming. A rejected artifact cannot be skipped because a framework checkpoint advanced past its tool call. On resuming, the application archives that phase's session, response, reads, and submission receipts before replaying the original phase. The valid knowledge database, other completed phases, and cumulative usage remain. No analysis is fabricated, and a missing required receipt cannot count as successful completion.
+
 Results can be exported as HTML, CSV, and JSON. Reports retain requirement relationships, sources, code locations, and excluded candidates. Deployment does not guarantee that model output will always be valid. When final structure or source validation fails, the task remains incomplete and requires the blocking issue to be addressed before continuing.
 
 ## Local development and validation

@@ -6,6 +6,8 @@ import json
 import os
 import re
 import sys
+import sqlite3
+from uuid import uuid4
 from pathlib import Path
 
 from .config import Settings, contained_file
@@ -44,6 +46,46 @@ class MantisEngine:
     def workspace(self, run_id: str) -> Path:
         return self.settings.state_dir.resolve() / "mantis" / run_id
 
+    def archive_rejected_checkpoint(self, run_id: str, phase: str) -> Path | None:
+        """A rejected artifact cannot be resumed past its failed tool checkpoint.
+
+        Called only when an operator/program resumes a failed phase. Keep the
+        complete old attempt; start a fresh invocation of the same native phase,
+        without feedback that asks a model to repair its previous output.
+        """
+        work = self.workspace(run_id)
+        output = work / f"{phase}-output.json"
+        if not output.is_file():
+            return None
+        try:
+            result = json.loads(output.read_text())
+        except ValueError:
+            return None
+        if result.get('error') != 'OutputContractError':
+            return None
+        archive = work / 'rejected-checkpoints' / f'{phase}-{uuid4().hex}'
+        archive.mkdir(parents=True)
+        knowledge = work / 'knowledge.db'
+        if knowledge.is_file():
+            with sqlite3.connect(f'file:{knowledge}?mode=ro', uri=True) as source, sqlite3.connect(archive / 'knowledge.db') as target:
+                source.backup(target)
+        files = [f'{phase}-{name}' for name in (
+            'input.json', 'output.json', 'sessions.db', 'sessions.db-wal', 'sessions.db-shm',
+            'reads.json', 'verdicts.json', 'submissions.json')]
+        retained = {}
+        for name in files:
+            path = work / name
+            if path.is_file():
+                retained[name] = digest(path.read_bytes())
+                path.rename(archive / name)
+        receipt = {'policy': 'rejected_native_checkpoint_v1', 'run_id': run_id,
+                   'phase': phase, 'reason': 'OutputContractError', 'files': retained,
+                   'action': 'Fresh invocation of the original phase; no analysis output repaired'}
+        (archive / 'receipt.json').write_text(json.dumps(receipt, ensure_ascii=False))
+        self.store.event(run_id, 'native_checkpoint_archived', {
+            'phase': phase, 'archive': str(archive), 'files': list(retained)})
+        return archive
+
     async def invoke(self, run_id: str, job: dict, key: str) -> dict:
         work = self.workspace(run_id)
         work.mkdir(parents=True, exist_ok=True)
@@ -59,6 +101,7 @@ class MantisEngine:
                 cached = {}
             if cached.get("job_hash") == digest(encoded.encode()) and not cached.get("error"):
                 return cached
+            self.archive_rejected_checkpoint(run_id, job['phase'])
         input_path.write_text(encoded)
         output_path.unlink(missing_ok=True)
         env = {k: v for k, v in os.environ.items() if not any(s in k for s in ("KEY", "TOKEN", "MANTIS", "LLM_"))}
