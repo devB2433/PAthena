@@ -75,9 +75,9 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
 const post = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
 export default function App() {
-  const [language, setLanguage] = useState<Language>('en');
+  const [language, setLanguage] = useState<Language>('zh-CN');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [editedLanguage, setEditedLanguage] = useState<Language>('en');
+  const [editedLanguage, setEditedLanguage] = useState<Language>('zh-CN');
   const t = (text: string) => translate(text, language);
   const tf = (text: string, values: Record<string, string | number>) => format(text, language, values);
   const phases = phaseDefinitions.map(p => ({ ...p, title: t(p.title) }));
@@ -111,7 +111,7 @@ export default function App() {
   const [editedBudget, setEditedBudget] = useState<Budget>(newBudget);
   const [clock, setClock] = useState(Date.now());
   const [repo, setRepo] = useState<string>();
-  const [settings, setSettings] = useState<{ repositories: string[]; language?: Language; default_budget?: Budget; budget_enforced?: boolean }>({ repositories: [] });
+  const [settings, setSettings] = useState<{ repositories: string[]; language?: Language; humanize_chinese?: boolean; default_budget?: Budget; budget_enforced?: boolean }>({ repositories: [] });
   const [checkScope, setCheckScope] = useState<CheckScope | null>(null);
   const [scopeOpen, setScopeOpen] = useState(false);
   const [scopeKind, setScopeKind] = useState<'all' | 'facets' | 'controls'>('all');
@@ -124,7 +124,7 @@ export default function App() {
   const refreshProjects = async () => setProjects((await api<{ items: Project[] }>('/projects')).items);
 
   useEffect(() => {
-    Promise.all([refreshProjects(), api<typeof settings>('/settings').then(s => { setSettings(s); setLanguage(s.language || 'en'); if (s.default_budget) setNewBudget(s.default_budget); })]).catch(e => msg.error(t(e.message)));
+    Promise.all([refreshProjects(), api<typeof settings>('/settings').then(s => { setSettings(s); setLanguage(s.language || 'zh-CN'); if (s.default_budget) setNewBudget(s.default_budget); })]).catch(e => msg.error(t(e.message)));
   }, []);
   useEffect(() => {
     document.documentElement.lang = language;
@@ -433,6 +433,7 @@ export default function App() {
     })}>
       <label className="field-label">{t('语言')}</label><Select aria-label={t('语言')} value={editedLanguage} onChange={setEditedLanguage} options={[{ value: 'en', label: 'English' }, { value: 'zh-CN', label: '简体中文' }]} style={{ width: '100%' }} />
       <p>{t('后续分析使用所选语言直接生成内容。')}</p>
+      {settings.humanize_chinese && <p>{t('中文输出入库前检查并优化表达。')}</p>}
     </Modal>
     <Modal title={t('创建项目')} open={newOpen} onCancel={() => setNewOpen(false)} onOk={create} okText={t('创建')} confirmLoading={busy} okButtonProps={{ disabled: !name.trim() }}>
       <label className="field-label" htmlFor="project-name">{t('项目名称')}</label><Input id="project-name" placeholder={t('例如：支付子系统')} value={name} onChange={e => setName(e.target.value)} onPressEnter={() => name.trim() && create()} />

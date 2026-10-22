@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .skills import digest
 
-VERSION = 6
+VERSION = 7
 SUBMISSIONS = {"record_summary": ("architect", "summary"),
                "record_threat_model": ("threat_modeler", "threat_model"),
                "record_plan": ("planner", "plan"),
@@ -137,3 +137,8 @@ def migrate(path: Path):
                        'PRIMARY KEY(run_id,catalog_id,control_id),'
                        'FOREIGN KEY(catalog_id,control_id) REFERENCES standard_controls(catalog_id,control_id))')
             db.execute('INSERT INTO schema_migrations VALUES(6,?)', (datetime.now(timezone.utc).isoformat(),))
+
+        if current < 7:
+            db.execute('CREATE TABLE IF NOT EXISTS analysis_drafts(task_id TEXT PRIMARY KEY REFERENCES tasks(id),'
+                       'role TEXT NOT NULL,payload TEXT NOT NULL,sha256 TEXT NOT NULL)')
+            db.execute('INSERT INTO schema_migrations VALUES(7,?)', (datetime.now(timezone.utc).isoformat(),))

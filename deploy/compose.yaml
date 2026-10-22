@@ -6,7 +6,8 @@ services:
       dockerfile: deploy/Dockerfile.analysis
     environment:
       AUDITOR_MODEL_GATEWAY: http://model-gateway:8081
-      AUDITOR_LANGUAGE: ${AUDITOR_LANGUAGE:-en}
+      AUDITOR_HUMANIZE_CHINESE: ${AUDITOR_HUMANIZE_CHINESE:-true}
+      AUDITOR_LANGUAGE: ${AUDITOR_LANGUAGE:-zh-CN}
       AUDITOR_MODEL_ID: ${AUDITOR_MODEL_ID:-deepseek-flash}
       AUDITOR_REPOSITORIES: ${AUDITOR_REPOSITORIES:-{}}
       AUDITOR_STANDARD_PACK: ${AUDITOR_STANDARD_PACK:-}

@@ -177,7 +177,7 @@ async def test_native_mantis_graph_tools_and_static_verdicts(settings, store, tm
     loader = NativeSkillLoader(settings.skills_dir)
     receipts = store.rows('SELECT skill_id,skill_version,skill_hash,instruction_hash FROM tasks WHERE run_id=? AND skill_id IS NOT NULL', (run['id'],))
     for stage in models.keys() - {'campaign_planner'}:
-        bundle = loader.resolve(stage)
+        bundle = loader.resolve(stage, selected)
         # The original graph adds stage context/schema instructions to the full
         # canonical packet. Receipts pin the actual request, not just its base.
         instruction_hash = models[stage]._instruction_hashes[0]

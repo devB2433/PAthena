@@ -45,22 +45,49 @@ class NativeSkillLoader:
             raise ValueError('原版技能资源摘要不一致')
         return content.decode()
 
-    def resolve(self, stage: str) -> SkillBundle:
+    def localized_manifest(self) -> dict:
+        manifest = json.loads(contained_file(self.code_root, 'LOCALIZATION.zh-CN.json').read_text())
+        expected = {'static-adapter.md'}
+        for skill in STAGE_SKILLS.values():
+            expected.add(skill + '/SKILL.md')
+            expected.update(name for name in self.manifest['files'] if name.startswith(skill + '/references/'))
+        if (manifest.get('language') != 'zh-CN' or manifest.get('source_commit') != self.manifest['commit']
+                or set(manifest.get('files', {})) != expected):
+            raise ValueError('中文代码技能必须完整对应固定原版资源库存')
+        return manifest
+
+    def read_localized(self, name: str) -> str:
+        entry = self.localized_manifest()['files'].get(name)
+        if not entry or entry['path'] != 'zh-CN/' + name:
+            raise ValueError('中文技能资源路径未登记')
+        original = contained_file(self.code_root, name).read_bytes()
+        content = contained_file(self.code_root, entry['path']).read_bytes()
+        if (digest(original) != entry['source_sha256'] or digest(content) != entry['sha256']
+                or entry['source_lines'] != len(original.splitlines())
+                or entry['lines'] != len(content.splitlines())):
+            raise ValueError('中文技能或对应原版的摘要、行库存不一致')
+        return content.decode()
+
+    def resolve(self, stage: str, language: str = 'en') -> SkillBundle:
+        from .localization import language as checked_language
+        checked_language(language)
         if stage not in STAGE_SKILLS:
             raise ValueError('代码审计角色未登记，禁止使用简版后备技能')
         skill = STAGE_SKILLS[stage]
-        body = self.read(skill + '/SKILL.md')
+        read = self.read_localized if language == 'zh-CN' else self.read
+        body = read(skill + '/SKILL.md')
         resources = sorted(name for name in self.manifest['files']
                            if name.startswith(skill + '/references/'))
         # References remain exact, separate source documents, never summarized.
-        packet = body + ''.join('\n\nUPSTREAM REFERENCE: ' + name + '\n' + self.read(name) for name in resources)
+        heading = '原版方法的完整中文参考资料：' if language == 'zh-CN' else 'UPSTREAM REFERENCE: '
+        packet = body + ''.join('\n\n' + heading + name + '\n' + read(name) for name in resources)
         return SkillBundle(skill, self.manifest['commit'], digest(packet.encode()), packet, ())
 
-    def catalog(self) -> list[dict]:
+    def catalog(self, language: str = 'en') -> list[dict]:
         return [{'stage': stage, 'id': bundle.skill_id, 'version': bundle.version,
                  'sha256': bundle.content_hash, 'source': self.manifest['repository'],
                  'execution': 'deterministic' if stage == 'structural_index' else 'agent'}
-                for stage in STAGE_SKILLS for bundle in [self.resolve(stage)]]
+                for stage in STAGE_SKILLS for bundle in [self.resolve(stage, language)]]
 
     def fingerprint(self) -> str:
         # Verify every copied skill, including retained but disabled dynamic stages.
@@ -69,11 +96,17 @@ class NativeSkillLoader:
         return digest(contained_file(self.code_root, 'SOURCE.json').read_bytes()
                       + contained_file(self.code_root, 'static-adapter.md').read_bytes())
 
+    def localization_fingerprint(self) -> str:
+        manifest = self.localized_manifest()
+        for name in manifest['files']:
+            self.read_localized(name)
+        return digest(contained_file(self.code_root, 'LOCALIZATION.zh-CN.json').read_bytes())
+
     def compile(self, stage: str, language: str = 'en') -> tuple[SkillBundle, str, str]:
         from .localization import output_policy
-        bundle = self.resolve(stage)
-        adapter = contained_file(self.code_root, 'static-adapter.md').read_text()
-        prompt = (f'MANTIS_STAGE:{stage}\nUPSTREAM FULL SKILL:\n' + bundle.instruction
-                  + '\n\nDEPLOYMENT ADAPTER CONTRACT:\n' + adapter
+        bundle = self.resolve(stage, language)
+        adapter = self.read_localized('static-adapter.md') if language == 'zh-CN' else contained_file(self.code_root, 'static-adapter.md').read_text()
+        prompt = (f'MANTIS_STAGE:{stage}\n' + ('完整中文技能：\n' if language == 'zh-CN' else 'UPSTREAM FULL SKILL:\n') + bundle.instruction
+                  + ('\n\n部署适配与提交契约：\n' if language == 'zh-CN' else '\n\nDEPLOYMENT ADAPTER CONTRACT:\n') + adapter
                   + '\n\n' + output_policy(language))
         return bundle, prompt, digest(prompt.encode())

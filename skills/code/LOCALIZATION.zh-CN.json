@@ -1,0 +1,127 @@
+{
+  "language": "zh-CN",
+  "source_commit": "17348b24179d8a29e33141927153d48ef3b96546",
+  "method": "complete-paragraph-localization-v2",
+  "files": {
+    "mantis-architecture/SKILL.md": {
+      "path": "zh-CN/mantis-architecture/SKILL.md",
+      "source_sha256": "ba3bdd4da77a1a59b369c1425c64eea6e542b068ff497fa25c220af34bb0edd0",
+      "sha256": "ef02feadebfbbac83867ccf064eab640146fa39cff9cfc40c8c997ae2f594fc2",
+      "source_lines": 354,
+      "lines": 216,
+      "blocks": 207
+    },
+    "mantis-calibrate/SKILL.md": {
+      "path": "zh-CN/mantis-calibrate/SKILL.md",
+      "source_sha256": "c4eb14c114e308ed9f0147397be8b72cb2a5bb837177918e518d83f0c8c9e29b",
+      "sha256": "6c2bd124a732a17ea02ad8a8c74e8f6b0fa41b93f3b74dcadee1152e1fc0cc44",
+      "source_lines": 666,
+      "lines": 304,
+      "blocks": 300
+    },
+    "mantis-calibrate/references/calibration_rules.md": {
+      "path": "zh-CN/mantis-calibrate/references/calibration_rules.md",
+      "source_sha256": "3cca579ac19e2b779531a28787369062342485165f4954643bc434e81c28a42b",
+      "sha256": "f6b2c8b2ea5247212b1a89013cf0641d638dc19783fabb3fed71550cb4a54f1b",
+      "source_lines": 246,
+      "lines": 93,
+      "blocks": 93
+    },
+    "mantis-chain/SKILL.md": {
+      "path": "zh-CN/mantis-chain/SKILL.md",
+      "source_sha256": "0705f2b167e1159a4f7acaa7dd9132c1b9104125d08c723b535f00368215e2f3",
+      "sha256": "788b14df9a470efc027a9dfa4b3978b02415b49cbb179c2e8c40c4c9182188dd",
+      "source_lines": 396,
+      "lines": 205,
+      "blocks": 201
+    },
+    "mantis-critic/SKILL.md": {
+      "path": "zh-CN/mantis-critic/SKILL.md",
+      "source_sha256": "7ac57e4e1bb72018880f8c6b68ffe04a57f13da15a8418ba8759ff81a9c5228c",
+      "sha256": "23926996af98d0837cdb1d7e66e8d6e7910c6e2ea26c5c9b4fe44857ff553fa6",
+      "source_lines": 325,
+      "lines": 181,
+      "blocks": 174
+    },
+    "mantis-dedupe/SKILL.md": {
+      "path": "zh-CN/mantis-dedupe/SKILL.md",
+      "source_sha256": "4cc3dd33a392ca62bc6685444e6f35bb626daf058c5cc727c3eef258cb5e2d29",
+      "sha256": "ced79ccb52e4a6f93f3b9a92bdbaa883c8099f1f48e69f7097bd658a6e3ea352",
+      "source_lines": 371,
+      "lines": 248,
+      "blocks": 180
+    },
+    "mantis-history/SKILL.md": {
+      "path": "zh-CN/mantis-history/SKILL.md",
+      "source_sha256": "ef777063f09b17e5c72bbc692eeaad70b436f0b9708dbb1ebc493addd459617b",
+      "sha256": "4c10573cde54655467876fe76526487b9d375fc97873403215927aea2f802056",
+      "source_lines": 239,
+      "lines": 147,
+      "blocks": 142
+    },
+    "mantis-plan/SKILL.md": {
+      "path": "zh-CN/mantis-plan/SKILL.md",
+      "source_sha256": "8ca2bbd05e4ceafe26411259325100965cf8f4ecdd77e6f5cc33814eff3a44e9",
+      "sha256": "ef8deb0d639909ffbb7ada579aaaa92a796cda22cef1df441613c68d4c10fe72",
+      "source_lines": 532,
+      "lines": 229,
+      "blocks": 221
+    },
+    "mantis-reflect/SKILL.md": {
+      "path": "zh-CN/mantis-reflect/SKILL.md",
+      "source_sha256": "cd9b985a9199a6848c122e1788e25525b6ba8c436be441a0fb5217356255e444",
+      "sha256": "4e26dd4927ce0d6a40400e2f70934f84d0f2c70bca3075f7e9f8a21eb1086abd",
+      "source_lines": 187,
+      "lines": 112,
+      "blocks": 107
+    },
+    "mantis-report/SKILL.md": {
+      "path": "zh-CN/mantis-report/SKILL.md",
+      "source_sha256": "c80192b51c35d9f56a4953262b156a48b0fa1c3fa65b18b94359cd31b739cb5e",
+      "sha256": "8388d6285b55f772d903c5a386c6fbeba188affc7f950f64533c8fa7716c762d",
+      "source_lines": 417,
+      "lines": 193,
+      "blocks": 175
+    },
+    "mantis-researcher/SKILL.md": {
+      "path": "zh-CN/mantis-researcher/SKILL.md",
+      "source_sha256": "3f8203e26347f4ecb764d009beac741d381067beca46c2e1d26257b19291418b",
+      "sha256": "4350fb9873be12cd7a58fe6c353aeeb024a5b0e1d88e7af2442d399223588274",
+      "source_lines": 429,
+      "lines": 227,
+      "blocks": 221
+    },
+    "mantis-review/SKILL.md": {
+      "path": "zh-CN/mantis-review/SKILL.md",
+      "source_sha256": "3c0a274abc317cdfcb274336a85b6f75566b92258b03c60d43fcb4562e59fe6d",
+      "sha256": "f37861436ff649badb5759341718409b3c7c3db3362a9e118fb55bea231b9a2b",
+      "source_lines": 437,
+      "lines": 242,
+      "blocks": 237
+    },
+    "mantis-structural-index/SKILL.md": {
+      "path": "zh-CN/mantis-structural-index/SKILL.md",
+      "source_sha256": "5a65e55890846a1592a044bd9c117579305030f4c442daf79f3b6a9b3befe9bc",
+      "sha256": "afc900fa030fe5b1941d30c187d038a611aede764a79b9ad80f070fa0bdcce3e",
+      "source_lines": 746,
+      "lines": 512,
+      "blocks": 503
+    },
+    "mantis-threat-model/SKILL.md": {
+      "path": "zh-CN/mantis-threat-model/SKILL.md",
+      "source_sha256": "ced15d440489566553627a6415edaec7a8d11abef2a88a7cb204c17a31ed0a59",
+      "sha256": "44483a58aa96b6102a1768ef7dbda5fa09f09b554bcd287cbf0c01fc2677ae14",
+      "source_lines": 251,
+      "lines": 185,
+      "blocks": 153
+    },
+    "static-adapter.md": {
+      "path": "zh-CN/static-adapter.md",
+      "source_sha256": "3d519d7017f205b04e4fec85c7a973db18363bcb3d40e755a25260c7847a69a4",
+      "sha256": "aed2c2859d28acd145ecd0edb6559ed20e50e751722ad7e99f890e7c64f88cc3",
+      "source_lines": 38,
+      "lines": 13,
+      "blocks": 13
+    }
+  }
+}

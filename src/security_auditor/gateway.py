@@ -87,9 +87,8 @@ def stage_protocol(body: dict) -> bool:
                 converted['properties'] = {k: convert(v) for k, v in properties.items()}
                 if 'evidence_ids' in converted['properties']:
                     converted['properties']['evidence_ids']['description'] = (
-                        'Nonempty list of exact source handles actually read in this task, from the item enum. '
-                        'Use source handles such as S0001, never a clause number such as 8.3.2. '
-                        'For applicability, include the handle of the full clause source. Never leave this list empty.')
+                        '必须非空：从元素枚举中选择本任务实际读取的准确来源句柄。使用 S0001 等来源句柄，'
+                        '禁止使用 8.3.2 等条款号。适用性判断必须包含完整条款原文的来源句柄。')
                 converted['required'] = list(properties)
                 converted['additionalProperties'] = False
             return converted
@@ -116,26 +115,30 @@ def stage_protocol(body: dict) -> bool:
     inventory = ({key: fields_for(value) for key,value in lists.items()} if lists is not None
                  else {'records': fields_for(record_schema)})
     frame = {'records': {name: [] for name in lists} if lists is not None else [], 'gaps': [],
-             'summary': '<your nonempty stage summary in the configured output language>'}
+             'summary': '<按配置语言填写非空阶段摘要>'}
     body['messages'] = [*body.get('messages', []), {'role': 'system', 'content': (
-        'The final submission transport overrides any generic StageOutput layout description. '
-        'Use set_model_response with this exact envelope, populating its result lists from your analysis: '
-        + json.dumps(frame, ensure_ascii=False) + '. '
-        'Every record must include every field in this inventory, with the declared fixed values: '
-        + json.dumps(inventory, ensure_ascii=False) + '. Do not omit origin, kind or clause_ids '
-        'when they occur in the inventory. Do not add fields outside the declared inventory. '
-        'Every shown list and key is required, including empty lists. Do not omit a list because '
-        'there are no results of that type. Never put fields from another type in a record. '
-        'Source reading tools may be used before submitting. The final tool ends this invocation; '
-        'the program persists it directly and cannot repair missing fields or reinterpret prose. '
-        'Produce valid JSON. Keep explanations concise and cite original evidence IDs rather than '
-        'copying entire source clauses. Use typographic quotation marks inside prose fields instead '
-        'of unescaped ASCII double quotes. Only cite IDs actually provided or read in this task. '
-        'For every applicability result include the source handle returned with the full clause read '
-        'in evidence_ids. A clause_id (for example 8.3.2), requirement_id or context_id is not a source '
-        'handle and must never appear in evidence_ids. Use only values from the evidence_ids item enum. '
-        'The source field of read_standard_clause contains the exact handle; the structured_clause.id '
-        'is only the clause number. Context source handles can be additional citations.') }]
+        '最终提交协议优先于通用 StageOutput 布局说明。使用 set_model_response 按以下准确结构提交，'
+        '结果列表须来自本次分析：' + json.dumps(frame, ensure_ascii=False) + '。'
+        '每条记录必须包含以下库存中的每个字段，并遵守固定值：' + json.dumps(inventory, ensure_ascii=False) + '。'
+        '库存中存在 origin、kind 或 clause_ids 时禁止省略；禁止添加未声明字段。每个列表和键均必填，'
+        '没有该类结果也必须显式提交空列表。禁止在记录中混入其他类型的字段。提交前可使用来源读取工具。'
+        '最终工具会结束本次调用，程序将直接保存结果，不能修复缺失字段或重新解释自然语言。'
+        '必须生成有效 JSON，解释简洁，引用原始来源编号，避免复制整段条款。在自然语言字段中使用中文引号，'
+        '避免未经转义的 ASCII 双引号。仅可引用本任务已提供或实际读取的编号。每项 applicability 的 '
+        'evidence_ids 必须包含读取完整条款时返回的来源句柄。clause_id（例如 8.3.2）、requirement_id '
+        '和 context_id 均不是来源句柄，禁止放入 evidence_ids；仅使用该数组元素枚举内的值。'
+        'read_standard_clause 的 source 字段含准确句柄，structured_clause.id 仅为条款编号；'
+        '上下文来源句柄可以作为附加引用。') }]
+    return True
+
+
+def editor_protocol(body: dict) -> bool:
+    functions = [t.get('function', {}) for t in body.get('tools', [])]
+    if len(functions) != 1 or functions[0].get('name') != 'submit_chinese_edits':
+        return False
+    functions[0]['strict'] = True
+    body['tool_choice'] = {'type': 'function', 'function': {'name': 'submit_chinese_edits'}}
+    body.pop('response_format', None)
     return True
 
 
@@ -172,9 +175,8 @@ def calibration_protocol(body: dict) -> str:
     body["tool_choice"] = {"type": "function", "function": {"name": "set_model_response"}}
     body["max_tokens"] = max(body.get("max_tokens") or 4096, 16384)
     body["messages"] = [*body["messages"], {"role": "system", "content": (
-        "Return this finding's complete numeric calibration through set_model_response. "
-        "Use reasoning and sanity_triage_applied for all checklist evaluations and fired rules. "
-        "Preserve the requested finding_id. Do not invent default scores or execution results."
+        "通过 set_model_response 提交本风险的完整数值评级。将检查表评估和触发规则写入 reasoning 与 "
+        "sanity_triage_applied。必须保留指定 finding_id，禁止编造默认分数或执行结果。"
     )}]
     return "/beta/chat/completions"
 
@@ -224,22 +226,15 @@ async def completion(request: Request):
     tool_names = {tool.get("function", {}).get("name") for tool in body.get("tools", [])}
     if tool_names & {"record_summary", "record_threat_model", "record_plan", "report_findings"}:
         body["messages"] = [*body["messages"], {"role": "system", "content": (
-            "Artifact submission is a strict data protocol. Submit a complete object through the "
-            "declared tool schema, using only its declared fields. Do not add undocumented keys. "
-            "record_summary.summary uses overview, key_modules, tech_stack, architecture_summary, "
-            "trust_boundaries, attack_surface. record_threat_model.threat_model uses threat_actors, "
-            "trust_boundaries, entry_points, key_risks, threats. Additional narrative belongs in "
-            "workspace notes. Submit an explicit report even when findings is an empty list. "
-            "Nonempty findings require title, description, impact, filepath and line_numbers. "
-            "The exact report_findings arguments are {\"report\":{\"findings\":[...]}}; "
-            "do not nest a second report object. Alternatively, the final JSON message may contain "
-            "exactly that same parameter envelope; the program will persist it through the same tool gate. "
-            "Prefer calling the declared submission tool. A final summary message is exactly "
-            "{\"summary\":{...}}; a final threat model is exactly {\"threat_model\":{...}}; "
-            "a final plan is exactly {\"plan\":{...}}. Return actual values, never a schema, "
-            "response_format, type/json_object or properties wrapper. "
-            "Code citations can also use code_paths file:line. "
-            "The program will validate and persist your returned data directly, without semantic repair."
+            '产物提交遵循严格数据协议。必须通过声明的工具 Schema 提交完整对象，仅使用已声明字段，禁止添加未登记键。'
+            'record_summary.summary 使用 overview、key_modules、tech_stack、architecture_summary、trust_boundaries、attack_surface。'
+            'record_threat_model.threat_model 使用 threat_actors、trust_boundaries、entry_points、key_risks、threats。'
+            '额外叙述写入工作区笔记。findings 为空列表时也必须显式提交报告；非空条目必须包含 title、description、'
+            'impact、filepath 和 line_numbers。report_findings 的准确参数是 {"report":{"findings":[...]}}，禁止再嵌套 report。'
+            '也可在最终 JSON 消息中返回完全相同的参数结构，程序将经过同一工具校验后保存；优先调用已声明的提交工具。'
+            '最终摘要结构是 {"summary":{...}}，最终威胁模型是 {"threat_model":{...}}，最终计划是 {"plan":{...}}。'
+            '必须返回实际值，禁止返回 Schema、response_format、type/json_object 或 properties 包装。'
+            '代码引用也可通过 code_paths 使用 file:line。程序直接校验和保存返回数据，不会做语义修复。'
         )}]
     native_output = int(os.getenv("AUDITOR_MANTIS_OUTPUT_TOKENS", "0"))
     if native_output:
@@ -258,15 +253,11 @@ async def completion(request: Request):
         body["messages"] = [*body["messages"], {
             "role": "system",
             "content": (
-                "This is a schema-bound Mantis static audit stage. Use the available read-only "
-                "tools to inspect source as needed. When the review is complete, you MUST call "
-                "set_model_response with the exact bound schema, rather than finish with prose. "
-                "This invocation's declared top-level fields are " + json.dumps(verdict_fields) + ". "
-                "Do not copy fields from another review stage. Do not include finding_verdicts "
-                "unless it is explicitly in this field list. No undocumented fields are accepted. "
-                "Where the schema supports finding_verdicts, provide a separate verdict for every "
-                "finding inspected, preserving its recorded finding_id. The stage's full skill "
-                "determines each verdict. Do not claim execution or dynamic validation."
+                '本次为受 Schema 约束的静态审计阶段。按需使用只读工具检查源码。复核完成后必须调用 '
+                'set_model_response，严格匹配绑定的 Schema，禁止用自然语言结束。当前声明的顶层字段为 '
+                + json.dumps(verdict_fields) + '。禁止复制其他阶段字段；仅当此列表显式包含 finding_verdicts 时才允许提交该字段。'
+                '禁止提交未登记字段。Schema 支持 finding_verdicts 时，必须逐项提交被检查风险的判断，保留已登记 finding_id。'
+                '具体判断由本阶段完整技能决定。禁止声称进行了执行或动态验证。'
             ),
         }]
     if tool_names and not body.get("response_format"):
@@ -275,8 +266,7 @@ async def completion(request: Request):
         # The local argument/schema gates below remain mandatory.
         body["response_format"] = {"type": "json_object"}
         body["messages"] = [*body["messages"], {"role": "system", "content": (
-            "Use valid JSON for every function's arguments. Return a JSON object for any final "
-            "message; never append text or unmatched brackets after the complete JSON object."
+            '每个函数的参数必须为有效 JSON。最终消息必须为 JSON 对象，完整对象后禁止追加文字或未配对括号。'
         )}]
     if body.get("response_format", {}).get("type") == "json_schema":
         schema = body["response_format"].get("json_schema", {}).get("schema")
@@ -288,16 +278,15 @@ async def completion(request: Request):
                 {
                     "role": "system",
                     "content": (
-                        "For the final answer, return a JSON instance matching this schema. "
-                        "Do not return the schema or response_format wrapper. "
-                        "Use the available tools to read materials before your final answer.\n"
+                        '最终答案必须为符合以下 Schema 的 JSON 实例，禁止返回 Schema 本身或 response_format 包装。'
+                        '请先使用工具读取材料，再提交最终答案。\n'
                         + json.dumps(schema, ensure_ascii=False)
                     ),
                 },
             ]
         body["response_format"] = {"type": "json_object"}
     body["thinking"] = {"type": "disabled"}
-    upstream_path = '/beta/chat/completions' if stage_protocol(body) else calibration_protocol(body)
+    upstream_path = '/beta/chat/completions' if stage_protocol(body) or editor_protocol(body) else calibration_protocol(body)
     ledger = request.app.state.ledger
     run_id, task_id, logical_id = (request.headers.get(name) for name in
                                   ("x-auditor-run", "x-auditor-task", "x-auditor-request"))

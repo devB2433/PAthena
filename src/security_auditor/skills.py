@@ -46,13 +46,13 @@ class SkillLoader:
             resource = contained_file(folder, name).read_bytes()
             if digest(resource) != expected:
                 raise ValueError('技能参考资料摘要不匹配')
-            instruction += '\n\nROLE METHOD REFERENCE: ' + name + '\n' + resource.decode()
+            instruction += '\n\n角色方法参考资料：' + name + '\n' + resource.decode()
         for name, expected in sorted(manifest.get('shared_references', {}).items()):
             # Shared professional guidance is repository-owned, never fetched at run time.
             resource = contained_file(self.root / '_shared', name).read_bytes()
             if digest(resource) != expected:
                 raise ValueError('共享技能参考资料摘要不匹配')
-            instruction += '\n\nSHARED METHOD REFERENCE: ' + name + '\n' + resource.decode()
+            instruction += '\n\n共用方法参考资料：' + name + '\n' + resource.decode()
         rule_ids = tuple(manifest["mandatory_rules"])
         if not rule_ids or any(f"[{rule}]" not in instruction for rule in rule_ids):
             raise ValueError("技能缺少必选规则")

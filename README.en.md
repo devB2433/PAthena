@@ -327,6 +327,10 @@ flowchart TB
     REFERENCE["Deterministic reference binding<br/>Paragraph ID → original source<br/>Claim index → exact normative text"]
     CHECK["Application validation<br/>Schema, role, ownership, sources actually read<br/>Code locations, per-claim reviews and verdict consistency"]
     VALID{"Validation passed?"}
+    CHINESE{"Chinese with editing enabled?"}
+    DRAFT["Keep original analysis draft"]
+    EDIT["Humanizer-zh prose editing<br/>Fixed text slots, no analysis or source tools"]
+    EDITCHECK["Validate protected content and result schema<br/>Retain raw output and edit receipts"]
     COMMIT["Transactionally commit business results<br/>Complete task and record events"]
     FAIL["Keep errors and original output<br/>Task incomplete; block subsequent stages"]
     RETRY["Bounded gateway retries and backoff<br/>Account for each outbound attempt"]
@@ -350,7 +354,13 @@ flowchart TB
     ARCHIVE --> REFERENCE
     REFERENCE --> CHECK
     CHECK --> VALID
-    VALID -->|"Yes"| COMMIT
+    VALID -->|"Yes"| CHINESE
+    CHINESE -->|"No"| COMMIT
+    CHINESE -->|"Yes"| DRAFT
+    DRAFT --> EDIT
+    EDIT --> EDITCHECK
+    EDITCHECK -->|"Pass"| COMMIT
+    EDITCHECK -->|"Fail"| FAIL
     COMMIT --> TASKS
     VALID -->|"No"| FAIL
     FAIL --> TASKS
@@ -363,7 +373,7 @@ flowchart TB
     GATEWAY --> LEDGER
 ```
 
-Models perform analysis; the application validates contracts and persists results without another model interpreting prose, filling fields or repairing final conclusions. Recovery follows committed task and stage boundaries: successful tasks can be skipped, while incomplete tasks rerun. Changed inputs, skills, language policies or workflow versions require a new run.
+Models perform analysis; Chinese explanatory prose receives a separate, limited edit before persistence. The application validates contracts and persists results without another model interpreting prose, filling fields or repairing final conclusions. Recovery follows committed task and stage boundaries: successful tasks can be skipped, while incomplete tasks rerun. Changed inputs, skills, language policies or workflow versions require a new run.
 
 ### 5. Conditional Findings audit
 
@@ -502,7 +512,17 @@ PAthena's implementation verification is a **static assessment**. Code support d
 - Analysis model: Currently only DeepSeek-V4.1-Flash is supported (API model name `deepseek-flash`), accessed through a separate model gateway.
 - Deployment: Two containers for the analysis service and model gateway. The analysis service serves the frontend from the same origin.
 
-English is the default output language. Selecting Chinese in system settings directly instructs subsequent analysis through skills and prompts to generate Chinese content. Existing results are not translated afterward. Each run freezes its own output language.
+The interface and new analyses default to Chinese (`AUDITOR_LANGUAGE=zh-CN`); English remains available in system settings. Chinese mode loads complete checked-in Chinese skills, references, and submission instructions so the model generates requirements, threat models, implementation assessments, and Findings directly in Chinese. There is no result-translation stage. Original quotations, code, paths, protocol fields, and enums retain their original values. Each run pins its language, and historical English results remain unchanged.
+
+Original English code skills and their complete Chinese counterparts are stored separately. The localization manifest pins source and localized digests and block inventories. Production and tests load the same language-specific packets. Missing or modified assets fail closed instead of falling back to English summaries or temporary skills. Language policies, localized assets, and adapter prompts participate in run fingerprints; changes require a new analysis.
+
+## Chinese output editing
+
+After Chinese analysis output is generated, [Humanizer-zh](https://github.com/op7418/Humanizer-zh) checks and edits formulaic, repetitive prose before business results are committed. The complete skill, MIT license, pinned revision, and digests are checked into `skills/chinese_output_editor/`. Production and tests load these same assets; runtime never downloads skills.
+
+Only Chinese titles, rationales, impacts, recommendations, and stage summaries are editable. Requirement statements, acceptance criteria, verdicts, applicability, scores, IDs, original quotes, code locations, native artifacts, and prepared control templates remain unchanged. The editor receives fixed text slots without source-reading or execution tools. Deterministic checks protect slot inventory, technical fragments, quotations, numbers, qualifiers, and the original result schema. They cannot prove semantic equivalence of free-form prose; original analysis and editing responses are retained for review.
+
+`AUDITOR_HUMANIZE_CHINESE=true` enables this by default; English output bypasses it. Editing calls and tokens are charged to the same run. Failures block business-result persistence while retaining analysis drafts and successful editing batches. Resume retries unfinished editing instead of repeating completed security analysis. Skill and editor-code fingerprints are pinned in each new run. Historical results are preserved.
 
 ## Analysis model support and constraints
 

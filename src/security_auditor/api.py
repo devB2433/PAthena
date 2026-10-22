@@ -23,6 +23,7 @@ from .store import Store
 from .localization import tr, policy_hashes
 from .provider import MESSAGES
 from .scope_policy import ScopeRequest
+from .output_editor import editor_fingerprint
 
 
 class ProjectRequest(StrictModel):
@@ -93,7 +94,7 @@ def create_app(settings: Settings | None = None, executor=None, mantis_executor=
     def current_versions():
         return {'mantis_hash': scheduler.mantis.fingerprint, 'workflow_hash': digest(settings.workflow.read_bytes()),
                 'skill_hashes': {item['id']: item['sha256'] for item in scheduler.loader.catalog()},
-                'language_policy_hashes': policy_hashes()}
+                'language_policy_hashes': policy_hashes(), 'output_editor_hash': editor_fingerprint(settings)}
 
     def public_run(run):
         policy, usage = run.get('budget'), run['usage']
@@ -133,6 +134,7 @@ def create_app(settings: Settings | None = None, executor=None, mantis_executor=
         result = {
             "language": store.language(settings.language),
             "language_policy_hashes": policy_hashes(),
+            "output_editor_hash": editor_fingerprint(settings),
             "assets": assets,
             "repository": None,
             "standard": None,
@@ -232,6 +234,7 @@ def create_app(settings: Settings | None = None, executor=None, mantis_executor=
     def public_settings():
         return {
             "language": store.language(settings.language),
+            "humanize_chinese": settings.humanize_chinese,
             "supported_languages": ['en', 'zh-CN'],
             "repositories": list(settings.repositories),
             "standard_configured": bool(settings.standard_pack),
@@ -252,7 +255,12 @@ def create_app(settings: Settings | None = None, executor=None, mantis_executor=
 
     @app.get("/api/v1/skills")
     def skills():
-        return {"items": scheduler.loader.catalog()}
+        from .output_editor import editor_skill
+        editor = editor_skill(settings.skills_dir)
+        return {"items": scheduler.loader.catalog(), "postprocessors": [{
+            "id": editor.skill_id, "version": editor.version, "sha256": editor.content_hash,
+            "language": "zh-CN", "enabled": settings.humanize_chinese,
+            "source": "https://github.com/op7418/Humanizer-zh"}]}
 
     @app.post("/api/v1/projects", status_code=201)
     def create_project(body: ProjectRequest):

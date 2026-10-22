@@ -36,8 +36,8 @@ def test_own_role_strict_protocol_preserves_data_fields_and_references(role):
                 if 'evidence_ids' in node['properties']:
                     assert 'evidence_ids' in node['required']
                     assert 'kind' in node['required']
-                    assert 'Nonempty' in node['properties']['evidence_ids']['description']
-                    assert 'never a clause number' in node['properties']['evidence_ids']['description']
+                    assert '必须非空' in node['properties']['evidence_ids']['description']
+                    assert '禁止使用 8.3.2 等条款号' in node['properties']['evidence_ids']['description']
                     assert not {'engine', 'native_id', 'native_status', 'native_data'} & node['properties'].keys()
             for k,v in node.items():
                 if k == 'properties':
@@ -213,8 +213,8 @@ def test_native_verdict_prompt_uses_only_current_stage_fields(monkeypatch,per_fi
                      {'type':'function','function':{'name':'set_model_response','parameters':parameters}}]})
     assert result.status_code==200
     assert captured[0]['tools'][1]['function']['parameters']==parameters
-    prompt=next(m['content'] for m in captured[0]['messages'] if 'declared top-level fields' in m['content'])
-    assert 'declared top-level fields are '+json.dumps(list(fields))+'.' in prompt
+    prompt=next(m['content'] for m in captured[0]['messages'] if '当前声明的顶层字段为' in m['content'])
+    assert '当前声明的顶层字段为 '+json.dumps(list(fields))+'。' in prompt
     assert result.json()['choices'][0]['message']['content']=='{"route":"viable","reason":"Original stage result"}'
 
 
@@ -380,7 +380,30 @@ def test_native_schema_bound_review_has_trusted_completion_instruction(monkeypat
         assert forwarded["tools"] == body["tools"]
         assert forwarded["max_tokens"] == 16384
         instruction = next(m for m in forwarded["messages"][len(body["messages"]):]
-                           if "MUST call set_model_response" in m["content"])
+                           if "必须调用 set_model_response" in m["content"])
         assert instruction["role"] == "system"
-        assert "MUST call set_model_response" in instruction["content"]
+        assert "必须调用 set_model_response" in instruction["content"]
         assert "finding_verdicts" in instruction["content"]
+
+
+def test_chinese_editor_uses_strict_beta_tool_without_repair(monkeypatch):
+    monkeypatch.setenv('DEEPSEEK_API_KEY', 'fixture-key')
+    monkeypatch.delenv('AUDITOR_ANALYSIS_PROXY', raising=False)
+    calls = []
+    def upstream(request):
+        calls.append(request)
+        return httpx.Response(200, json={'choices':[{'finish_reason':'tool_calls','message':{'tool_calls':[
+            {'function':{'name':'submit_chinese_edits','arguments':'{"texts":{"text_0000":"中文结果。"}}'}}]}}]})
+    body={'model':'deepseek-flash','messages':[], 'tools':[{'type':'function','function':{
+        'name':'submit_chinese_edits','parameters':{'type':'object','properties':{'texts':{'type':'object',
+        'properties':{'text_0000':{'type':'string'}},'required':['text_0000'],'additionalProperties':False}},
+        'required':['texts'],'additionalProperties':False}}}]}
+    with TestClient(app) as client:
+        app.state.client=httpx.AsyncClient(base_url='https://api.deepseek.com',transport=httpx.MockTransport(upstream))
+        result=client.post('/v1/chat/completions',json=body)
+    assert result.status_code==200 and len(calls)==1
+    assert str(calls[0].url)=='https://api.deepseek.com/beta/chat/completions'
+    forwarded=json.loads(calls[0].content)
+    assert forwarded['tools'][0]['function']['strict'] is True
+    assert 'response_format' not in forwarded
+    assert result.json()['choices'][0]['message']['tool_calls'][0]['function']['arguments']=='{"texts":{"text_0000":"中文结果。"}}'

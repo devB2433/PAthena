@@ -42,3 +42,13 @@ BAAI/bge-reranker-v2-m3, revision 953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e
 https://huggingface.co/BAAI/bge-reranker-v2-m3
 Both official model cards identify Apache-2.0 licensing. Their upstream model
 cards and any license files are retained next to separately downloaded weights.
+
+Humanizer-zh
+Repository: https://github.com/op7418/Humanizer-zh
+Source commit: f4518a8eab97b8bfebc66a89d34320a89bef6930
+License: MIT (skills/chinese_output_editor/vendor/humanizer-zh/LICENSE)
+
+The complete upstream SKILL.md is retained byte-for-byte alongside its license.
+The project adapter restricts editing to Chinese explanatory fields before
+business-result persistence. It never grants tools or authority to change
+security requirements, criteria, decisions, source references or raw artifacts.

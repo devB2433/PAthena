@@ -436,6 +436,24 @@ class Store:
             artifacts[(row['artifact_type'], row['campaign'])] = {'artifact_type': row['artifact_type'], 'data': json.loads(row['payload'])}
         return list(artifacts.values())
 
+    def save_analysis_draft(self, task_id: str, role: str, output: StageOutput):
+        payload = output.model_dump_json()
+        expected = digest(payload.encode())
+        with self.connect() as db:
+            db.execute('INSERT OR IGNORE INTO analysis_drafts VALUES(?,?,?,?)', (task_id, role, payload, expected))
+            row = db.execute('SELECT role,sha256 FROM analysis_drafts WHERE task_id=?', (task_id,)).fetchone()
+            if row['role'] != role or row['sha256'] != expected:
+                raise ValueError('不能用另一份分析结果覆盖已完成草稿')
+
+    def analysis_draft(self, task_id: str, role: str) -> StageOutput | None:
+        rows = self.rows('SELECT * FROM analysis_drafts WHERE task_id=?', (task_id,))
+        if not rows:
+            return None
+        row = rows[0]
+        if row['role'] != role or digest(row['payload'].encode()) != row['sha256']:
+            raise ValueError('分析草稿的角色或摘要不一致')
+        return StageOutput.model_validate_json(row['payload'])
+
     def commit_output(self, task_id: str, role: str, output: StageOutput):
         task = self.task(task_id)
         run_id = task["run_id"]

@@ -342,7 +342,7 @@ async def test_final_json_uses_the_same_declared_role_schema(settings, store, sa
                 assert final.parameters_json_schema["$defs"]["SourceQuote"]["properties"] == {
                     "quote_id": {
                         "type": "string",
-                        "description": "Exact Qxxxxx paragraph ID from the current read_evidence result",
+                        "description": "当前 read_evidence 返回的准确 Qxxxxx 段落编号",
                         "enum": ["Q00001"],
                     }
                 }

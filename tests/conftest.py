@@ -18,6 +18,8 @@ def settings(tmp_path: Path):
         max_tokens=200000,
         max_requests=100,
         standard_pack="",  # Tests stay isolated from a user's locally imported standards.
+        humanize_chinese=False,  # Style calls are explicitly exercised with an injected editor in dedicated tests.
+        language="en",  # Existing English fixtures remain explicit after the product default changes.
     )
 
 

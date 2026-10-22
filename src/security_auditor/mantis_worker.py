@@ -85,6 +85,8 @@ def phase_spec(phase: str, gateway: str, model: str, database: Path, language: s
         "db_path": str(database), "retry_attempts": 1, "reasoning_effort": None,
         "sandbox": {"type": "static-only", "options": {}},
     })
+    if language == 'zh-CN':
+        spec['config']['seed_prompt'] = '初始任务：评估 {filepath}'
     for node in spec["nodes"]:
         if node["type"] != "agent":
             continue
@@ -166,7 +168,7 @@ async def execute_job(job: dict, model_factory=None) -> dict:
     from .native_skills import NativeSkillLoader
     skill_loader = NativeSkillLoader(Path(job['skills_dir']) if job.get('skills_dir') else None)
     skill_loader.fingerprint()
-    write_json(work / 'loaded-skills.json', skill_loader.catalog())
+    write_json(work / 'loaded-skills.json', skill_loader.catalog(run['language']))
     stage_tasks = {}
     read_file_path = work / (phase + "-reads.json")
     verdict_file_path = work / (phase + "-verdicts.json")
@@ -194,12 +196,24 @@ async def execute_job(job: dict, model_factory=None) -> dict:
             from .localization import output_policy
             policy = output_policy(run["language"])
             instruction = str(llm_request.config.system_instruction)
+            if run['language'] == 'zh-CN':
+                from .native_localization import localize_native_instruction
+                instruction = localize_native_instruction(instruction)
+                llm_request.config.system_instruction = instruction
             if policy not in instruction:
                 instruction += "\n\n" + policy
                 llm_request.config.system_instruction = instruction
             stage = instruction.split("MANTIS_STAGE:", 1)[-1].split("\n", 1)[0]
             if stage not in SKILLS:
                 stage = "campaign_planner"
+            if run['language'] == 'zh-CN':
+                from .native_localization import localize_native_input, localize_native_tools
+                localize_native_tools(llm_request)
+                for content in llm_request.contents:
+                    if content.role == 'user':
+                        for part in content.parts or []:
+                            if part.text:
+                                part.text = localize_native_input(part.text, stage)
             rc = current_run_context.get()
             if rc:
                 rc.active_node = stage
@@ -208,7 +222,7 @@ async def execute_job(job: dict, model_factory=None) -> dict:
             if stage_key not in stage_tasks:
                 tid = store.add_task(run["id"], "mantis_" + stage,
                                      {"phase": phase, "snapshot": job["snapshot_id"], "campaign": campaign}, parent, "native")
-                bundle = skill_loader.resolve(stage) if stage in SKILLS else None
+                bundle = skill_loader.resolve(stage, run['language']) if stage in SKILLS else None
                 store.start_task(tid, bundle, instruction_hash=digest(instruction.encode()))
                 stage_tasks[stage_key] = tid
             tid = stage_tasks[stage_key]
@@ -250,7 +264,7 @@ async def execute_job(job: dict, model_factory=None) -> dict:
                         from core.schemas import FindingCalibration
                         prompt = "".join(p.text or "" for c in llm_request.contents for p in c.parts)
                         import re
-                        match = re.search(r"(?m)^- Finding ID: (\d+)$", prompt)
+                        match = re.search(r"(?m)^- (?:Finding ID: |风险编号：)(\d+)$", prompt)
                         if not match:
                             raise OutputContractError("风险评级请求缺少候选问题编号")
                         validate_native_response(response, FindingCalibration)
@@ -306,7 +320,7 @@ async def execute_job(job: dict, model_factory=None) -> dict:
     from .source_search import SnapshotSourceSearch
     source_search = SnapshotSourceSearch(snapshot, manifest['files'])
     async def search_source(query: str, directory: str = '', offset: int = 0, limit: int = 50) -> str:
-        """Literal source search over the approved snapshot; read hits before citing them. Continue all pages."""
+        """对批准的快照做字面检索；引用前必须读取命中源码，并继续检查所有分页。"""
         result = json.dumps(source_search.search(query, directory, offset, limit), ensure_ascii=False)
         return wrap_untrusted_content(SecretScrubber.scrub(result), filename='source-search')
     original_search = tools.TOOLS.get('search_source')
@@ -365,6 +379,7 @@ async def execute_job(job: dict, model_factory=None) -> dict:
     original_read = tools.TOOLS["read_file"]
 
     async def read_file(filepath: str, start_line: int = 0, end_line: int = 0) -> str:
+        """读取指定文件的原始行范围；实际返回的源码行才计入引用依据。"""
         result = await original_read(filepath, start_line, end_line)
         if "UNTRUSTED_SOURCE_CODE_DATA_START" in result and not filepath.startswith("workspace/"):
             # Native read_file caps large responses. Do not mark its omitted tail as read.
@@ -390,6 +405,7 @@ async def execute_job(job: dict, model_factory=None) -> dict:
     original_boundary = tools.TOOLS["get_function_boundary"]
 
     async def get_function_boundary(filepath: str, line: int) -> str:
+        """定位并读取该行所属完整函数的原始源码边界。"""
         result = await original_boundary(filepath, line)
         import re
         match = re.search(r"\] (.+):(\d+)-(\d+)", result.split("\n", 1)[0])

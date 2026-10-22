@@ -18,8 +18,8 @@ from .vendor.mantis_llm_gateway import SecretScrubber, wrap_untrusted_content
 
 
 class ModelStageOutput(StageOutput):
-    records: list[Record] = Field(description="Explicit stage results; an empty list must be submitted explicitly")
-    gaps: list[str] = Field(description="Explicit unresolved facts; submit an empty list if there are none")
+    records: list[Record] = Field(description="明确提交本阶段结果；没有结果也必须显式提交空列表")
+    gaps: list[str] = Field(description="明确列出尚未解决的事实；没有则提交空列表")
 
 
 @lru_cache
@@ -30,7 +30,7 @@ def stage_schema(role: str):
     selected = tuple(models[kind] for kind in sorted(ALLOWED_KINDS[role]))
     record_type = selected[0] if len(selected) == 1 else Annotated[Union[selected], Field(discriminator='kind')]
     return create_model(role + 'StageOutput', __base__=ModelStageOutput,
-                        records=(list[record_type], Field(description='Submit every scoped result explicitly')))
+                        records=(list[record_type], Field(description='显式提交范围内的每项结果')))
 
 
 @lru_cache
@@ -48,7 +48,7 @@ def submission_model(role: str, structured_sources: bool = False):
                     'statement_source':(SourceObligation,Field()),
                     'acceptance_criteria':(list[criterion],Field(min_length=1))})
                 return create_model(role + 'SourceSubmission', __base__=ModelStageOutput,
-                                    records=(list[record],Field(description='Every criterion paired with its own source constraints')))
+                                    records=(list[record],Field(description='每个验收项必须配对其自身的原文约束')))
             base = {'design_analyst': Fact, 'requirement_generator': Requirement, 'requirement_reviewer': Review}[role]
             key, item = ('claim_reviews', ClaimReview) if role == 'requirement_reviewer' else ('source_obligations', SourceObligation)
             if role == 'requirement_reviewer':
@@ -56,7 +56,7 @@ def submission_model(role: str, structured_sources: bool = False):
                                     logic_comparisons=(list[LogicComparison], Field(min_length=1)))
             record = create_model(role + 'SourceRecord', __base__=base, **{key: (list[item], Field(min_length=1))})
             return create_model(role + 'SourceSubmission', __base__=ModelStageOutput,
-                                records=(list[record], Field(description='Complete source-grounded results')))
+                                records=(list[record], Field(description='完整且基于原始来源的结果')))
         if role in {'design_analyst', 'requirement_generator', 'requirement_reviewer'}:
             # Archived skill revisions keep their original output protocol.
             # Do not expose v4 fields to a baseline that predates those methods.
@@ -67,15 +67,15 @@ def submission_model(role: str, structured_sources: bool = False):
                 key: (field.annotation, field) for key, field in base.model_fields.items()
                 if key not in {'source_obligations', 'claim_reviews'}})
             return create_model(role + 'LegacySubmission', __base__=ModelStageOutput,
-                                records=(list[legacy], Field(description='Explicit scoped results')))
+                                records=(list[legacy], Field(description='明确提交范围内的结果')))
         return stage_schema(role)
     from . import domain
     groups = create_model(role + 'RecordGroups', __base__=StrictModel, **{
-        kind: (list[getattr(domain, kind.capitalize())], Field(description='Explicit typed results; [] if none'))
+        kind: (list[getattr(domain, kind.capitalize())], Field(description='按类型明确提交结果；没有则提交 []'))
         for kind in sorted(ALLOWED_KINDS[role])})
     return create_model(role + 'Submission', __base__=StrictModel,
-        records=(groups, Field(description='Separate homogeneous lists; never mix record fields')),
-        gaps=(list[str], Field(description='Explicit unresolved facts; [] if none')),
+        records=(groups, Field(description='不同类型使用独立列表；禁止混用记录字段')),
+        gaps=(list[str], Field(description='明确列出尚未解决的事实；没有则提交 []')),
         summary=(str, Field(min_length=1)))
 
 
@@ -91,8 +91,8 @@ def scoped_pci_submission_model(clause_id: str):
                   clause_ids=(list[Literal[clause_id]] | None, Field(default=None,min_length=1,max_length=1)))
     record = create_model('ScopedPCIRequirement', __base__=StrictModel, **fields)
     return create_model('ScopedPCISubmission', __base__=StrictModel,
-                        records=(list[record], Field(description='Complete analytical results; task owns origin and clause_ids')),
-                        gaps=(list[str], Field(description='Explicit unresolved facts; [] if none')),
+                        records=(list[record], Field(description='完整分析结果；origin 和 clause_ids 由任务固定')),
+                        gaps=(list[str], Field(description='明确列出尚未解决的事实；没有则提交 []')),
                         summary=(str, Field(min_length=1)))
 
 
@@ -107,11 +107,11 @@ def scoped_checker_submission_model(requirement_id: str):
         **{key:(field.annotation,field) for key,field in Finding.model_fields.items() if key!='requirement_ids'},
         'requirement_ids':(list[Literal[requirement_id]] | None,Field(default=None,min_length=1,max_length=1))})
     groups = create_model('ScopedCheckGroups', __base__=StrictModel,
-                          assessment=(list[assessment],Field(description='Every exact scoped criterion')),
-                          finding=(list[finding],Field(description='Explicit candidates; [] if none')))
+                          assessment=(list[assessment],Field(description='逐项覆盖范围内的准确验收项')),
+                          finding=(list[finding],Field(description='明确列出候选项；没有则提交 []')))
     return create_model('ScopedCheckSubmission', __base__=StrictModel,
-                        records=(groups,Field(description='Separate analytical result lists; task owns requirement links')),
-                        gaps=(list[str],Field(description='Explicit unresolved facts; [] if none')),
+                        records=(groups,Field(description='分析结果按类型分列；需求关联由任务固定')),
+                        gaps=(list[str],Field(description='明确列出尚未解决的事实；没有则提交 []')),
                         summary=(str,Field(min_length=1)))
 
 
@@ -124,7 +124,7 @@ def scoped_mapping_submission_model(requirement_id: str):
            if key != 'requirement_ids'},
         'requirement_ids': (list[Literal[requirement_id]] | None, Field(default=None, min_length=1, max_length=1))})
     return create_model('ScopedMappingSubmission', __base__=ModelStageOutput,
-                        records=(list[record], Field(description='Every decision evaluates this task requirement')))
+                        records=(list[record], Field(description='每项判断均评估本任务固定的需求')))
 
 
 @lru_cache
@@ -272,7 +272,7 @@ class AdkExecutor:
                     if bundle.skill_id == 'requirement_reviewer':
                         fields.pop('claim', None)
                         fields['claim_index'] = {'type':'integer', 'minimum':0,
-                            'description':'0 = statement, 1..N = acceptance criteria in exact order; cover each index once'}
+                            'description':'0 对应 statement，1..N 按原顺序对应验收项；每个索引必须且只能覆盖一次'}
                         if bundle.skill_id == 'requirement_reviewer':
                             counts = [len(r['acceptance_criteria']) for r in self.store.records(run_id,'requirement')
                                       if r['id'] in task['scope'].get('subject_ids', [])]
@@ -286,13 +286,13 @@ class AdkExecutor:
                     definition['required'] = [key for key in definition.get('required', []) if key in fields]
                 if structured_sources and 'quote_id' in fields and 'text' in fields:
                     definition['properties'] = {'quote_id': {'type': 'string',
-                        'description': 'Exact Qxxxxx paragraph ID from the current read_evidence result',
+                        'description': '当前 read_evidence 返回的准确 Qxxxxx 段落编号',
                         **({'enum': list(references.by_quote)} if references.by_quote else {'pattern': '^Q[0-9]{5}$'})}}
                     definition['required'] = ['quote_id']
                     continue
                 if bundle.skill_id=='requirement_checker' and 'id' in fields:
                     fields['id']['pattern'] = '^'+task['id']+'_[a-zA-Z0-9_-]+$'
-                    fields['id']['description'] = 'New result ID in the current task namespace; never reuse an upstream requirement ID'
+                    fields['id']['description'] = '使用当前任务命名空间内的新结果编号；禁止复用上游需求编号'
                 if owned_check:
                     fields.pop('requirement_id',None)
                     fields.pop('requirement_ids',None)
@@ -348,7 +348,7 @@ class AdkExecutor:
         class FinalStageTool(SetModelResponseTool):
             def _get_declaration(self):
                 return types.FunctionDeclaration(name='set_model_response',
-                    description='Submit the complete final StageOutput: records, gaps, summary. This ends analysis.',
+                    description='提交完整的最终 StageOutput：records、gaps、summary；提交后本次分析结束。',
                     parameters_json_schema=submission_schema())
 
             async def run_async(self, *, args, tool_context):
@@ -366,7 +366,7 @@ class AdkExecutor:
                 return result.model_dump()
 
         def list_evidence(source_type: str = "", page: int = 1, page_size: int = 30) -> dict:
-            """List snapshot evidence IDs with bounded pagination; does not imply analysis completion."""
+            """分页列出快照来源编号；列出编号不代表已完成分析。"""
             rows = [
                 row
                 for row in self.store.evidence(run_id, source_type or None)
@@ -377,7 +377,7 @@ class AdkExecutor:
             return references.encode({"total": len(rows), "items": rows[start : start + min(max(page_size, 1), 50)]})
 
         def read_evidence(evidence_id: str) -> str:
-            """Read one original evidence block belonging to this snapshot."""
+            """读取属于本快照的一块原始来源材料。"""
             source_ids()
             row = self.store.read_evidence(run_id, references.resolve(evidence_id))
             if row["source_type"] not in allowed_sources:
@@ -393,7 +393,7 @@ class AdkExecutor:
             return wrap_untrusted_content(SecretScrubber.scrub(text), filename=row["locator"])
 
         def search_evidence(query: str, source_type: str = "", limit: int = 20, offset: int = 0) -> dict:
-            """Literal source search with total/has_more/next_offset; read hits separately. Not semantic coverage."""
+            """对来源做字面搜索，返回 total/has_more/next_offset；命中材料需另行读取。搜索命中不代表语义覆盖。"""
             # Literal bounded search handles Chinese without a remote embedding service.
             if not query.strip() or len(query) > 200 or offset < 0:
                 raise ValueError("查询为空、过长或分页位置无效")
@@ -419,7 +419,7 @@ class AdkExecutor:
             })
 
         def read_evidence_batch(evidence_ids: list[str]) -> dict:
-            """Read document blocks together; return explicit remaining IDs at the byte limit."""
+            """批量读取文档块；达到字节上限时明确返回尚未读取的编号。"""
             source_ids()
             result, size = {}, 0
             for eid in evidence_ids:
@@ -434,7 +434,7 @@ class AdkExecutor:
             return {"items": result, "remaining_ids": [eid for eid in evidence_ids if eid not in result]}
 
         async def search_standard_library(query: str = '', section: str = '', limit: int = 8, offset: int = 0) -> dict:
-            """Query precomputed standard/control vectors; only this new query is embedded. Read matched controls before selecting."""
+            """检索预先入库的标准和控制向量，仅向量化本次查询；选择前必须读取命中的控制。"""
             from .standard_library import search
             from .embeddings import encoder
             prepared = (self.store.run(run_id)['snapshot'].get('standard') or {}).get('prepared')
@@ -445,14 +445,14 @@ class AdkExecutor:
             return await asyncio.to_thread(search, self.store, run_id, query, section, limit, offset, embedder=embedder, reranker_model=ranker)
 
         def read_standard_control(control_id: str) -> dict:
-            """Read an immutable bilingual control template and its stored original normative source."""
+            """读取不可变的双语控制模板及其已入库的标准原文。"""
             from .control_catalog import read_control
             data, eid = read_control(self.store, run_id, task['id'], control_id)
             source_ids()
             return {'standard_control': data, 'source': read_evidence(eid)}
 
         def read_standard_clause(clause_id: str) -> dict:
-            """Read a normative clause and its fixed control index. Read control templates before selecting; this index is not a control read."""
+            """读取标准条款及其固定控制索引；选择前必须读取控制模板，索引不等于已读控制内容。"""
             from .standard_library import read
             data, eid = read(self.store, run_id, clause_id)
             source_ids()
@@ -463,14 +463,14 @@ class AdkExecutor:
             return result
 
         def read_standard_context(context_id: str) -> str:
-            """Read an original standard scope or parent context page by its exact catalog ID."""
+            """按准确的目录编号读取标准原始范围说明或父级上下文页。"""
             from .standard_library import read
             _, eid = read(self.store, run_id, context_id, context=True)
             source_ids()
             return read_evidence(eid)
 
         def read_upstream_records(record_ids: list[str]) -> dict:
-            """Read exact full upstream records from this task's inventory. These outputs are leads, not original source citations."""
+            """读取本任务库存中完整的上游记录。上游输出仅作为调查线索，不能代替原始来源引用。"""
             permitted = {r['id'] for r in context.get('upstream_records', [])}
             if not record_ids or any(rid not in permitted for rid in record_ids):
                 raise ValueError('上游记录不属于本任务库存')
@@ -495,23 +495,23 @@ class AdkExecutor:
             return references.encode(result)
 
         async def find_symbol(name: str, offset: int = 0) -> dict:
-            """Find symbols using the native Mantis structural index; absence is not proof of safety."""
+            """通过原生结构索引查找符号；没有命中不代表安全。"""
             return await navigate("find_symbol", {"name": name, "offset": offset})
 
         async def find_callers(symbol: str, filepath: str = "", offset: int = 0) -> dict:
-            """Use Mantis to locate indexed callers; dynamic calls can be missing."""
+            """定位索引内的调用方；动态调用可能缺失。"""
             return await navigate("find_callers", {"symbol": symbol, "filepath": filepath, "offset": offset})
 
         async def find_callees(symbol: str, filepath: str = "", offset: int = 0) -> dict:
-            """Use Mantis to locate indexed callees; confirm relevant paths in source."""
+            """定位索引内的被调用方；相关调用路径必须回到源码确认。"""
             return await navigate("find_callees", {"symbol": symbol, "filepath": filepath, "offset": offset})
 
         async def get_function_boundary(filepath: str, line: int) -> dict:
-            """Read a complete function through Mantis, with a usable source evidence ID."""
+            """读取完整函数，同时返回可引用的源码来源编号。"""
             return await navigate("get_function_boundary", {"filepath": filepath, "line": line})
 
         async def get_mantis_model() -> dict:
-            """Read the native code summary and threat model for this run."""
+            """读取本次分析的代码摘要和威胁模型。"""
             result = await MantisEngine(self.settings, self.store).navigate(run_id, "get_model", {}, task["id"])
             return {"result": wrap_untrusted_content(SecretScrubber.scrub(result["result"]), filename="mantis-model")}
 
@@ -571,67 +571,50 @@ class AdkExecutor:
                 raise
 
         instruction, _ = compile_instruction(bundle, language=self.store.run(run_id)["language"])
-        instruction += ('\nSource-reference transport: use the exact short source handles (S0001, S0002, etc.) '
-                        'provided in this invocation for read tools and evidence_ids. These handles name original '
-                        'sources through a fixed lookup table. Never invent, shorten, approximate or repair a handle. '
-                        'The program maps valid handles to original source IDs without changing analysis content.')
-        instruction += ('\nShort source handles are transport identifiers for tool arguments and citation fields only. '
-                        'In titles, rationale, summaries and gaps, identify sources by their readable filename '
-                        'and line/page location. Do not use short handles as narrative source names.')
+        instruction += ('\n来源引用协议：读取工具和 evidence_ids 必须使用本次调用提供的准确短句柄'
+                        '（S0001、S0002 等）。短句柄通过固定映射表指向原始来源。不得虚构、缩短、'
+                        '近似拼写或修补句柄。程序只将有效句柄还原为原始来源 ID，不改写分析内容。')
+        instruction += ('\n短句柄仅用于工具参数和引用字段。标题、rationale、summary、gaps 中应使用'
+                        '可读的文件名与行号或页码说明来源，不得把短句柄当成自然语言中的来源名称。')
         if owned_provenance:
-            instruction += ('\nThis invocation uses task_owned_requirement_provenance_v1. '
-                'The task owns origin and clause_ids, fixed to '+json.dumps(owned_provenance)+'. '
-                'The model is not required to return these metadata fields; prefer omitting them. '
-                'An exact echo is compatible, but a different origin or clause list is rejected and never overwritten. '
-                'This transport rule overrides generic descriptions of the complete stored Requirement. '
-                'Return every analytical field: title, module, statement, acceptance_criteria, rationale and actual '
-                'source references, together with the declared record ID/kind. The program adds only the '
-                'announced task provenance after validation; it never fills or rewrites analytical fields. '
-                'Every requirement must cite the exact original target clause source actually read in this task.')
+            instruction += ('\n本次使用 task_owned_requirement_provenance_v1。origin 和 clause_ids 由任务固定为 '
+                +json.dumps(owned_provenance)+'。请省略这些元数据；回传完全相同的值也可接受，冲突值会被拒绝，'
+                '程序绝不覆盖冲突。该协议优先于存储型 Requirement 的通用字段说明。必须提交完整分析字段：'
+                'title、module、statement、acceptance_criteria、rationale、实际来源引用，以及记录 ID/kind。'
+                '程序在校验后只补入上述已声明的任务归属，不补写或改写分析内容。每条需求必须引用本任务'
+                '实际读取的、准确对应目标条款的原文来源。')
             context = {**context, 'task_owned_requirement_provenance':owned_provenance}
         if bundle.skill_id=='requirement_checker':
-            instruction += ('\nThis invocation uses task_owned_check_provenance_v1. The task owns the '
-                'requirement link fixed to '+owned_check+'. Omit assessment.requirement_id and '
-                'finding.requirement_ids; the program supplies only this declared task association. '
-                'Exact echoes are compatible, but any conflicting association is rejected, never replaced. '
-                'This transport rule overrides generic descriptions of the stored records. All analytical '
-                'fields, exact acceptance criteria, verdicts and source references must still be returned.')
-            instruction += ('\nNew result IDs must start with '+task['id']+'_ followed by a unique '
-                'alphanumeric suffix. Use different IDs for every assessment and finding. '
-                'requirement_id is the existing requirement reference, never the new record id. '
-                'The program rejects duplicate IDs and does not rename returned records.')
-            instruction += ('\nImplementation source gate: until original code has actually been read in this task, '
-                'the submission schema permits only UNKNOWN or NOT_CODE_VERIFIABLE. Use source navigation '
-                'and reading tools to inspect implementation before claiming STATIC_SUPPORTED, PARTIAL or VIOLATED. '
-                'Every such assessment must include an actual original code source handle in evidence_ids. '
-                'Design documents, standards, upstream records and the Mantis model are not code evidence. '
-                'The allowed status enum is rebound after actual code reads; a search hit alone does not unlock it.')
+            instruction += ('\n本次使用 task_owned_check_provenance_v1。关联需求固定为 '+owned_check+'。'
+                '省略 assessment.requirement_id 和 finding.requirement_ids，程序只补入这个已声明关联；'
+                '完全相同的回传可接受，冲突关联直接拒绝，绝不替换。该规则优先于存储字段通用说明。'
+                '分析字段、准确的验收项文本、判断和来源引用仍须完整提交。')
+            instruction += ('\n新结果 ID 必须以 '+task['id']+'_ 开头并带唯一的字母数字后缀。每条 assessment '
+                '和 finding 使用不同 ID。requirement_id 指向既有需求，不能当作新记录 ID；程序会拒绝重名，'
+                '不会给返回的记录改名。')
+            instruction += ('\n实现判断的源码门槛：本任务实际读取原始代码前，只允许 UNKNOWN 或 '
+                'NOT_CODE_VERIFIABLE。必须使用源码导航和读取工具调查实现后，才能提交 STATIC_SUPPORTED、'
+                'PARTIAL 或 VIOLATED，且这些判断的 evidence_ids 必须包含实际读取的原始代码句柄。'
+                '设计文档、标准、上游记录和代码模型不能代替源码依据。状态枚举只在实际读取代码后开放，'
+                '搜索命中本身不会开放实现判断。')
         if owned_mapping:
-            instruction += ('\nThis invocation uses task_owned_mapping_provenance_v1. Every applicability record '
-                'evaluates the task requirement '+owned_mapping+'. Omit requirement_ids; the program supplies '
-                'only that declared task association, including for UNRELATED, UNKNOWN or excluded decisions. '
-                'This association identifies the evaluated subject, not a finding of relevance or applicability. '
-                'An exact echo is compatible; any conflicting association is rejected, never replaced. '
-                'This transport rule overrides generic descriptions of the complete stored Applicability. '
-                'All analytical fields, control IDs, conditions, verdicts and original source references '
-                'must still be returned unchanged by the model.')
+            instruction += ('\n本次使用 task_owned_mapping_provenance_v1。每条 applicability 都评估任务需求 '
+                +owned_mapping+'。省略 requirement_ids，程序只补入该已知任务关联，包括 UNRELATED、UNKNOWN '
+                '或排除结论。这只是评估对象，不表示已经相关或适用。完全相同的回传可接受，冲突关联直接'
+                '拒绝，绝不替换。本协议优先于存储型 Applicability 的通用说明。分析字段、控制 ID、条件、'
+                '判断和原始来源引用仍全部由模型准确提交。')
         if owned_control:
-            instruction += ('\nThis invocation uses task_owned_control_provenance_v1. The task evaluates '
-                'exactly one fixed control '+owned_control+' from clause '+owned_clause+'. Omit control_ids '
-                'and clause_id; the program supplies only these already-declared task subject identifiers, '
-                'including for UNRELATED, NON_CODE, UNKNOWN and NOT_APPLICABLE decisions. Exact echoes '
-                'are compatible; conflicting subject identifiers are rejected, never replaced. '
-                'Return exactly one Applicability record. This overrides generic stored-record field '
-                'instructions. The subject link does not assert relevance, applicability or implementation. '
-                'You still decide every analytical field, real design requirement associations, original '
-                'source references, conditions, missing facts and rationale. Never generate a Requirement.')
+            instruction += ('\n本次使用 task_owned_control_provenance_v1，仅评估条款 '+owned_clause+' 的固定控制 '
+                +owned_control+'。省略 control_ids 和 clause_id；程序只补入上述已声明的任务对象标识，'
+                '包括 UNRELATED、NON_CODE、UNKNOWN 和 NOT_APPLICABLE 结论。相同回传可接受，冲突值拒绝，'
+                '绝不覆盖。准确提交一条 Applicability；本协议优先于通用字段说明。该对象关联不表示相关、'
+                '适用或已实现。所有分析字段、真实设计需求关联、原始来源、条件、缺失事实及理由仍由你判断。'
+                '绝不能生成 Requirement。')
         if len(ALLOWED_KINDS[bundle.skill_id]) > 1:
-            instruction += ('\nFinal transport: records is an object with separate lists named '
+            instruction += ('\n最终提交协议：records 是对象，包含以下独立列表：'
                             + ', '.join(sorted(ALLOWED_KINDS[bundle.skill_id]))
-                            + '. Include every list explicitly, using [] when empty. '
-                              'Each list contains only that record type and its declared fields. '
-                              'Do not put fields from another record type in a record. '
-                              'The program flattens these lists without changing their values.')
+                            + '。所有列表都必须显式提交，没有记录时使用 []。各列表只能包含对应类型及其'
+                              '声明字段，不得混入其他类型字段。程序只展开列表，不改变字段值。')
         store = self.store
         class AccountedModel(LiteLlm):
             async def generate_content_async(model, llm_request, stream=False):
@@ -707,20 +690,17 @@ class AdkExecutor:
                                  for eid in record.get('evidence_ids', [])}
             document_ids = {e['id'] for e in self.store.evidence(run_id, 'document')}
             context['design_materials'] = {eid: read_evidence(eid) for eid in sorted(design_references & document_ids)}
-            context['upstream_record_mode'] = ('Compact indexes and exact applicability conditions. '
-                'Use read_upstream_records for full original statements, rationale and missing scope facts. '
-                'Only the original sources delivered in design_materials/target_materials or explicitly '
-                'read through source tools can be cited; upstream records are analysis leads.')
+            context['upstream_record_mode'] = ('此处仅含紧凑索引和准确适用条件。使用 read_upstream_records '
+                '读取完整原始陈述、理由和尚缺的范围事实。仅可引用 design_materials/target_materials '
+                '已提供或通过来源工具实际读取的原始材料；上游记录仅作为分析线索。')
             if task['scope'].get('control_id'):
                 context['selected_control'] = read_standard_control(task['scope']['control_id'])
         context = {**context, 'required_document_reads': sorted(required_reads)}
         if bundle.skill_id == 'requirement_generator':
             context['upstream_record_mode'] = (
-                'Complete fact navigation inventory. Long original quotes, source obligations and rationale '
-                'remain unchanged in storage; use read_upstream_records for full original facts. '
-                'An index entry is not evidence or proof of document completion. Read every required '
-                'original design block before submitting requirements; preserve business conditions '
-                'and cross-module relationships from those original sources.')
+                '完整的事实导航库存。较长原始引文、来源约束和理由仍原样保存在数据库，使用 '
+                'read_upstream_records 读取完整事实。索引条目既不是原始依据，也不证明已读完文档。'
+                '提交需求前必须读取每个必读原始设计块，并保留原文的业务条件和跨模块关系。')
         message = json.dumps(references.encode(context), ensure_ascii=False)
         limit = 160000 if bundle.skill_id in {'pci_mapper', 'pci_requirement_generator'} else 80000
         if len(message.encode()) > limit:

@@ -268,5 +268,8 @@
   "实现任务不属于冻结需求检查范围": "The implementation task is outside the frozen requirement-check scope",
   "实现目标需求与冻结版本不一致": "The implementation target differs from its frozen requirement version",
   "所选控制必须逐项完整提交且不能扩大目标": "Submit exactly one decision for the selected control without expanding the target",
-  "控制相关性判断必须引用原始项目材料": "Control relevance decisions must cite original project sources"
+  "控制相关性判断必须引用原始项目材料": "Control relevance decisions must cite original project sources",
+  "中文输出入库前检查并优化表达。": "Chinese output is checked and edited for clarity before saving.",
+  "中文输出检查未完成，禁止提交业务结果": "Chinese output editing is incomplete; results have not been committed.",
+  "中文输出编辑技能版本已变化，需要新运行": "The Chinese output editing skill has changed; start a new run."
 }

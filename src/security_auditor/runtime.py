@@ -18,13 +18,17 @@ from .provider import ProviderUnavailable, ProviderBlocked, OutputContractError
 class Scheduler:
     """Durable stage boundaries, bounded child tasks, and a programmatic supervisor."""
 
-    def __init__(self, settings: Settings, store: Store, executor=None, mantis_executor=None):
+    def __init__(self, settings: Settings, store: Store, executor=None, mantis_executor=None, output_editor=None):
         self.settings, self.store = settings, store
         self.loader = SkillLoader(settings.skills_dir)
         self.spec = json.loads(settings.workflow.read_text())
         self.loader.catalog()
+        from .output_editor import OutputEditor
+        self.output_editor = output_editor or OutputEditor(settings, store)
         self.executor = executor or AdkExecutor(settings, store)
         self.mantis = mantis_executor or MantisEngine(settings, store)
+        if isinstance(self.mantis, MantisEngine):
+            self.mantis.output_editor = self.output_editor
         self.semaphore = asyncio.Semaphore(settings.concurrency)
         self.active: set[str] = set()
         self.stop = asyncio.Event()
@@ -261,12 +265,15 @@ class Scheduler:
                     'repository_id': (self.store.run(run_id)['snapshot'].get('repository') or {}).get('id'),
                     'file_count': len(paths), 'sample_paths': paths[:64], 'paths_truncated': len(paths) > 64,
                     'design_modules': sorted({r['module'] for r in context['upstream_records'] if r.get('module')}),
-                    'policy': 'Classify the assessed subsystem, not the whole organization. '
-                              'No repository or missing sample path is not proof of irrelevance; read sources when needed.'}
+                    'policy': '仅对被评估子系统分类，不能扩展为整个组织。'
+                              '未提供仓库或样本路径缺失均不证明无关；必要时必须读取原始来源。'}
             try:
                 requirement = next((r for r in context['upstream_records'] if r['kind'] == 'requirement'
                                     and r['id'] == scope.get('requirement_id')), {})
-                if node['role'] == 'requirement_checker' and requirement.get('standard_control_id') and requirement.get('verification_method') == 'DEPLOYMENT':
+                draft = self.store.analysis_draft(tid, node['role'])
+                if draft is not None:
+                    output = draft
+                elif node['role'] == 'requirement_checker' and requirement.get('standard_control_id') and requirement.get('verification_method') == 'DEPLOYMENT':
                     # This is an explicit prepared verification policy, not a
                     # second inference. Preserve every requirement and criterion.
                     from .domain import Assessment, StageOutput
@@ -298,6 +305,8 @@ class Scheduler:
                     # First-wave findings remain leads, not domain conclusions.
                     self.store.finish_service(tid, output.model_dump())
                 else:
+                    self.store.save_analysis_draft(tid, node["role"], output)
+                    output = await self.output_editor.edit(tid, node["role"], output)
                     self.store.commit_output(tid, node["role"], output)
             except BudgetExceeded:
                 self.store.fail_task(tid, "累计预算不足或用户暂停", "PENDING")
@@ -332,6 +341,9 @@ class Scheduler:
             from .localization import policy_hashes
             if run["snapshot"].get("language_policy_hashes", policy_hashes()) != policy_hashes():
                 raise ValueError("输出语言技能版本已变化，需要新运行")
+            from .output_editor import editor_fingerprint
+            if run["snapshot"].get("output_editor_hash", "disabled") != editor_fingerprint(self.settings):
+                raise ValueError("中文输出编辑技能版本已变化，需要新运行")
             expected = run["snapshot"]["skill_hashes"]
             actual = {row["id"]: row["sha256"] for row in self.loader.catalog()}
             if expected != actual:

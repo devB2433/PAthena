@@ -1,0 +1,9 @@
+{
+  "id": "chinese_output_editor",
+  "version": "1.0.0",
+  "sha256": "5922ef8d0c26c6f20f13d4926cabb8c09a982f3d4c8ab2b659c966c9c012a7ce",
+  "references": {
+    "vendor/humanizer-zh/SKILL.md": "95627fd4437d886f98032ccc62d79136e6310f1fc04e354bb86431795ff206df",
+    "vendor/humanizer-zh/LICENSE": "aa00e74769e1b9d8e7fa7094dbfcca9b129a0ded6dce1cf4da050b99146d2fa7"
+  }
+}

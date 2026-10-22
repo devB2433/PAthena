@@ -38,11 +38,13 @@ def test_runtime_and_evaluation_use_exact_same_canonical_skill_packets(language,
     for stage, node in stages.items():
         bundle, prompt, _ = loader.compile(stage, language)
         assert node['system_prompt'] == prompt
-        assert (ROOT / 'skills/code' / bundle.skill_id / 'SKILL.md').read_text() in prompt
+        path = ('zh-CN/' if language == 'zh-CN' else '') + bundle.skill_id + '/SKILL.md'
+        assert (ROOT / 'skills/code' / path).read_text() in prompt
         assert 'assign objective CVSS' not in prompt
         assert 'environment lacks prerequisites' not in prompt
     calibration = stages['calibrator']['system_prompt']
-    assert (ROOT / 'skills/code/mantis-calibrate/references/calibration_rules.md').read_text() in calibration
+    reference = ('zh-CN/' if language == 'zh-CN' else '') + 'mantis-calibrate/references/calibration_rules.md'
+    assert (ROOT / 'skills/code' / reference).read_text() in calibration
 
 
 def test_missing_or_corrupted_native_skill_never_falls_back_to_vendor_or_summary(tmp_path):

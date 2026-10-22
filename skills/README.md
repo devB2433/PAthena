@@ -154,3 +154,30 @@ reported separately from integration tests. Original native skills are unchanged
 ## Requirement-check selection
 
 `pci_mapper` 0.6.1 supports both the existing design-requirement matching protocol and `selected_controls_v1`: every enumerated fixed control receives a source-backed relevance/applicability decision, including controls absent from the design. Selection restricts only implementation tasks. Native modeling/audit skills and code scope remain unchanged; independent Findings never require a selected requirement link.
+
+## Chinese runtime assets
+
+Chinese runs load all 13 registered stage skills and their active references from
+`code/zh-CN/`, plus the complete localized static adapter (15 resources).
+`code/LOCALIZATION.zh-CN.json` pins each original digest, localized digest, source
+line count, localized line count, and Markdown block count. English originals
+remain byte-identical to `code/SOURCE.json`. The localization preserves the full
+method; paragraph wrapping may differ. Code fences and protected technical values
+are retained. This inventory is an integrity check, not proof of semantic equivalence.
+
+`tools/localize_native_skills.py` is an offline asset-build utility, not part of
+analysis execution. It first verifies inputs against the anonymously public pinned
+repository revision, then localizes complete paragraphs with their protected-value
+context and rejects lost/repeated protected values. Production loads checked-in
+assets only and never translates prompts or results through an extra model call.
+Harness-owned supplemental instructions have Chinese request adapters in
+`native_localization.py`; untrusted fenced materials remain unchanged.
+
+## Chinese output editor
+
+`chinese_output_editor/` contains the complete pinned Humanizer-zh skill, MIT
+license and source manifest. This is a prose postprocessor, separate from the
+five analytical roles. It edits only permitted Chinese explanatory fields before
+business persistence. It cannot rewrite requirements, criteria, source evidence,
+verdicts, scores or native artifacts. Original drafts, raw returns, batch receipts
+and final edits are durable; failed editing resumes without repeating analysis.

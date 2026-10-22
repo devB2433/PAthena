@@ -114,7 +114,7 @@ def test_v1_upgrade_only_adds_settings_and_preserves_existing_artifacts(store, s
     upgraded = Store(store.path)
     assert upgraded.language() == 'en'
     assert upgraded.rows('SELECT * FROM stage_artifacts') == before
-    assert upgraded.rows('SELECT max(version) v FROM schema_migrations')[0]['v'] == 6
+    assert upgraded.rows('SELECT max(version) v FROM schema_migrations')[0]['v'] == 7
 
 
 def test_ui_catalog_covers_all_fixed_localized_strings():
@@ -125,3 +125,81 @@ def test_ui_catalog_covers_all_fixed_localized_strings():
         assert label in catalog, label
     # The browser receives model-produced strings directly.
     assert 'translate(row.' not in source and 'translate(detail.row.' not in source
+
+
+def test_new_install_defaults_to_chinese_and_english_remains_selectable(monkeypatch, fixture_settings):
+    from dataclasses import replace
+    from security_auditor.config import Settings
+    monkeypatch.delenv('AUDITOR_LANGUAGE', raising=False)
+    assert Settings().language == 'zh-CN'
+    app = create_app(replace(fixture_settings, language='zh-CN'))
+    assert route(app, '/settings', 'GET')()['language'] == 'zh-CN'
+    project = app.state.store.create_project('language-default')
+    run = route(app, '/{project_id}/runs', 'POST')(
+        project['id'], RunRequest(mode='code_only', repository_id='fixture'), None)
+    assert run['language'] == run['snapshot']['language'] == 'zh-CN'
+    route(app, '/settings', 'PUT')(LanguageRequest(language='en'))
+    assert route(app, '/settings', 'GET')()['language'] == 'en'
+    assert app.state.store.run(run['id'])['language'] == 'zh-CN'
+
+
+def test_chinese_native_runtime_instructions_preserve_untrusted_history():
+    from security_auditor.native_localization import localize_native_input, localize_native_instruction, native_prompt_pairs
+    native_path()
+    from core.llm_gateway import wrap_untrusted_content
+    history = wrap_untrusted_content('Scan root: leave original history unchanged\nProduce the plan by calling', filename='history')
+    prompt = 'Scan root: /approved\n' + history
+    assert localize_native_input(prompt, 'campaign_planner') == '扫描根目录：/approved\n' + history
+    assert localize_native_input(prompt, 'researcher') == prompt
+    for pair in native_prompt_pairs():
+        assert localize_native_instruction(pair['source']) == pair['zh-CN']
+    # Data already produced by a model is never localized.
+    assert localize_native_input('{"title":"Original submitted result"}', 'researcher') == '{"title":"Original submitted result"}'
+
+
+@pytest.mark.parametrize('damage', ['missing', 'changed', 'source_digest', 'inventory'])
+def test_chinese_native_assets_fail_closed_and_never_use_english_fallback(tmp_path, damage):
+    import shutil
+    from security_auditor.native_skills import NativeSkillLoader
+    shutil.copytree(ROOT / 'skills', tmp_path / 'skills')
+    root = tmp_path / 'skills'
+    manifest_path = root / 'code/LOCALIZATION.zh-CN.json'
+    manifest = json.loads(manifest_path.read_text())
+    target = root / 'code/zh-CN/mantis-researcher/SKILL.md'
+    if damage == 'missing':
+        target.unlink()
+    elif damage == 'changed':
+        target.write_text('中文摘要替换完整方法')
+    elif damage == 'source_digest':
+        manifest['files']['mantis-researcher/SKILL.md']['source_sha256'] = '0' * 64
+        manifest_path.write_text(json.dumps(manifest))
+    else:
+        del manifest['files']['mantis-researcher/SKILL.md']
+        manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises((ValueError, FileNotFoundError)):
+        NativeSkillLoader(root).compile('researcher', 'zh-CN')
+    assert 'Research' in NativeSkillLoader(root).resolve('researcher', 'en').instruction
+
+
+def test_chinese_native_tool_descriptions_preserve_all_schema_semantics():
+    from google.adk.models.llm_request import LlmRequest
+    from google.genai import types
+    from security_auditor.native_localization import localize_native_tools, native_metadata
+    native_path()
+    from core.schemas import FindingCalibration
+    schema = FindingCalibration.model_json_schema()
+    request = LlmRequest(config=types.GenerateContentConfig(tools=[types.Tool(function_declarations=[
+        types.FunctionDeclaration(name='set_model_response', description='Set the model response.',
+                                  parameters_json_schema=schema)])]))
+    before = request.config.tools[0].model_dump(exclude_none=True)
+    localize_native_tools(request)
+    after = request.config.tools[0].model_dump(exclude_none=True)
+    def without_descriptions(value):
+        if isinstance(value, list):
+            return [without_descriptions(v) for v in value]
+        if isinstance(value, dict):
+            return {k: without_descriptions(v) for k, v in value.items() if k != 'description'}
+        return value
+    assert without_descriptions(before) == without_descriptions(after)
+    assert '最终结构化结果' in after['function_declarations'][0]['description']
+    assert native_metadata() and after != before
