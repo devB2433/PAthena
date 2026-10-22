@@ -123,6 +123,36 @@ def test_dynamic_states_not_in_static_contract():
         )
 
 
+@pytest.mark.parametrize('status', ['STATIC_SUPPORTED', 'PARTIAL', 'VIOLATED'])
+def test_implementation_verdict_requires_code_read_by_its_own_task(store, sample_run, status):
+    _, run, code = sample_run
+    document = store.add_evidence(run['id'], 'document', 'design.md:1', 'Requests require authorization.', {})
+    requirement = Requirement(title='Authorization', module='API', statement='Authorize requests.',
+        acceptance_criteria=['Check authorization before access.'], origin='EXPLICIT_DESIGN',
+        evidence_ids=[document], rationale='Design fixture')
+    baseline = store.add_task(run['id'], 'requirements', {})
+    store.start_task(baseline)
+    store.note_read(baseline, document)
+    store.commit_output(baseline, 'requirement_generator', StageOutput(records=[requirement], summary='Baseline'))
+    tid = store.add_task(run['id'], 'requirement_check', {'requirement_id': requirement.id,
+        'acceptance_criteria': requirement.acceptance_criteria})
+    store.start_task(tid)
+    store.note_read(tid, document)
+    assessment = Assessment(title='Authorization check', module='API', entrypoint='/orders',
+        requirement_id=requirement.id, acceptance_criterion=requirement.acceptance_criteria[0],
+        design_status='SUPPORTED', implementation_status=status, evidence_ids=[document], rationale='Fixture')
+    with pytest.raises(ValueError, match='实际读取的代码'):
+        store.commit_output(tid, 'requirement_checker', StageOutput(records=[assessment], summary='Rejected'))
+    assert store.records(run['id'], 'assessment') == []
+    assessment.evidence_ids = [code]
+    with pytest.raises(ValueError, match='尚未在本任务中实际读取'):
+        store.commit_output(tid, 'requirement_checker', StageOutput(records=[assessment], summary='Unread'))
+    assert store.records(run['id'], 'assessment') == []
+    store.note_read(tid, code)
+    store.commit_output(tid, 'requirement_checker', StageOutput(records=[assessment], summary='Accepted'))
+    assert store.records(run['id'], 'assessment')[0]['evidence_ids'] == [code]
+
+
 def test_budget_reservations_are_atomic_and_survive_restart(store, sample_run, settings):
     _, run, _ = sample_run
     with store.connect() as db:

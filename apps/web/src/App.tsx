@@ -5,6 +5,8 @@ import { FolderOpenOutlined, PlayCircleOutlined, SafetyCertificateOutlined, Uplo
 import enUS from 'antd/locale/en_US';
 import zhCN from 'antd/locale/zh_CN';
 import { translate, format, type Language } from './i18n';
+import { codeSources, implementationCodeSources, implementationReferences, type Source, type SourceMetadata } from './code-evidence';
+import CodeReference from './CodeReference';
 
 type CheckScope = { catalog_id: string; selector: { kind: 'facets' | 'controls'; standard_node_ids?: string[]; control_ids?: string[] }; preview_hash: string };
 type ScopeInfo = { selection: string; request?: { selector: { standard_node_ids: string[]; control_ids: string[] }; counts: { controls: number }; dependency_limitations?: string[] }; resolution?: { counts: { selected_requirements: number; not_selected_requirements: number; acceptance_criteria: number; undetermined: number; baseline_missing: number }; inventory: { control_id: string; state: string; reasons: string[]; missing_facts: string[] }[] } | null };
@@ -29,8 +31,6 @@ type Row = {
 };
 type Task = { stage: string; wave: string; status: string; scope?: string | { clause_ids?: string[]; requirement_id?: string } };
 type ModelArtifact = { artifact_type: string; data: { threat_actors?: string[]; trust_boundaries?: string[]; entry_points?: string[]; key_risks?: string[] } };
-type SourceMetadata = { line_start?: number; provenance?: { page_no?: number }[]; source?: { pdf_pages?: number[] } };
-type Source = { id: string; source_type: string; locator: string; content?: string; metadata?: string | SourceMetadata };
 type Phase = 'requirements' | 'threats' | 'implementation' | 'vulnerabilities';
 const phaseDefinitions: { id: Phase; title: string; stages: string[] }[] = [
   { id: 'requirements', title: '安全需求', stages: ['design_model', 'requirements', 'pci_mapping', 'pci_requirements', 'requirement_review'] },
@@ -97,8 +97,11 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>('requirements');
   const [filter, setFilter] = useState('');
   const [showExcluded, setShowExcluded] = useState(false);
-  const [detail, setDetail] = useState<{ row: Row; phase: Phase } | null>(null);
+  const [detail, setDetail] = useState<{ row: Row; phase: Phase; focusedSourceId?: string } | null>(null);
   const [detailSources, setDetailSources] = useState<Source[]>([]);
+  const [detailSourcesLoading, setDetailSourcesLoading] = useState(false);
+  const [detailSourcesError, setDetailSourcesError] = useState(false);
+  const [detailSourcesRefresh, setDetailSourcesRefresh] = useState(0);
   const [newOpen, setNewOpen] = useState(false);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -180,20 +183,33 @@ export default function App() {
 
   useEffect(() => {
     setDetailSources([]);
+    setDetailSourcesError(false);
+    setDetailSourcesLoading(false);
     if (!detail || !project) return;
     let current = true;
     const references = detail.phase === 'requirements' ? [...detail.row.evidence_ids,
-      ...(detail.row.requirement_reviews || []).flatMap(r => [...r.evidence_ids, ...(r.counter_evidence_ids || [])])] : detail.row.evidence_ids;
+      ...(detail.row.requirement_reviews || []).flatMap(r => [...r.evidence_ids, ...(r.counter_evidence_ids || [])])]
+      : detail.phase === 'implementation' ? implementationReferences(detail.row) : detail.row.evidence_ids;
     const ids = [...new Set(references)].filter(id => {
       const source = sources.find(s => s.id === id);
-      return detail.phase === 'vulnerabilities' ? source?.source_type === 'code'
+      return ['vulnerabilities', 'implementation'].includes(detail.phase) ? source?.source_type === 'code'
         : detail.phase === 'requirements' ? source?.source_type !== 'code' : true;
     });
-    Promise.all(ids.map(id => api<Source>(`/projects/${project.id}/evidence/${id}`)))
-      .then(items => { if (current) setDetailSources(items); })
-      .catch(e => { if (current) msg.error(t(e.message)); });
+    setDetailSourcesLoading(ids.length > 0);
+    Promise.allSettled(ids.map(id => api<Source>(`/projects/${project.id}/evidence/${id}`)))
+      .then(results => {
+        if (!current) return;
+        setDetailSources(results.flatMap(result => result.status === 'fulfilled' ? [result.value] : []));
+        setDetailSourcesError(results.some(result => result.status === 'rejected'));
+        setDetailSourcesLoading(false);
+      });
     return () => { current = false; };
-  }, [detail, project?.id]);
+  }, [detail, project?.id, detailSourcesRefresh]);
+  useEffect(() => { setDetail(null); }, [run?.id]);
+  useEffect(() => {
+    if (detail?.phase === 'implementation' && detail.focusedSourceId && !detailSourcesLoading)
+      document.getElementById('focused-code-reference')?.closest('.criterion-check')?.scrollIntoView({ block: 'start' });
+  }, [detail, detailSourcesLoading]);
 
   const action = async (fn: () => Promise<void>) => {
     setBusy(true); try { await fn(); } catch (e) { msg.error(t((e as Error).message)); } finally { setBusy(false); }
@@ -263,9 +279,7 @@ export default function App() {
     } else setNewBudget(editedBudget);
     setBudgetOpen(false);
   });
-  const open = (row: Row, output: Phase = phase) => setDetail({ row: output === 'implementation'
-    ? { ...row, evidence_ids: [...new Set((row.criterion_checks || []).flatMap(c => c.evidence_ids))] }
-    : row, phase: output });
+  const open = (row: Row, output: Phase = phase, focusedSourceId?: string) => setDetail({ row, phase: output, focusedSourceId });
   const locations = (row: Row, code = false) => row.evidence_ids
     .map(id => sources.find(s => s.id === id))
     .filter((s): s is Source => !!s && (code ? s.source_type === 'code' : s.source_type !== 'code'));
@@ -280,6 +294,9 @@ export default function App() {
   })).size;
   const pciLabels: Record<string, string> = { APPLICABLE: '适用', NOT_APPLICABLE: '不适用', UNDETERMINED: '待确定' };
   const relevanceLabels: Record<string, string> = { RELEVANT: '相关', POTENTIALLY_RELEVANT: '可能相关', UNRELATED: '不相关', UNKNOWN: '待确定' };
+  const complianceMatches = (row: Row) => row.compliance_matches?.map(match => <section key={match.id}><p>PCI DSS {match.clause_id} · {t(relevanceLabels[match.relevance || 'UNKNOWN'])} · {t(pciLabels[match.status || 'UNDETERMINED'])}</p><p>{match.rationale}</p>{match.applicability_conditions?.map(condition => <p key={condition}>{condition}</p>)}{match.missing_facts?.map(fact => <p key={fact}>{fact}</p>)}</section>);
+  const focusedCriterionIndex = detail?.focusedSourceId ? detail.row.criterion_checks?.findIndex(check =>
+    check.evidence_ids.includes(detail.focusedSourceId!) || check.counter_evidence_ids?.includes(detail.focusedSourceId!)) : -1;
   const pciMatchTasks = tasks.filter(task => task.stage === 'pci_mapping' && !!(typeof task.scope === 'string' ? JSON.parse(task.scope) : task.scope)?.requirement_id);
   const relatedClauseCount = new Set(pciDecisions.filter(r => ['RELEVANT', 'POTENTIALLY_RELEVANT'].includes(r.relevance || '')).map(r => r.clause_id)).size;
   const threats = records.filter(r => r.kind === 'threat');
@@ -378,12 +395,16 @@ export default function App() {
             { title: t('状态'), render: (_, item) => t(({ RELATED: '相关', EXCLUDED: '不相关已排除', UNDETERMINED: '待确定', BASELINE_MISSING: '基线未包含' } as Record<string, string>)[item.state] || item.state) },
             { title: t('说明'), render: (_, item) => [...item.reasons, ...item.missing_facts].join('；') },
           ]} /></details>}
-          {phase === 'implementation' && <Table<Row> rowKey="id" dataSource={implementations.filter(matches)} pagination={{ pageSize: 8 }} locale={{ emptyText: empty }} columns={[
-            { title: t('需求编号'), dataIndex: 'requirement_number', width: 110 },
-            { title: t('安全需求'), render: (_, row) => <button className="text-link" onClick={() => open(row)}>{row.statement || row.title}</button> },
-            { title: t('模块'), dataIndex: 'module', width: 130 },
-            { title: t('实现情况'), width: 150, render: (_, row) => statusTag(row.implementation_status || 'NOT_CHECKED') },
-            { title: t('验收项'), width: 130, render: (_, row) => tf('{checked} / {total} 已检查', { checked: row.checked_criteria || 0, total: row.total_criteria || 0 }) },
+          {phase === 'implementation' && <Table<Row> className="implementation-table" tableLayout="fixed" rowKey="id" dataSource={implementations.filter(matches)} pagination={{ pageSize: 8 }} locale={{ emptyText: empty }} columns={[
+            { title: t('需求编号'), dataIndex: 'requirement_number', width: 90 },
+            { title: t('安全需求'), render: (_, row) => <button className="text-link" onClick={() => open(row)}>{row.title}</button> },
+            { title: t('实现情况'), width: 150, render: (_, row) => <div className="implementation-status">{statusTag(row.implementation_status || 'NOT_CHECKED')}<span className="check-count">{tf('{checked} / {total} 已检查', { checked: row.checked_criteria || 0, total: row.total_criteria || 0 })}</span></div> },
+            { title: t('代码位置'), width: 210, render: (_, row) => {
+              const code = implementationCodeSources(row, sources);
+              return code.length ? <>{code.slice(0, 2).map(source => <button key={source.id} className="text-link source-location" onClick={() => open(row, 'implementation', source.id)}>{source.locator}</button>)}
+                {code.length > 2 && <button className="text-link source-location" onClick={() => open(row, 'implementation')}>{tf('查看全部 {count} 处代码', { count: code.length })}</button>}</>
+                : ['NOT_SELECTED', 'SCOPE_PENDING', 'NOT_CHECKED', 'CHECKING', 'NOT_CODE_VERIFIABLE'].includes(row.implementation_status || 'NOT_CHECKED') ? '—' : t('未定位到代码');
+            } },
           ]} />}
           {phase === 'vulnerabilities' && <>
             {!!excludedFindings.length && <Button type="link" onClick={() => setShowExcluded(!showExcluded)}>{showExcluded ? t('返回安全风险列表') : tf('已排除 {count} 项', { count: excludedFindings.length })}</Button>}
@@ -421,21 +442,35 @@ export default function App() {
       <label className="field-label" htmlFor="token-budget">{t('最多 tokens')}</label><InputNumber id="token-budget" min={1} precision={0} placeholder={t('不限额')} value={editedBudget.max_tokens} onChange={value => setEditedBudget(old => ({ ...old, max_tokens: value }))} />
       <p>{t('留空表示不限额。修改额度后，已有用量仍会累计。')}</p>
     </Modal>
-    <Drawer title={detail ? phases.find(p => p.id === detail.phase)?.title : ''} width={640} open={!!detail} onClose={() => setDetail(null)}>
+    <Drawer title={detail ? `${phases.find(p => p.id === detail.phase)?.title}${detail.phase === 'implementation' && detail.row.requirement_number ? ` · ${detail.row.requirement_number}` : ''}` : ''} width={640} open={!!detail} onClose={() => setDetail(null)}>
       {detail && <><h2>{detail.row.title}</h2>
+        {detailSourcesError && <Alert className="source-load-error" type="error" message={t(detail.phase === 'implementation' ? '代码片段加载失败' : '来源内容加载失败')} action={<Button size="small" onClick={() => setDetailSourcesRefresh(value => value + 1)}>{t('重试')}</Button>} />}
         {detail.row.requirement_number && <p className="requirement-number">{detail.row.requirement_number}</p>}
-        {['requirements', 'implementation'].includes(detail.phase) && !!detail.row.compliance_matches?.length && <><h3>{t('相关条款')}</h3>{detail.row.compliance_matches.map(match => <section key={match.id}><p>PCI DSS {match.clause_id} · {t(relevanceLabels[match.relevance || 'UNKNOWN'])} · {t(pciLabels[match.status || 'UNDETERMINED'])}</p><p>{match.rationale}</p>{match.applicability_conditions?.map(condition => <p key={condition}>{condition}</p>)}{match.missing_facts?.map(fact => <p key={fact}>{fact}</p>)}</section>)}</>}
+        {detail.phase === 'requirements' && !!detail.row.compliance_matches?.length && <><h3>{t('相关条款')}</h3>{complianceMatches(detail.row)}</>}
         {detail.phase === 'requirements' && <><p>{detail.row.statement}</p>{detail.row.applicability_conditions?.map(c => <p key={c}>{c}</p>)}<h3>{t('验收要求')}</h3><ul>{detail.row.acceptance_criteria?.map(c => <li key={c}>{c}</li>)}</ul><h3>{t('需求来源')}</h3><p>{originLabels[detail.row.origin || '']}{detail.row.clause_ids?.length ? ` · ${detail.row.clause_ids.join('、')}` : ''}</p>{detail.row.standard_control_id && <p>{t('标准控制')}：{detail.row.standard_control_id}</p>}{detail.row.origin === 'INFERRED_SECURITY' && <p>{detail.row.rationale}</p>}</>}
         {detail.phase === 'threats' && <><dl className="detail-fields"><dt>{t('攻击者')}</dt><dd>{detail.row.attacker}</dd><dt>{t('攻击入口')}</dt><dd>{detail.row.entrypoint}</dd><dt>{t('信任边界')}</dt><dd>{detail.row.trust_boundary}</dd></dl><h3>{t('攻击前提')}</h3><ul>{detail.row.preconditions?.map(p => <li key={p}>{p}</li>)}</ul><h3>{t('影响')}</h3><p>{detail.row.impact}</p></>}
         {detail.phase === 'requirements' && <Button onClick={() => open(detail.row, 'implementation')}>{t('查看实现情况')}</Button>}
         {detail.phase === 'requirements' && <><h3>{t('需求复核')}</h3>{requirementReviewTag(detail.row.requirement_review_status)}{detail.row.requirement_reviews?.map(r => <section key={r.id}><p>{r.rationale}</p>{r.claim_reviews?.map((c, index) => <section className="criterion-check" key={index}><h4>{c.claim}</h4><Tag>{t(({ SUPPORTED: '原文支持', CONTRADICTED: '与原文或需求冲突', UNSUPPORTED: '依据不成立', UNRESOLVED: '材料不足' } as Record<string, string>)[c.status] || c.status)}</Tag><p>{c.explanation}</p><details><summary>{t('原文与判定依据')}</summary><p>{c.source_meaning}</p>{c.quotes.map((q, i) => <blockquote key={i}>{q.text}</blockquote>)}</details></section>)}</section>)}</>}
         {detail.phase === 'implementation' && <><p>{detail.row.statement}</p>{statusTag(detail.row.implementation_status || 'NOT_CHECKED')}
           <Button type="link" onClick={() => { const req = requirements.find(r => r.id === detail.row.id); if (req) open(req, 'requirements'); }}>{t('查看需求来源')}</Button>
-          <h3>{t('验收项检查')}</h3>{detail.row.criterion_checks?.map((check, index) => <section className="criterion-check" key={index}><h4>{check.acceptance_criterion}</h4>{statusTag(check.implementation_status || 'NOT_CHECKED')}<p>{check.rationale || t('尚未检查')}</p>{check.entrypoint && <p>{t('检查入口')}：{check.entrypoint}</p>}</section>)}
+          <h3>{t('验收项检查')}</h3>{detail.row.criterion_checks?.map((check, index) => {
+            const code = codeSources(check, sources);
+            const counterCode = codeSources(check, sources, true);
+            const focused = index === focusedCriterionIndex;
+            return <section className="criterion-check" key={check.id || index}><h4>{check.acceptance_criterion}</h4>{statusTag(check.implementation_status || 'NOT_CHECKED')}<details className="check-rationale"><summary>{t('检查说明')}</summary><p>{check.rationale || t('尚未检查')}</p></details>{check.entrypoint && <p>{t('检查入口')}：{check.entrypoint}</p>}
+              {!!code.length && <><h5>{t('相关代码')}</h5>{code.map(source => <CodeReference key={source.id} source={detailSources.find(item => item.id === source.id) || source} language={language} loading={detailSourcesLoading} expanded={focused && detail.focusedSourceId === source.id} anchorId={focused && detail.focusedSourceId === source.id ? 'focused-code-reference' : undefined} />)}</>}
+              {!code.length && ['STATIC_SUPPORTED', 'PARTIAL', 'VIOLATED'].includes(check.implementation_status || '') && <Alert type="warning" message={t('此结论缺少代码依据')} />}
+              {!!counterCode.length && <><h5>{t('反向代码依据')}</h5>{counterCode.map(source => {
+                const target = focused && detail.focusedSourceId === source.id && !code.some(item => item.id === source.id);
+                return <CodeReference key={source.id} source={detailSources.find(item => item.id === source.id) || source} language={language} loading={detailSourcesLoading} expanded={target} anchorId={target ? 'focused-code-reference' : undefined} />;
+              })}</>}
+            </section>;
+          })}
           {!!detail.row.finding_ids?.length && <><h3>{t('关联安全风险')}</h3>{findings.filter(f => detail.row.finding_ids!.includes(f.id)).map(f => <button className="text-link source-location" key={f.id} onClick={() => open(f, 'vulnerabilities')}>{f.title}</button>)}</>}
+          {!!detail.row.compliance_matches?.length && <details><summary>{t('相关条款')}</summary>{complianceMatches(detail.row)}</details>}
         </>}
         {detail.phase === 'vulnerabilities' && <>{statusTag(detail.row.severity || 'UNKNOWN')}<h3>{t('影响')}</h3><p>{detail.row.impact}</p>{!!detail.row.attack_preconditions?.length && <><h3>{t('触发条件')}</h3><ul>{detail.row.attack_preconditions.map(p => <li key={p}>{p}</li>)}</ul></>}<h3>{t('问题原因')}</h3><p>{detail.row.rationale}</p><h3>{t('修复建议')}</h3><p>{detail.row.recommendation}</p><h3>{t('相关代码')}</h3>{!locations(detail.row, true).length && <p>{t('未定位到代码')}</p>}</>}
-        {detailSources.map(s => <section className="source-block" key={s.id}><h3>{sourceTitle(s)}</h3><pre>{s.content}</pre></section>)}
+        {detail.phase !== 'implementation' && detailSources.map(s => <section className="source-block" key={s.id}><h3>{sourceTitle(s)}</h3><pre>{s.content}</pre></section>)}
       </>}
     </Drawer>
   </div></ConfigProvider>;
