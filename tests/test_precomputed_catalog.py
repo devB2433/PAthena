@@ -284,7 +284,8 @@ def test_legacy_english_catalog_stays_queryable_without_lexical_or_rerank_rebuil
     assert not store.rows('SELECT * FROM standard_search_cache')
 
 
-async def test_real_adk_selects_read_precomputed_controls_without_generating_requirements(settings, store, prepared_pack, monkeypatch):
+@pytest.mark.parametrize('lookup', ['search', 'clause'])
+async def test_real_adk_selects_read_precomputed_controls_without_generating_requirements(settings, store, prepared_pack, monkeypatch, lookup):
     from google.adk.models.base_llm import BaseLlm
     from google.adk.models.llm_response import LlmResponse
     from google.genai import types
@@ -315,8 +316,15 @@ async def test_real_adk_selects_read_precomputed_controls_without_generating_req
             if self._calls == 1:
                 calls = [('read_evidence', {'evidence_id': doc}),
                          ('read_upstream_records', {'record_ids': [req.id]}),
-                         ('search_standard_library', {'query': 'identity', 'section': '8', 'limit': 8, 'offset': 0})]
+                         (('search_standard_library', {'query': 'identity', 'section': '8', 'limit': 8, 'offset': 0}) if lookup == 'search' else ('read_standard_clause', {'clause_id': '8.3.1'}))]
             elif self._calls == 2:
+                if lookup == 'clause':
+                    response = next(p.function_response for p in llm_request.contents[-1].parts
+                                    if p.function_response and p.function_response.name == 'read_standard_clause')
+                    index = dict(response.response)['fixed_controls']
+                    assert [i['control_id'] for i in index['items']] == ['control_8_3_1']
+                    assert index['candidate_only'] and index['items'][0]['read_required']
+                    assert not store.rows('SELECT * FROM task_control_reads WHERE task_id=?', (task,))
                 calls = [('read_standard_control', {'control_id': 'control_8_3_1'})]
             else:
                 declaration = next(d for tool in llm_request.config.tools for d in tool.function_declarations
@@ -338,7 +346,7 @@ async def test_real_adk_selects_read_precomputed_controls_without_generating_req
     assert model._calls == 3
     assert store.records(run['id'], 'applicability')[0]['control_ids'] == ['control_8_3_1']
     assert not [r for r in store.records(run['id'], 'requirement') if r['origin'] == 'PCI_DSS']
-    assert [purpose for purpose, _ in embedder.calls] == ['passage', 'query']
+    assert [purpose for purpose, _ in embedder.calls] == (['passage', 'query'] if lookup == 'search' else ['passage'])
 
 
 async def test_project_workflow_binds_prepared_controls_without_compliance_generation_calls(fixture_settings, store, prepared_pack):
@@ -409,3 +417,18 @@ async def test_prepared_deployment_control_retains_all_criteria_without_model_in
     assert len(checks) == 2 and all(Assessment.model_validate(c).implementation_status == 'NOT_CODE_VERIFIABLE' for c in checks)
     assert store.run(run['id'])['usage']['requests'] == 0
     assert not store.records(run['id'], 'finding')
+
+
+def test_clause_control_index_lists_frozen_ids_without_marking_templates_read(store,prepared_pack):
+    from security_auditor.control_catalog import clause_controls
+    root,_=prepared_pack
+    encoder=FixtureEncoder()
+    preparation(root,encoder)
+    run=prepared_run(store,root)
+    calls=list(encoder.calls)
+    found=clause_controls(store,run['id'],'8.3.1')
+    assert [c['control_id'] for c in found['items']]==['control_8_3_1']
+    assert found['candidate_only'] and found['items'][0]['read_required']
+    assert not store.rows('SELECT * FROM task_control_reads')
+    assert encoder.calls==calls
+    assert not clause_controls(store,run['id'],'missing-clause')['items']

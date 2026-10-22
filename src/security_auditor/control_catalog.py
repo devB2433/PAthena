@@ -105,6 +105,22 @@ def control(store, run_id: str, control_id: str) -> dict:
     return json.loads(rows[0]['payload'])
 
 
+def clause_controls(store, run_id: str, clause_id: str) -> dict:
+    """List exact fixed templates for a clause, without selecting or reading them."""
+    prepared = catalog(store, run_id)
+    language = store.run(run_id)['language']
+    rows = store.rows('SELECT control_id FROM standard_controls WHERE catalog_id=? AND clause_id=? ORDER BY control_id',
+                      (prepared['catalog_id'], clause_id))
+    items = []
+    for row in rows:
+        c = control(store, run_id, row['control_id'])
+        items.append({'control_id': c['id'], 'clause_id': c['clause_id'],
+                      'control_type': c['control_type'], 'verification_method': c['verification_method'],
+                      'title': c['localizations'][language]['title'], 'read_required': True})
+    return {'catalog_id': prepared['catalog_id'], 'items': items, 'candidate_only': True,
+            'selection_policy': 'Read fixed templates before choosing IDs; formal scope uncertainty does not remove a technically related control.'}
+
+
 def search(store, run_id: str, query: str, section: str = '', limit: int = 8, offset: int = 0, embedder=None, reranker_model=None):
     prepared = catalog(store, run_id)
     if not query.strip() or len(query) > 4000 or (section and not re.fullmatch(r'(?:\d+|A[123])(?:\.\d+)*', section)):

@@ -430,11 +430,15 @@ class AdkExecutor:
             return {'standard_control': data, 'source': read_evidence(eid)}
 
         def read_standard_clause(clause_id: str) -> dict:
-            """Read original structured normative requirement, applicability notes, testing procedures, guidance and PDF source."""
+            """Read a normative clause and its fixed control index. Read control templates before selecting; this index is not a control read."""
             from .standard_library import read
             data, eid = read(self.store, run_id, clause_id)
             source_ids()
-            return {'structured_clause': data, 'source': read_evidence(eid)}
+            result = {'structured_clause': data, 'source': read_evidence(eid)}
+            if (self.store.run(run_id)['snapshot'].get('standard') or {}).get('prepared'):
+                from .control_catalog import clause_controls
+                result['fixed_controls'] = clause_controls(self.store, run_id, clause_id)
+            return result
 
         def read_standard_context(context_id: str) -> str:
             """Read an original standard scope or parent context page by its exact catalog ID."""

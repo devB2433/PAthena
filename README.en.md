@@ -659,6 +659,8 @@ Isolated automated checks use scripted models to verify inventories, dispatch, a
 
 For requirement-driven standard matching, the task owns the evaluated requirement ID. The model need not repeat it, including for unrelated decisions. This link identifies the evaluated subject; it does not establish relevance or applicability. The program applies the declared task association and rejects conflicting IDs without changing the model's analytical fields.
 
+Reading a standard clause also lists its control IDs and types from the same fixed catalog. This index does not count as reading a template or establish a match: the model must still read and select the controls. The program never chooses controls or fills empty control IDs.
+
 ### Fact inventory and original-source reads
 
 Requirement generation and standard matching receive the complete fact navigation inventory (ID, title, module, type, and source references), without repeating every quote and source obligation in the initial context. Full fact records remain unchanged and available through `read_upstream_records`. Requirement generation must still read every assigned original design block before submission. This preserves the skill, fact inventory, and original documents; it does not enlarge the model context window.
