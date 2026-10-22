@@ -128,6 +128,19 @@ def scoped_mapping_submission_model(requirement_id: str):
 
 
 @lru_cache
+def scoped_control_submission_model(control_id: str, clause_id: str):
+    """The explicit single-control task owns its subject, not the verdict."""
+    from .domain import Applicability
+    record = create_model('ScopedControlApplicability', __base__=StrictModel, **{
+        **{key: (field.annotation, field) for key, field in Applicability.model_fields.items()
+           if key not in {'control_ids', 'clause_id'}},
+        'control_ids': (list[Literal[control_id]] | None, Field(default=None, min_length=1, max_length=1)),
+        'clause_id': (Literal[clause_id] | None, None)})
+    return create_model('ScopedControlSubmission', __base__=ModelStageOutput,
+                        records=(list[record], Field(min_length=1, max_length=1)))
+
+
+@lru_cache
 def scoped_review_submission_model(subject_id: str, criterion_count: int):
     from .domain import Review, ClaimReview, LogicComparison
     entry = create_model('ScopedClaimReview', __base__=StrictModel, **{
@@ -181,7 +194,12 @@ class AdkExecutor:
                             and (self.store.run(run_id)['snapshot'].get('standard') or {}).get('library_id') else None)
         owned_check = task['scope']['requirement_id'] if bundle.skill_id=='requirement_checker' else None
         owned_mapping = task['scope'].get('requirement_id') if bundle.skill_id == 'pci_mapper' else None
+        owned_control = task['scope'].get('control_id') if bundle.skill_id == 'pci_mapper' else None
+        owned_clause = (task['scope'].get('clause_ids') or [None])[0] if owned_control else None
+        if owned_control and (not owned_clause or len(task['scope']['clause_ids']) != 1):
+            raise OutputContractError('固定控制任务必须具有唯一原始条款')
         schema = (scoped_checker_submission_model(owned_check) if owned_check else
+                  scoped_control_submission_model(owned_control, owned_clause) if owned_control else
                   scoped_mapping_submission_model(owned_mapping) if owned_mapping else
                   scoped_pci_submission_model(owned_provenance['clause_ids'][0]) if owned_provenance else
                   submission_model(bundle.skill_id, structured_sources=structured_sources))
@@ -280,6 +298,10 @@ class AdkExecutor:
                     fields.pop('requirement_ids',None)
                 if owned_mapping:
                     fields.pop('requirement_ids', None)
+                    definition['required'] = [key for key in definition.get('required', []) if key in fields]
+                if owned_control:
+                    fields.pop('control_ids', None)
+                    fields.pop('clause_id', None)
                     definition['required'] = [key for key in definition.get('required', []) if key in fields]
                 if 'implementation_status' in fields and not code_ready:
                     fields['implementation_status']['enum'] = ['UNKNOWN','NOT_CODE_VERIFIABLE']
@@ -593,6 +615,16 @@ class AdkExecutor:
                 'This transport rule overrides generic descriptions of the complete stored Applicability. '
                 'All analytical fields, control IDs, conditions, verdicts and original source references '
                 'must still be returned unchanged by the model.')
+        if owned_control:
+            instruction += ('\nThis invocation uses task_owned_control_provenance_v1. The task evaluates '
+                'exactly one fixed control '+owned_control+' from clause '+owned_clause+'. Omit control_ids '
+                'and clause_id; the program supplies only these already-declared task subject identifiers, '
+                'including for UNRELATED, NON_CODE, UNKNOWN and NOT_APPLICABLE decisions. Exact echoes '
+                'are compatible; conflicting subject identifiers are rejected, never replaced. '
+                'Return exactly one Applicability record. This overrides generic stored-record field '
+                'instructions. The subject link does not assert relevance, applicability or implementation. '
+                'You still decide every analytical field, real design requirement associations, original '
+                'source references, conditions, missing facts and rationale. Never generate a Requirement.')
         if len(ALLOWED_KINDS[bundle.skill_id]) > 1:
             instruction += ('\nFinal transport: records is an object with separate lists named '
                             + ', '.join(sorted(ALLOWED_KINDS[bundle.skill_id]))
@@ -728,6 +760,12 @@ class AdkExecutor:
                     for record in payload['records']:
                         record['requirement_ids'] = [owned_mapping]
                     parsed = stage_schema(bundle.skill_id).model_validate(payload)
+                elif owned_control:
+                    payload = schema.model_validate_json(final).model_dump()
+                    for record in payload['records']:
+                        record['control_ids'] = [owned_control]
+                        record['clause_id'] = owned_clause
+                    parsed = stage_schema(bundle.skill_id).model_validate(payload)
                 elif owned_provenance:
                     parsed = schema.model_validate_json(final)
                     payload = parsed.model_dump()
@@ -753,6 +791,10 @@ class AdkExecutor:
             except ValueError:
                 raise OutputContractError("模型最终结果未通过结构化校验，原始返回已保存") from None
         finally:
+            if owned_control:
+                self.store.save_model_output(task['id'], json.dumps({
+                    'transport': 'task_owned_control_provenance_v1', 'task_id': task['id'],
+                    'control_ids': [owned_control], 'clause_id': owned_clause}, ensure_ascii=False))
             if owned_mapping:
                 self.store.save_model_output(task['id'], json.dumps(
                     {'transport': 'task_owned_mapping_provenance_v1', 'task_id': task['id'],

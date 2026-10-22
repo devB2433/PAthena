@@ -243,7 +243,8 @@ def test_api_preview_modes_versions_and_all_exports(fixture_settings, store, pre
         assert sum(r['check_selection'] == 'SELECTED' for r in repeat_matrix['requirements']) == 1
 
 
-async def test_real_adk_control_driven_protocol_loads_checked_in_skill_and_submits_once(settings, store, prepared_pack):
+@pytest.mark.parametrize('unrelated', [False, True])
+async def test_real_adk_control_driven_protocol_loads_checked_in_skill_and_submits_once(settings, store, prepared_pack, unrelated):
     from google.adk.models.base_llm import BaseLlm
     from google.adk.models.llm_response import LlmResponse
     from google.genai import types
@@ -274,9 +275,14 @@ async def test_real_adk_control_driven_protocol_loads_checked_in_skill_and_submi
             refs = SourceReferences()
             refs.register([r['id'] for r in store.evidence(run['id']) if r['source_type'] in {'document', 'standard', 'code'}])
             decision = Applicability(title='Prepared identity control', clause_id='8.3.1', status='UNDETERMINED',
-                relevance='RELEVANT', control_scope='CODE_RELATED', control_ids=[scope['control_id']], requirement_ids=[],
-                evidence_ids=[doc, eid], missing_facts=['Formal scope unknown'], rationale='Identity behavior is relevant')
+                relevance='UNRELATED' if unrelated else 'RELEVANT', control_scope='NON_CODE' if unrelated else 'CODE_RELATED', control_ids=[scope['control_id']], requirement_ids=[],
+                evidence_ids=[doc, eid], missing_facts=['Formal scope unknown'], rationale='Original fixture decision')
             value = refs.encode(StageOutput(records=[decision], gaps=[], summary='One control decision').model_dump())
+            declaration = next(d for t in llm_request.config.tools for d in t.function_declarations if d.name == 'set_model_response')
+            props = declaration.parameters_json_schema['$defs']['ScopedControlApplicability']['properties']
+            assert 'control_ids' not in props and 'clause_id' not in props
+            value['records'][0].pop('control_ids')
+            value['records'][0].pop('clause_id')
             yield LlmResponse(content=types.Content(role='model', parts=[types.Part(function_call=types.FunctionCall(
                 name='set_model_response', args=value))]))
 
@@ -286,6 +292,9 @@ async def test_real_adk_control_driven_protocol_loads_checked_in_skill_and_submi
     store.commit_output(tid, 'pci_mapper', output)
     assert model._calls == 1
     assert output.records[0].requirement_ids == []
+    assert output.records[0].relevance == ('UNRELATED' if unrelated else 'RELEVANT')
+    assert output.records[0].rationale == 'Original fixture decision'
+    assert output.records[0].clause_id == '8.3.1'
     assert store.records(run['id'], 'applicability')[0]['control_ids'] == frozen['control_ids']
 
 

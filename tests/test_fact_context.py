@@ -147,3 +147,15 @@ async def test_mapper_subject_is_owned_by_task_without_changing_excluded_verdict
         receipts=[json.loads(r['content']) for r in store.rows('SELECT content FROM model_outputs WHERE task_id=?',(tid,)) if r['content'].startswith('{')]
         assert any(r.get('transport')=='task_owned_mapping_provenance_v1' for r in receipts)
     assert model._calls==2  # Invalid associations are not sent for a repair inference.
+
+
+@pytest.mark.parametrize('control_ids,clause_id', [(['different_control'],'8.3.1'),(['subject_control'],'8.3.2'),([], '8.3.1')])
+def test_fixed_control_transport_rejects_conflicting_echoes(control_ids,clause_id):
+    from security_auditor.agents import scoped_control_submission_model
+    from pydantic import ValidationError
+    record={'id':'decision','title':'Fixture','rationale':'Original verdict','kind':'applicability',
+            'status':'NOT_APPLICABLE','relevance':'UNRELATED','control_scope':'NON_CODE',
+            'control_ids':control_ids,'clause_id':clause_id}
+    with pytest.raises(ValidationError):
+        scoped_control_submission_model('subject_control','8.3.1').model_validate(
+            {'records':[record],'gaps':[],'summary':'Fixture'})

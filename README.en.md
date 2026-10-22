@@ -659,7 +659,9 @@ Isolated automated checks use scripted models to verify inventories, dispatch, a
 
 For requirement-driven standard matching, the task owns the evaluated requirement ID. The model need not repeat it, including for unrelated decisions. This link identifies the evaluated subject; it does not establish relevance or applicability. The program applies the declared task association and rejects conflicting IDs without changing the model's analytical fields.
 
-Reading a standard clause also lists its control IDs and types from the same fixed catalog. This index does not count as reading a template or establish a match: the model must still read and select the controls. The program never chooses controls or fills empty control IDs.
+Single-control scope investigations likewise bind the one declared control ID and original clause to the task, including unrelated decisions. The model still supplies relevance, applicability, actual design requirement associations, sources, and rationale. Missing analytical fields are never filled, and conflicting or empty echoed control IDs are rejected.
+
+Reading a standard clause also lists its control IDs and types from the same fixed catalog. This index does not count as reading a template or establish a match: the model must still read and evaluate the controls. Control selection in requirement-driven matching remains the model's responsibility; the program never infers controls from a clause number or repairs empty match lists.
 
 ### Fact inventory and original-source reads
 
