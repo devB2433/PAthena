@@ -1,7 +1,7 @@
 {
   "contract_version": "0.2-mantis-native",
   "id": "design_to_static_assurance",
-  "version": 19,
+  "version": 20,
   "standard_use_policy": "precomputed_controls_vector_matching_v3",
   "source_reference_transport": "exact_task_local_handles_v1",
   "dispatch_policy": "ready_tasks_with_bounded_concurrency",
@@ -70,7 +70,7 @@
       "kind": "agent",
       "role": "pci_mapper",
       "skill_id": "pci_mapper",
-      "skill_version": "0.6.0",
+      "skill_version": "0.6.1",
       "depends_on": [
         "requirements",
         "standard_load",
@@ -222,5 +222,6 @@
     "retrieval": "bilingual_dense_bm25_rrf60_rerank40"
   },
   "application_method_policy": "role_specific_investigation_with_casebooks_v3",
-  "source_semantics_policy": "quoted_obligations_and_per_claim_review_v4"
+  "source_semantics_policy": "quoted_obligations_and_per_claim_review_v4",
+  "requirement_check_scope_policy": "requirement_check_scope_v1"
 }

@@ -119,6 +119,11 @@ class Store:
     ) -> dict:
         if demo:
             raise ValueError("不再支持演示运行")
+        if snapshot.get('requirement_check_scope'):
+            from .scope_policy import validate_frozen
+            if mode not in {'full', 'implementation_only'}:
+                raise ValueError('当前运行模式不支持需求实现检查范围')
+            validate_frozen(self, snapshot['requirement_check_scope'])
         self.project(project_id)
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -436,6 +441,9 @@ class Store:
         run_id = task["run_id"]
         if task["status"] == "SUCCEEDED":
             return
+        if role == 'requirement_checker':
+            from .scope_resolution import check_target
+            check_target(self, run_id, task['scope'])
         known = {r["id"]: r for r in self.records(run_id)}
         read_ids = {
             row["evidence_id"]
@@ -489,13 +497,14 @@ class Store:
                 if known.get(req_id, {}).get("kind") != "requirement":
                     raise ValueError("发现引用了不存在的需求")
         if role == "pci_mapper":
-            if task['scope'].get('compliance_scope_policy') in {'code_related_v2', 'precomputed_controls_v3'} and any(
+            if task['scope'].get('compliance_scope_policy') in {'code_related_v2', 'precomputed_controls_v3', 'selected_controls_v1'} and any(
                 r.control_scope is None for r in output.records
             ):
                 raise ValueError('条款匹配必须明确与代码范围的关系')
             expected = task["scope"].get("clause_ids", [])
             actual = [r.clause_id for r in output.records if r.kind == "applicability"]
             requirement_id = task['scope'].get('requirement_id')
+            control_target = task['scope'].get('control_id')
             if requirement_id:
                 if len(actual) != len(set(actual)) or (not actual and not output.gaps):
                     raise ValueError('需求匹配结果重复或缺少匹配缺口')
@@ -510,9 +519,17 @@ class Store:
                         raise ValueError('缺少适用范围事实时不能确认适用')
             elif sorted(expected) != sorted(actual):
                 raise ValueError("条款适用性库存不完整或重复")
+            if control_target:
+                if len(output.records) != 1 or output.records[0].control_ids != [control_target]:
+                    raise ValueError('所选控制必须逐项完整提交且不能扩大目标')
+                if not any(self.read_evidence(run_id, eid)['source_type'] in {'document', 'code'}
+                           for eid in output.records[0].evidence_ids):
+                    raise ValueError('控制相关性判断必须引用原始项目材料')
+                if output.records[0].status == 'APPLICABLE' and output.records[0].missing_facts:
+                    raise ValueError('缺少适用范围事实时不能确认适用')
             decisions = {r.clause_id: r for r in output.records if r.kind == 'applicability'}
             for clause_id, decision in decisions.items():
-                if task['scope'].get('compliance_scope_policy') == 'precomputed_controls_v3':
+                if task['scope'].get('compliance_scope_policy') in {'precomputed_controls_v3', 'selected_controls_v1'}:
                     from .control_catalog import control, catalog
                     from .domain import compliance_candidate
                     if compliance_candidate(decision.model_dump()) and not decision.control_ids:

@@ -645,6 +645,18 @@ Two deployed-container queries took 31.46 s end to end (including first load) an
 
 Selecting source code without uploading a document uses code mode. Existing requirements can be checked through the “Check existing requirements” action. The API's `implementation_only` mode accepts `baseline_run_id` and `repository_id`, preserves the original requirement language, records relationships between runs, and retains historical results.
 
+## Scope requirement implementation checks
+
+Use **Requirement implementation scope** to select PCI DSS chapters, subchapters, clauses, or explicit control IDs for stage three. Multiple chapters form a union; parent/child overlaps are deduplicated. The fixed catalog enumerates every selected control independently of retrieval top-K. Selected controls absent from the design are still investigated for relevance; relevant controls are bound verbatim without regenerating controls or standard vectors during project analysis.
+
+**Selection changes only the implementation-check targets.** The full design requirement set is retained. Threat modeling, existing code slicing, and independent static vulnerability auditing follow their original workflow. Findings outside the selected requirement scope, including unlinked findings, remain stored, displayed, and exported. Unselected requirements are marked “Not selected for this implementation check,” rather than inapplicable, passed, or failed. Every criterion of each selected relevant requirement receives a corresponding assessment.
+
+Runs freeze the catalog, selector, candidate inventory, and final requirement/criterion targets. Reports distinguish the requirement-check scope from code modeling/audit scope, retaining unrelated exclusions, unknown conditions, missing baseline controls, and requirements not verifiable from code. Baselines remain complete; `implementation_only` can check a subset. `requirements_only` and `code_only` reject this parameter. Changing scope creates a new run without changing historical results.
+
+The API adds `requirement_check_scope` to existing modes: obtain options from `/api/v1/standards/{catalog_id}/scope-options`, request a project `/requirement-check-scope-preview`, and submit its `preview_hash` when creating a run. There is no new scoped execution mode. Chapters and control IDs are supported first; topics, objects, and responsibility filters remain planned. Declared original-source context is available, but cross-clause semantic dependencies are not fully prepared; reports retain that limitation rather than claiming complete normative-context coverage.
+
+Isolated automated checks use scripted models to verify inventories, dispatch, and exports, plus the actual ADK runner with checked-in skills for submission-contract testing. They do not establish real-model analytical accuracy or measured token savings. Expected savings primarily concern implementation checks; modeling and independent auditing retain their original work.
+
 ## Budgets, result submission, and recovery
 
 API request counts, cumulative tokens, and per-task model call limits are temporarily disabled, with `AUDITOR_ENFORCE_BUDGETS=false` by default. This switch applies to the analysis service, outbound gateway, ADK, and static audit adapter. Saved budgets on historical runs no longer block execution, while original budgets and cumulative usage are retained. Budget settings are hidden in the UI, new analyses have no limits, and legacy limits submitted through the API have no effect.
@@ -693,7 +705,7 @@ PDF tests require models prepared in advance and explicitly skip when resources 
 
 ## Skill versions and runtime consistency
 
-All skills and references are checked into `skills/`. All six application methods use 0.6.0: design analysis, requirement generation and review, compliance mapping, implementation checking, and historical structured-standard compatibility. Code auditing retains the complete original skills and references from a pinned source. Static execution boundaries, tool mappings, and structured submission protocols reside in a separate adapter. Seven obsolete abbreviated code-audit skills have been removed.
+All skills and references are checked into `skills/`. The application methods build on 0.6.0; compliance mapping is now 0.6.1 with a selected-control completeness protocol. The six roles cover design analysis, requirement generation and review, compliance mapping, implementation checking, and historical structured-standard compatibility. Code auditing retains the complete original skills and references from a pinned source. Static execution boundaries, tool mappings, and structured submission protocols reside in a separate adapter. Seven obsolete abbreviated code-audit skills have been removed.
 
 Production and tests use the same loaders and full instructions, validating provenance, versions, and digests. Missing or rewritten original skills stop execution. Automated tests check the skill bodies in actual ADK requests and database task receipts; controlled responses do not establish security-analysis accuracy. Skill changes require a new analysis run; existing reports retain their original version. Run `.venv/bin/python tools/check_skill_corpus.py` to inspect the checked-in corpus.
 

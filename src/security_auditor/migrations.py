@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .skills import digest
 
-VERSION = 5
+VERSION = 6
 SUBMISSIONS = {"record_summary": ("architect", "summary"),
                "record_threat_model": ("threat_modeler", "threat_model"),
                "record_plan": ("planner", "plan"),
@@ -127,3 +127,13 @@ def migrate(path: Path):
                        'query_hash TEXT NOT NULL,language TEXT NOT NULL,section TEXT NOT NULL,'
                        'payload TEXT NOT NULL,sha256 TEXT NOT NULL,PRIMARY KEY(catalog_id,query_hash,language,section))')
             db.execute('INSERT INTO schema_migrations VALUES(5,?)', (datetime.now(timezone.utc).isoformat(),))
+        if current < 6:
+            db.execute('CREATE TABLE IF NOT EXISTS standard_scope_metadata(catalog_id TEXT PRIMARY KEY REFERENCES standard_catalogs(catalog_id),'
+                       'payload TEXT NOT NULL,sha256 TEXT NOT NULL)')
+            db.execute('CREATE TABLE IF NOT EXISTS scope_resolutions(run_id TEXT PRIMARY KEY REFERENCES runs(id),'
+                       'payload TEXT NOT NULL,sha256 TEXT NOT NULL)')
+            db.execute('CREATE TABLE IF NOT EXISTS run_control_inventory(run_id TEXT NOT NULL REFERENCES runs(id),'
+                       'catalog_id TEXT NOT NULL,control_id TEXT NOT NULL,payload TEXT NOT NULL,sha256 TEXT NOT NULL,'
+                       'PRIMARY KEY(run_id,catalog_id,control_id),'
+                       'FOREIGN KEY(catalog_id,control_id) REFERENCES standard_controls(catalog_id,control_id))')
+            db.execute('INSERT INTO schema_migrations VALUES(6,?)', (datetime.now(timezone.utc).isoformat(),))

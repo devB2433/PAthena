@@ -171,7 +171,7 @@ async def test_real_adk_reads_catalog_and_directly_commits_requirement_clause_ma
     run,_,_,doc,req=catalog
     task=store.add_task(run['id'],'pci_mapping',{'requirement_id':req.id,
                                              'compliance_scope_policy':'code_related_v2'})
-    bundle=SkillLoader(settings.skills_dir).resolve('pci_mapper','pci_mapper','0.6.0')
+    bundle=SkillLoader(settings.skills_dir).resolve('pci_mapper','pci_mapper','0.6.1')
     class CatalogModel(BaseLlm):
         model:str='structured-catalog-fixture'
         _calls:int=PrivateAttr(default=0)

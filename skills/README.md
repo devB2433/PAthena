@@ -149,3 +149,8 @@ for evidence or regenerate immutable compliance controls.
 The v6 known-design experiment has predeclared coverage and concrete-control rubrics
 under `tests/fixtures/requirements-owasp-v6/`. Its semantics and output failures are
 reported separately from integration tests. Original native skills are unchanged.
+
+
+## Requirement-check selection
+
+`pci_mapper` 0.6.1 supports both the existing design-requirement matching protocol and `selected_controls_v1`: every enumerated fixed control receives a source-backed relevance/applicability decision, including controls absent from the design. Selection restricts only implementation tasks. Native modeling/audit skills and code scope remain unchanged; independent Findings never require a selected requirement link.

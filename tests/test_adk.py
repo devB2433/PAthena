@@ -49,7 +49,7 @@ class ScriptedModel(BaseLlm):
 
 async def test_real_adk_runner_loads_full_skill_and_executes_jailed_tool(settings, store, sample_run):
     _, run, eid = sample_run
-    bundle = SkillLoader(settings.skills_dir).resolve("pci_mapper", "pci_mapper", "0.6.0")
+    bundle = SkillLoader(settings.skills_dir).resolve("pci_mapper", "pci_mapper", "0.6.1")
     tid = store.add_task(run["id"], "pci_mapping", {})
     _, instruction_hash = compile_instruction(bundle)
     store.start_task(tid, bundle, instruction_hash)
@@ -78,7 +78,7 @@ async def test_explicit_unbounded_adk_run_still_accounts_calls(settings, store, 
     from dataclasses import replace
 
     _, run, eid = sample_run
-    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.6.0')
+    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.6.1')
     limited = store.add_task(run['id'], 'pci_mapping', {'attempt': 'bounded'})
     limited_model = ScriptedModel(evidence_id=eid)
     # ADK exposes invocation limits as error events; the adapter rejects them.
@@ -101,7 +101,7 @@ async def test_explicit_unbounded_adk_run_still_accounts_calls(settings, store, 
 async def test_disabled_budget_ignores_configured_adk_call_limit(settings, store, sample_run):
     from dataclasses import replace
     _, run, eid = sample_run
-    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.6.0')
+    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.6.1')
     tid = store.add_task(run['id'], 'pci_mapping', {})
     model = ScriptedModel(evidence_id=eid)
     output = await AdkExecutor(replace(settings, enforce_budgets=False, agent_max_calls=1), store,
@@ -114,7 +114,7 @@ async def test_disabled_budget_ignores_configured_adk_call_limit(settings, store
 async def test_oversized_input_is_not_misreported_as_an_invalid_model_response(settings,store,sample_run):
     _,run,eid=sample_run
     task=store.add_task(run['id'],'pci_mapping',{})
-    bundle=SkillLoader(settings.skills_dir).resolve('pci_mapper','pci_mapper','0.6.0')
+    bundle=SkillLoader(settings.skills_dir).resolve('pci_mapper','pci_mapper','0.6.1')
     model=ScriptedModel(evidence_id=eid)
     with pytest.raises(OutputContractError) as error:
         await AdkExecutor(settings,store,model_factory=lambda:model).execute(
@@ -129,7 +129,7 @@ async def test_litellm_adapter_routes_tool_and_structured_response(settings, sto
     from litellm import ModelResponse
 
     _, run, eid = sample_run
-    bundle = SkillLoader(settings.skills_dir).resolve("pci_mapper", "pci_mapper", "0.6.0")
+    bundle = SkillLoader(settings.skills_dir).resolve("pci_mapper", "pci_mapper", "0.6.1")
     tid = store.add_task(run["id"], "pci_mapping", {"fixture": "adapter"})
     store.start_task(tid, bundle, compile_instruction(bundle)[1])
     captured = []
@@ -421,7 +421,7 @@ async def test_pci_submission_commits_unchanged_or_stops_without_repair(settings
             yield LlmResponse(content=types.Content(role='model', parts=[types.Part(
                 function_call=types.FunctionCall(name='set_model_response', args=submitted))]))
     model = Model()
-    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.6.0')
+    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.6.1')
     executor = AdkExecutor(settings, store, model_factory=lambda: model)
     if mixed_fields:
         with pytest.raises(OutputContractError):

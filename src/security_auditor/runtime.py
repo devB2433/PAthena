@@ -55,8 +55,16 @@ class Scheduler:
             if role == 'pci_mapper' and (self.store.run(run_id)['snapshot'].get('standard') or {}).get('library_id'):
                 policy = ('precomputed_controls_v3' if (self.store.run(run_id)['snapshot'].get('standard') or {}).get('prepared')
                           else 'code_related_v2')
-                return [{'requirement_id': r['id'], 'compliance_scope_policy': policy} for r in records
-                        if r['kind']=='requirement' and r['origin']!='PCI_DSS']
+                result = [{'requirement_id': r['id'], 'compliance_scope_policy': policy} for r in records
+                          if r['kind']=='requirement' and r['origin']!='PCI_DSS']
+                frozen = self.store.run(run_id)['snapshot'].get('requirement_check_scope')
+                if frozen:
+                    from .scope_policy import validate_frozen
+                    from .control_catalog import control
+                    validate_frozen(self.store, frozen)
+                    result += [{'control_id': cid, 'clause_ids': [control(self.store, run_id, cid)['clause_id']],
+                                'compliance_scope_policy': 'selected_controls_v1'} for cid in frozen['control_ids']]
+                return result
             evidence = self.store.evidence(run_id, "standard")
             applicable = {r['clause_id'] for r in records if r['kind'] == 'applicability' and compliance_candidate(r)}
             contexts = {json.loads(e["metadata"]).get("context_id"): e["id"] for e in evidence}
@@ -97,14 +105,17 @@ class Scheduler:
                 append_batch()
             return scopes
         if role == "requirement_checker":
+            from .scope_resolution import resolve
+            resolution = resolve(self.store, run_id)
             return [
                 {
                     "requirement_id": r["id"],
                     "module": r["module"],
                     "acceptance_criteria": r["acceptance_criteria"],
+                    **({'scope_resolution_hash': resolution['resolution_hash']} if resolution else {}),
                 }
                 for r in records
-                if r["kind"] == "requirement"
+                if r["kind"] == "requirement" and (not resolution or r['id'] in resolution['target_requirements'])
             ]
         if role == "requirement_reviewer":
             return [{"subject_ids": [r["id"]]} for r in records if r["kind"] == "requirement"]
@@ -142,7 +153,12 @@ class Scheduler:
         elif role == 'pci_mapper':
             # Prior applicability results are not inputs to an independent clause decision.
             records = [r for r in records if r['kind'] == 'fact' or
-                       (r['kind']=='requirement' and r['id']==scope.get('requirement_id'))]
+                       (r['kind']=='requirement' and (r['id']==scope.get('requirement_id') or scope.get('control_id')))]
+            if scope.get('control_id'):
+                records = [{k: r[k] for k in ('id', 'kind', 'title', 'module', 'origin', 'clause_ids')}
+                           if r['kind'] == 'requirement' else
+                           {k: r[k] for k in ('id', 'kind', 'title', 'module', 'basis', 'evidence_ids')}
+                           for r in records]
         elif role == 'pci_requirement_generator':
             targets = set(scope['clause_ids'])
             records = [r for r in records if r['kind'] == 'fact' or
@@ -195,6 +211,9 @@ class Scheduler:
             self.store.event(run_id,'inventory_refined',{'task_id':task['id'],**receipt})
 
     async def child(self, run_id: str, node: dict, parent_id: str, scope: dict, wave="analysis"):
+        if node['role'] == 'requirement_checker':
+            from .scope_resolution import check_target
+            check_target(self.store, run_id, scope)
         tid = self.store.add_task(run_id, node["id"], scope, parent_id, wave)
         task = self.store.task(tid)
         if task["status"] == "SUCCEEDED":
@@ -421,6 +440,7 @@ class Scheduler:
 
 
 def report(store: Store, run_id: str) -> dict:
+    from .scope_resolution import summary
     run = store.run(run_id)
     tasks = store.rows("SELECT * FROM tasks WHERE run_id=? ORDER BY created,id", (run_id,))
     records = store.records(run_id)
@@ -435,6 +455,7 @@ def report(store: Store, run_id: str) -> dict:
         "records": records,
         "model_artifacts": store.model_artifacts(run_id),
         "requirement_matrix": result_matrix(store, run_id)["requirements"],
+        "requirement_check_scope": summary(store, run_id),
         "tasks": tasks,
         "evidence_gaps": sorted(set(gaps)),
         "incomplete_tasks": [t["id"] for t in tasks if t["status"] not in {"SUCCEEDED", "SKIPPED"}],
@@ -452,6 +473,9 @@ def result_matrix(store: Store, run_id: str) -> dict:
     """The server owns safety aggregation; the browser only displays these states."""
     from .localization import tr
     selected = store.run(run_id)["language"]
+    from .scope_resolution import summary
+    scope_summary = summary(store, run_id)
+    resolution = scope_summary.get('resolution')
     records = store.records(run_id)
     tasks = store.rows("SELECT scope,status FROM tasks WHERE run_id=? AND stage='requirement_check' "
                        "AND parent_task_id IS NOT NULL", (run_id,))
@@ -475,8 +499,15 @@ def result_matrix(store: Store, run_id: str) -> dict:
             checked = sum(c["implementation_status"] != "NOT_CHECKED" for c in criteria)
             states = {c["implementation_status"] for c in criteria}
             task_state = check_tasks.get(record["id"])
+            scope_state = ('SELECTED' if record['id'] in resolution['target_requirements'] else 'NOT_SELECTED') if resolution else (
+                'SCOPE_PENDING' if scope_summary['selection'] == 'SELECTED' else 'SELECTED')
             # A complete static conclusion requires every acceptance criterion.
-            if "VIOLATED" in states:
+            if scope_state in {'NOT_SELECTED', 'SCOPE_PENDING'}:
+                status = scope_state
+                criteria = [{**c, 'implementation_status': scope_state,
+                             'rationale': tr('未纳入本次实现检查' if scope_state == 'NOT_SELECTED' else '需求检查范围待解析', selected)}
+                            for c in criteria]
+            elif "VIOLATED" in states:
                 status = "VIOLATED"
             elif checked != len(criteria):
                 status = ("CHECKING" if task_state == "RUNNING" else "INCOMPLETE"
@@ -493,6 +524,7 @@ def result_matrix(store: Store, run_id: str) -> dict:
                                                              or r['clause_id'] in record['clause_ids'])],
                                  "requirement_review_status": review_status, "requirement_reviews": reviews,
                                  "criterion_checks": criteria, "implementation_status": status,
+                                 "check_selection": scope_state,
                                  "checked_criteria": checked, "total_criteria": len(criteria),
                                  "finding_ids": linked})
         if record["kind"] == "finding":
@@ -517,4 +549,5 @@ def result_matrix(store: Store, run_id: str) -> dict:
         finding["requirement_numbers"] = [numbers[rid] for rid in finding.get("requirement_ids", [])
                                           if rid in numbers]
     return {"requirements": requirements, "findings": findings,
+            "requirement_check_scope": scope_summary,
             "model_artifacts": store.model_artifacts(run_id)}

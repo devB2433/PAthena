@@ -134,7 +134,8 @@ def search(store, run_id: str, query: str, section: str = '', limit: int = 8, of
         with store.connect() as db:
             db.execute('INSERT OR IGNORE INTO standard_query_vectors VALUES(?,?,?,?)',
                        (profile['id'], query_key, payload, digest(payload.encode())))
-    controls = {r['control_id']: r for r in store.rows('SELECT * FROM standard_controls WHERE catalog_id=?', (prepared['catalog_id'],))}
+    controls = {r['control_id']: r for r in store.rows('SELECT * FROM standard_controls WHERE catalog_id=?', (prepared['catalog_id'],))
+                if not section or r['clause_id'] == section or r['clause_id'].startswith(section + '.')}
     decoded, by_clause = {}, {}
     for control_id, row in controls.items():
         if digest(row['payload'].encode()) != row['sha256']:
@@ -144,11 +145,13 @@ def search(store, run_id: str, query: str, section: str = '', limit: int = 8, of
     vectors = store.rows('SELECT * FROM standard_vectors WHERE catalog_id=?', (prepared['catalog_id'],))
     scored = {}
     for row in vectors:
+        targets = ([row['item_id']] if row['item_id'] in controls else []) if row['item_type'].startswith('control') else by_clause.get(row['item_id'], [])
+        if not targets:
+            continue
         if digest(row['vector'].encode()) != row['sha256']:
             raise ValueError('已入库标准向量摘要不一致')
         vector = validate_vector(json.loads(row['vector']), profile['dimensions'])
         score = sum(a * b for a, b in zip(q, vector))
-        targets = [row['item_id']] if row['item_type'].startswith('control') else by_clause[row['item_id']]
         for target in targets:
             scored[target] = max(score, scored.get(target, -1.0))
     selected = store.run(run_id)['language']
@@ -159,10 +162,12 @@ def search(store, run_id: str, query: str, section: str = '', limit: int = 8, of
         from .retrieval import lexical_ranking, fuse
         lexical = lexical_ranking(store, prepared['catalog_id'], query, by_clause)
         ranked = fuse(dense, lexical, k=recipe['rrf_k'])
-    ranked = [cid for cid in ranked if not section or decoded[cid]['clause_id'] == section or decoded[cid]['clause_id'].startswith(section + '.')]
     if recipe:
+        # Earlier section caches ranked the whole catalog before filtering.
+        # Keep those archived rows but never reuse them for prefiltered ranking.
+        cache_section = 'prefilter-v1:' + section if section else section
         cache = store.rows('SELECT * FROM standard_search_cache WHERE catalog_id=? AND query_hash=? AND language=? AND section=?',
-                           (prepared['catalog_id'], query_key, selected, section))
+                           (prepared['catalog_id'], query_key, selected, cache_section))
         if cache:
             row = cache[0]
             if digest(row['payload'].encode()) != row['sha256']:
@@ -185,7 +190,7 @@ def search(store, run_id: str, query: str, section: str = '', limit: int = 8, of
             payload = json.dumps({'ranking': ranked, 'rerank_scores': rerank_scores}, sort_keys=True)
             with store.connect() as db:
                 db.execute('INSERT OR IGNORE INTO standard_search_cache VALUES(?,?,?,?,?,?)',
-                           (prepared['catalog_id'], query_key, selected, section, payload, digest(payload.encode())))
+                           (prepared['catalog_id'], query_key, selected, cache_section, payload, digest(payload.encode())))
     candidates = []
     for control_id in ranked:
         c = decoded[control_id]
@@ -232,11 +237,19 @@ def bind_controls(store, run_id: str, task_id: str) -> dict:
             c = control(store, run_id, control_id)
             if c['clause_id'] != m['clause_id'] or c['control_type'] == 'ORGANIZATIONAL':
                 raise ValueError('匹配控制来源或范围无效')
-            for req_id in m['requirement_ids']:
-                req = byid[req_id]
-                key = (control_id, req['module'])
+            linked = [(req_id, byid[req_id]['module']) for req_id in m['requirement_ids']]
+            # A selected normative control need not already have a design Requirement.
+            # "project" is the declared inventory subject, not an inferred source/module.
+            if not linked:
+                source = store.task(next(row['task_id'] for row in store.rows(
+                    'SELECT task_id FROM records WHERE id=? AND run_id=?', (m['id'], run_id))))
+                if source['scope'].get('control_id') == control_id:
+                    linked = [(None, 'project')]
+            for req_id, module in linked:
+                key = (control_id, module)
                 group = groups.setdefault(key, {'control': c, 'requirements': set(), 'mappings': set()})
-                group['requirements'].add(req_id)
+                if req_id:
+                    group['requirements'].add(req_id)
                 group['mappings'].add(m['id'])
     bound = []
     language = store.run(run_id)['language']

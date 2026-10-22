@@ -55,7 +55,7 @@ async def test_adk_direct_short_source_submission_persists_original_ids(settings
                                  'missing_facts': ['持卡人数据环境范围'], 'evidence_ids': [handle],
                                  'rationale': '文档未声明部署范围'}], 'gaps': [], 'summary': '适用性待确认'}))]))
     model = Model()
-    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.6.0')
+    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.6.1')
     output = await AdkExecutor(settings, store, model_factory=lambda: model).execute(store.task(tid), bundle, {})
     store.commit_output(tid, 'pci_mapper', output)
     assert store.records(run['id'])[0]['evidence_ids'] == [eid]

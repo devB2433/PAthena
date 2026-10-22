@@ -71,7 +71,7 @@ def test_application_skills_are_versioned_complete_methods_and_legacy_audit_role
     assert {r['id'] for r in loader.catalog()} == set(PROJECT_ROLES)
     legacy = json.loads((ROOT / 'skills/pci_requirement_generator/manifest.json').read_text())
     for row in [*loader.catalog(), legacy]:
-        assert row['version'] == '0.6.0'
+        assert row['version'] == ('0.6.1' if row['id'] == 'pci_mapper' else '0.6.0')
         bundle = loader.resolve(row['id'], row['id'], row['version'])
         prompt, _ = compile_instruction(bundle)
         assert bundle.instruction in prompt and '[METHOD]' in bundle.instruction

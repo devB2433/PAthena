@@ -43,7 +43,7 @@ async def test_registered_source_search_can_reach_matches_beyond_first_page(sett
         store.add_evidence(run['id'], 'document', f'design:{index:03d}', 'shared_control context', {})
     store.add_evidence(run['id'], 'code', 'not-a-document.py:1', 'shared_control', {})
     tid = store.add_task(run['id'], 'pci_mapping', {})
-    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.6.0')
+    bundle = SkillLoader(settings.skills_dir).resolve('pci_mapper', 'pci_mapper', '0.6.1')
     model = PaginatedSearch()
     output = await AdkExecutor(settings, store, model_factory=lambda: model).execute(store.task(tid), bundle, {})
     assert output.summary == 'Source search pages complete' and model._calls == 3

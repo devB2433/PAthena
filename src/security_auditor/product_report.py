@@ -10,6 +10,7 @@ STATUS = {
     'UNKNOWN': '代码检查依据不足', 'NOT_CODE_VERIFIABLE': '无法通过代码验证',
     'EXTERNAL_EVIDENCE_REQUIRED': '无法通过代码验证',
     'NOT_CHECKED': '未检查', 'CHECKING': '检查中', 'INCOMPLETE': '检查未完成',
+    'NOT_SELECTED': '未纳入本次实现检查', 'SCOPE_PENDING': '需求检查范围待解析',
 }
 ORIGIN = {'EXPLICIT_DESIGN': '设计文档', 'INFERRED_SECURITY': '安全分析', 'PCI_DSS': 'PCI DSS'}
 FINDING_STATUS = {'STATIC_SUPPORTED': '静态复核支持', 'FALSE_POSITIVE': '已排除',
@@ -82,6 +83,8 @@ def product_report(project_name: str, data: dict, matrix: dict, sources: list[di
         rows.append(
             f'<article id="requirement-{text(req["id"])}"><h3>{text(req["requirement_number"])} '
             f'{text(req["title"])}</h3><p>{text(req["statement"])}</p>'
+            + (f'<p>{t("本次实现检查")}: {t(STATUS.get(req.get("implementation_status"), "未检查"))}</p>'
+               if matrix.get('requirement_check_scope', {}).get('selection') == 'SELECTED' else '')
             + ''.join(f'<p>{text(c)}</p>' for c in req.get('applicability_conditions', []))
             + (f'<p>{t("标准控制")}: {text(req["standard_control_id"])}</p>' if req.get('standard_control_id') else '')
             +
@@ -106,8 +109,10 @@ def product_report(project_name: str, data: dict, matrix: dict, sources: list[di
     sections.append(('威胁建模', rows))
     rows = []
     for req in matrix['requirements']:
+        if req.get('check_selection') in {'NOT_SELECTED', 'SCOPE_PENDING'}:
+            continue
         checks = ''.join(f'<li><p>{text(c["acceptance_criterion"])}: {t(STATUS[c["implementation_status"]])}</p>'
-                         f'<p>{text(c["rationale"])}</p></li>' for c in req['criterion_checks'])
+                         f'<p>{text(c["rationale"])}</p>{source_blocks(c, True)}</li>' for c in req['criterion_checks'])
         count = (f'{req["checked_criteria"]} / {req["total_criteria"]} 验收项已检查' if selected == 'zh-CN'
                  else f'{req["checked_criteria"]} / {req["total_criteria"]} acceptance criteria checked')
         rows.append(f'<article><h3>{text(req["requirement_number"])} {text(req["title"])}</h3>'
@@ -135,6 +140,27 @@ def product_report(project_name: str, data: dict, matrix: dict, sources: list[di
     body = ''.join(f'<section><h2>{i}. {t(name)}</h2>' + (''.join(items) or
                    f'<p>{t("本次未检查" if code_only and i in {1, 3} else "暂无结果")}</p>') + '</section>'
                    for i, (name, items) in enumerate(sections, 1))
+    scope = matrix.get('requirement_check_scope', {})
+    if scope.get('selection') == 'SELECTED':
+        request, resolution = scope['request'], scope.get('resolution')
+        selector = request['selector']
+        selected_ids = selector['standard_node_ids'] or selector['control_ids']
+        ledger = ''
+        if resolution:
+            states = {'RELATED': '相关', 'EXCLUDED': '不相关已排除', 'UNDETERMINED': '待确定', 'BASELINE_MISSING': '基线未包含'}
+            ledger = '<ul>' + ''.join(f'<li>{text(i["control_id"])} · {t(states[i["state"]])}'
+                + ''.join(f'<p>{text(v)}</p>' for v in [*i['reasons'], *i['missing_facts']]) + '</li>'
+                for i in resolution['inventory']) + '</ul>'
+        scope_header = (f'<section><h2>{t("本次需求检查范围")}</h2><p>{text(", ".join(selected_ids))}</p>'
+                        f'<p>{t("标准版本目录")}: {text(request["catalog_id"])}</p>'
+                        f'<p>{t("候选控制")}: {request["counts"]["controls"]}</p>'
+                        f'<p>{t("威胁建模和独立审计沿用原代码范围")}</p>'
+                        + (f'<p>{t("需求检查范围待解析")}</p>' if not resolution else
+                           f'<p>{t("已纳入检查")}: {resolution["counts"]["selected_requirements"]} · '
+                           f'{t("未纳入本次实现检查")}: {resolution["counts"]["not_selected_requirements"]}</p>')
+                        + (f'<p>{t("跨条款依赖未完整预整理")}</p>' if request.get('dependency_limitations') else '')
+                        + f'<details><summary>{t("范围控制处理情况")}</summary>{ledger}</details></section>')
+        body = scope_header + body
     return (f'<!doctype html><html lang="{selected}"><head><meta charset="UTF-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             f'<title>{t("安全设计审查报告")}</title>'

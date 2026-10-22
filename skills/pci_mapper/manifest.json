@@ -1,7 +1,7 @@
 {
   "id": "pci_mapper",
-  "version": "0.6.0",
-  "sha256": "af5e02542650f72f129f8f59d29c89fcb2398811ddd97c934848f9fe58f39c6f",
+  "version": "0.6.1",
+  "sha256": "6f4ebccc2fe88c7bf0926832c39db1566b764006797c8789f272a1d67fd357f4",
   "mandatory_rules": [
     "METHOD",
     "PCI_MAPPER-01",
@@ -17,7 +17,8 @@
     "PCI_MAPPER-11",
     "PCI_MAPPER-12",
     "PCI_MAPPER-13",
-    "SECURITY-PATTERNS"
+    "SECURITY-PATTERNS",
+    "PCI_MAPPER-14"
   ],
   "source": {
     "repository": "google/mantis",
@@ -27,7 +28,7 @@
   },
   "profile": "static",
   "output_schema": "StageOutput",
-  "revision": "owasp-risk-to-concrete-requirements-v6",
+  "revision": "selected-control-completeness-v1",
   "references": {
     "references/cases.md": "a53369e79da7a27f8d0e8de6aa03348d04e46baf8b8ccf1756d1586f086a8875",
     "references/quality-method.md": "65d78075708ea14a6f117db81541e3148e16359fc5fbe8cd2fe118dbefea4aca"

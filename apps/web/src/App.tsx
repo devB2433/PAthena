@@ -6,11 +6,14 @@ import enUS from 'antd/locale/en_US';
 import zhCN from 'antd/locale/zh_CN';
 import { translate, format, type Language } from './i18n';
 
+type CheckScope = { catalog_id: string; selector: { kind: 'facets' | 'controls'; standard_node_ids?: string[]; control_ids?: string[] }; preview_hash: string };
+type ScopeInfo = { selection: string; request?: { selector: { standard_node_ids: string[]; control_ids: string[] }; counts: { controls: number }; dependency_limitations?: string[] }; resolution?: { counts: { selected_requirements: number; not_selected_requirements: number; acceptance_criteria: number; undetermined: number; baseline_missing: number }; inventory: { control_id: string; state: string; reasons: string[]; missing_facts: string[] }[] } | null };
+type ScopeOptions = { nodes: { id: string; control_count: number }[]; controls: { id: string; clause_id: string; titles: Record<string, string> }[] };
 type Project = { id: string; name: string };
 type Budget = { max_requests: number | null; max_tokens: number | null };
 type Run = { id: string; status: string; mode: string; language?: Language; display_error?: string; error: string | null; budget?: Budget; repository_id?: string; pause_requested?: boolean; issue?: { code: string; message: string }; recovery?: { attempts: number; wake_at: number }; controls?: { can_resume: boolean; can_update_budget: boolean; budget_exhausted: boolean; requires_new_run: boolean }; usage?: { requests: number; tokens: number; known_tokens?: number; unknown_tokens?: number; unknown_requests?: number; reserved_tokens?: number } };
 type Row = {
-  id: string; kind: string; title: string; rationale: string; evidence_ids: string[];
+  check_selection?: string; id: string; kind: string; title: string; rationale: string; evidence_ids: string[];
   module?: string; statement?: string; acceptance_criteria?: string[]; origin?: string;
   clause_ids?: string[]; requirement_id?: string; implementation_status?: string;
   impact?: string; recommendation?: string; severity?: string; checks?: Row[];
@@ -40,7 +43,7 @@ const labels: Record<string, string> = {
   FAILED: '未完成', PAUSED: '已暂停', WAITING: '等待模型恢复', SKIPPED: '未运行', STATIC_SUPPORTED: '代码符合',
   VIOLATED: '未实现', PARTIAL: '部分实现', UNKNOWN: '代码检查依据不足',
   NOT_CODE_VERIFIABLE: '无法通过代码验证', EXTERNAL_EVIDENCE_REQUIRED: '无法通过代码验证', HIGH: '高', MEDIUM: '中', LOW: '低', CRITICAL: '严重',
-  NOT_CHECKED: '未检查', CHECKING: '检查中', INCOMPLETE: '检查未完成',
+  NOT_SELECTED: '未纳入本次实现检查', SCOPE_PENDING: '需求检查范围待解析', NOT_CHECKED: '未检查', CHECKING: '检查中', INCOMPLETE: '检查未完成',
 };
 const colors: Record<string, string> = {
   COMPLETED: 'green', SUCCEEDED: 'green', STATIC_SUPPORTED: 'green', VIOLATED: 'red',
@@ -89,7 +92,7 @@ export default function App() {
   const [records, setRecords] = useState<Row[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [assets, setAssets] = useState<{ id: string; name: string }[]>([]);
-  const [matrix, setMatrix] = useState<{ requirements: Row[]; findings: Row[]; model_artifacts?: ModelArtifact[] }>({ requirements: [], findings: [] });
+  const [matrix, setMatrix] = useState<{ requirements: Row[]; findings: Row[]; model_artifacts?: ModelArtifact[]; requirement_check_scope?: ScopeInfo }>({ requirements: [], findings: [] });
   const [sources, setSources] = useState<Source[]>([]);
   const [phase, setPhase] = useState<Phase>('requirements');
   const [filter, setFilter] = useState('');
@@ -106,6 +109,14 @@ export default function App() {
   const [clock, setClock] = useState(Date.now());
   const [repo, setRepo] = useState<string>();
   const [settings, setSettings] = useState<{ repositories: string[]; language?: Language; default_budget?: Budget; budget_enforced?: boolean }>({ repositories: [] });
+  const [checkScope, setCheckScope] = useState<CheckScope | null>(null);
+  const [scopeOpen, setScopeOpen] = useState(false);
+  const [scopeKind, setScopeKind] = useState<'all' | 'facets' | 'controls'>('all');
+  const [scopeCatalog, setScopeCatalog] = useState<string>();
+  const [scopeValues, setScopeValues] = useState<string[]>([]);
+  const [scopeCatalogs, setScopeCatalogs] = useState<{ catalog_id: string; version: string }[]>([]);
+  const [scopeOptions, setScopeOptions] = useState<ScopeOptions | null>(null);
+  const [scopeLoading, setScopeLoading] = useState(false);
   const [msg, holder] = message.useMessage();
   const refreshProjects = async () => setProjects((await api<{ items: Project[] }>('/projects')).items);
 
@@ -120,7 +131,7 @@ export default function App() {
     if (!project) return;
     let current = true;
     setRun(null); setRuns([]); setRecords([]); setTasks([]); setSources([]); setAssets([]);
-    setMatrix({ requirements: [], findings: [] }); setDetail(null); setDetailSources([]); setFilter(''); setRepo(undefined);
+    setMatrix({ requirements: [], findings: [] }); setDetail(null); setDetailSources([]); setFilter(''); setRepo(undefined); setCheckScope(null); setScopeOpen(false);
     Promise.all([
       api<{ items: typeof assets }>(`/projects/${project.id}/assets`),
       api<{ items: Run[] }>(`/projects/${project.id}/runs`),
@@ -191,10 +202,36 @@ export default function App() {
     const p = await api<Project>('/projects', post({ name }));
     await refreshProjects(); setProject(p); setNewOpen(false); setName(''); setPhase('requirements');
   });
+  useEffect(() => {
+    if (!scopeOpen || !scopeCatalog) return;
+    let current = true;
+    setScopeOptions(null); setScopeLoading(true);
+    api<ScopeOptions>(`/standards/${scopeCatalog}/scope-options`).then(value => {
+      if (current) setScopeOptions(value);
+    }).catch(e => { if (current) msg.error(t(e.message)); }).finally(() => { if (current) setScopeLoading(false); });
+    return () => { current = false; };
+  }, [scopeOpen, scopeCatalog]);
+  const openScope = () => action(async () => {
+    const catalogs = await api<{ items: { catalog_id: string; version: string }[]; configured_catalog_id?: string }>('/standards');
+    const items = catalogs.items.filter(c => c.catalog_id);
+    setScopeCatalogs(items); setScopeCatalog(checkScope?.catalog_id || catalogs.configured_catalog_id || items[0]?.catalog_id);
+    setScopeKind(checkScope?.selector.kind || 'all');
+    setScopeValues(checkScope?.selector.standard_node_ids || checkScope?.selector.control_ids || []);
+    setScopeOpen(true);
+  });
+  const saveScope = () => action(async () => {
+    if (scopeKind === 'all') { setCheckScope(null); setScopeOpen(false); return; }
+    if (!project || !scopeCatalog || !scopeOptions || !scopeValues.length) return;
+    const selector = scopeKind === 'facets' ? { kind: scopeKind, standard_node_ids: scopeValues } : { kind: scopeKind, control_ids: scopeValues };
+    const value = await api<{ preview_hash: string; counts: { controls: number } }>(`/projects/${project.id}/requirement-check-scope-preview`, post({ catalog_id: scopeCatalog, selector }));
+    setCheckScope({ catalog_id: scopeCatalog, selector, preview_hash: value.preview_hash }); setScopeOpen(false);
+    msg.success(tf('已选择 {count} 项控制', { count: value.counts.controls }));
+  });
   const start = () => action(async () => {
     if (!project) return;
+    if (checkScope && (!repo || !assets.length)) throw new Error(t('需求范围检查需要设计文档和代码；已有需求请使用检查已有需求。'));
     const r = await api<Run>(`/projects/${project.id}/runs`, {
-      ...post({ mode: repo ? (assets.length ? 'full' : 'code_only') : 'requirements_only', repository_id: repo ?? null, budget: newBudget }),
+      ...post({ requirement_check_scope: checkScope, mode: repo ? (assets.length ? 'full' : 'code_only') : 'requirements_only', repository_id: repo ?? null, budget: newBudget }),
       headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
     });
     setRun(r); setRuns(old => [r, ...old]); setPhase(r.mode === 'code_only' ? 'threats' : 'requirements');
@@ -207,7 +244,7 @@ export default function App() {
   const startChecks = () => action(async () => {
     if (!project || !run || !repo) return;
     const r = await api<Run>(`/projects/${project.id}/runs`, {
-      ...post({ mode: 'implementation_only', repository_id: repo, baseline_run_id: run.id, budget: newBudget }),
+      ...post({ requirement_check_scope: checkScope, mode: 'implementation_only', repository_id: repo, baseline_run_id: run.id, budget: newBudget }),
       headers: { 'Content-Type': 'application/json', 'Idempotency-Key': crypto.randomUUID() },
     });
     setRun(r); setRuns(old => [r, ...old]); setPhase('implementation');
@@ -247,7 +284,7 @@ export default function App() {
   const relatedClauseCount = new Set(pciDecisions.filter(r => ['RELEVANT', 'POTENTIALLY_RELEVANT'].includes(r.relevance || '')).map(r => r.clause_id)).size;
   const threats = records.filter(r => r.kind === 'threat');
   const threatModels = (matrix.model_artifacts || []).filter(a => a.artifact_type === 'threat_model');
-  const implementations = requirements;
+  const implementations = requirements.filter(r => r.check_selection !== 'NOT_SELECTED' && r.check_selection !== 'SCOPE_PENDING');
   const findings = matrix.findings;
   const excludedFindings = findings.filter(f => f.review_status === 'FALSE_POSITIVE');
   const activeFindings = findings.filter(f => f.review_status !== 'FALSE_POSITIVE');
@@ -299,7 +336,7 @@ export default function App() {
                 setAssets((await api<{ items: typeof assets }>(`/projects/${project.id}/assets`)).items);
                 options.onSuccess?.({}); msg.success(t('文档已上传'));
               } catch (e) { msg.error(t((e as Error).message)); options.onError?.(e as Error); }
-            }}><Button icon={<UploadOutlined />}>{t('上传文档')}</Button></Upload>
+            }}><Button icon={<UploadOutlined />}>{t('上传文档')}</Button></Upload><Button onClick={openScope} disabled={busy}>{t('需求实现检查范围')} · {checkScope ? t('已选范围') : t('全部')}</Button>
           </Space>
         </section>
         {run?.language && run.language !== language && <Alert type="info" message={tf('历史分析使用 {language}，切换语言后请重新分析。', { language: run.language === 'zh-CN' ? '简体中文' : 'English' })} />}
@@ -307,6 +344,7 @@ export default function App() {
           {run && <Space>{run.budget && <span>{tf('已请求 {used} / {limit} 次', { used: run.usage?.requests || 0, limit: run.budget.max_requests ?? t('不限额') })}</span>}{run.status === 'WAITING' && run.recovery && <span>{tf('{seconds} 秒后重试', { seconds: Math.max(0, Math.ceil((run.recovery.wake_at * 1000 - clock) / 1000)) })}</span>}{['RUNNING', 'PENDING', 'WAITING'].includes(run.status) && <Button size="small" disabled={busy || run.pause_requested} onClick={() => control('pause')}>{run.pause_requested ? t('暂停中') : t('暂停')}</Button>}{['PAUSED', 'FAILED'].includes(run.status) && <>{run.controls?.can_update_budget && <Button size="small" disabled={busy} onClick={() => openBudget('current')}>{t('修改额度')}</Button>}{run.controls?.can_resume && <Button size="small" disabled={busy} onClick={() => control('resume')}>{['authentication', 'balance', 'unavailable', 'recovery_exhausted'].includes(run.issue?.code || '') ? t('重试连接') : run.issue?.code === 'output' ? t('重试未完成阶段') : t('继续分析')}</Button>}</>}</Space>}
         </section>
         {run?.budget && <div>{tf('已知用量：{tokens} tokens', { tokens: run.usage?.known_tokens?.toLocaleString() || 0 })}{run.usage?.reserved_tokens ? tf(' · 在途预留：{tokens}', { tokens: run.usage.reserved_tokens.toLocaleString() }) : ''}{run.usage?.unknown_requests ? tf(' · {requests} 次请求用量未知，估算 {tokens} tokens', { requests: run.usage.unknown_requests, tokens: run.usage.unknown_tokens?.toLocaleString() || 0 }) : ''}</div>}
+        {matrix.requirement_check_scope?.selection === 'SELECTED' && <div className="run-strip"><Space wrap><strong>{t('本次需求检查范围')}</strong><span>{matrix.requirement_check_scope.request?.selector.standard_node_ids.join('、') || matrix.requirement_check_scope.request?.selector.control_ids.join('、')}</span><span>{tf('候选控制 {count} 项', { count: matrix.requirement_check_scope.request?.counts.controls || 0 })}</span><span>{matrix.requirement_check_scope.resolution ? tf('已选需求 {selected} 项，未选 {unselected} 项', { selected: matrix.requirement_check_scope.resolution.counts.selected_requirements, unselected: matrix.requirement_check_scope.resolution.counts.not_selected_requirements }) : t('需求检查范围待解析')}</span><span>{t('威胁建模和独立审计沿用原代码范围')}</span></Space></div>}
         <nav className="phase-nav" aria-label={t('分析阶段')}>{phases.map((p, i) => <button key={p.id} className={`phase-step ${phase === p.id ? 'active' : ''}`} onClick={() => { setPhase(p.id); setFilter(''); }} aria-current={phase === p.id ? 'step' : undefined}>
           <span className="phase-number">{i + 1}</span><span className="phase-name">{p.title}<small>{phaseState(p.id)}</small></span><span className="phase-count">{counts[p.id]}</span>
         </button>)}</nav>
@@ -321,6 +359,7 @@ export default function App() {
             { title: t('需求编号'), dataIndex: 'requirement_number', width: 110 },
             { title: t('安全需求'), render: (_, row) => <button className="text-link" onClick={() => open(row)}>{row.statement || row.title}</button> },
             { title: t('模块'), dataIndex: 'module', width: 130 },
+            { title: t('本次实现检查'), width: 145, render: (_, row) => <Tag>{t(row.check_selection === 'NOT_SELECTED' ? '未纳入本次实现检查' : row.check_selection === 'SCOPE_PENDING' ? '需求检查范围待解析' : '已纳入检查')}</Tag> },
             { title: t('需求复核'), width: 110, render: (_, row) => requirementReviewTag(row.requirement_review_status) },
             { title: t('来源'), width: 240, render: (_, row) => <div className="origin"><Tag>{originLabels[row.origin || ''] || t('待确认')}</Tag>{row.clause_ids?.length ? <span>{row.clause_ids.join('、')}</span> : null}{locations(row).map(s => <button key={s.id} className="text-link source-location" onClick={() => open(row)}>{sourceTitle(s)}</button>)}</div> },
           ]} /></>}
@@ -334,6 +373,11 @@ export default function App() {
             { title: t('模块'), dataIndex: 'module', width: 130 }, { title: t('攻击入口'), dataIndex: 'entrypoint' },
             { title: t('攻击者'), dataIndex: 'attacker' }, { title: t('影响'), dataIndex: 'impact' },
           ]} />}{!threats.length && !threatModels.length && empty}</>}
+          {phase === 'implementation' && matrix.requirement_check_scope?.resolution && <details><summary>{t('范围控制处理情况')}</summary><Table rowKey="control_id" dataSource={matrix.requirement_check_scope.resolution.inventory} pagination={{ pageSize: 5 }} columns={[
+            { title: t('标准控制'), dataIndex: 'control_id' },
+            { title: t('状态'), render: (_, item) => t(({ RELATED: '相关', EXCLUDED: '不相关已排除', UNDETERMINED: '待确定', BASELINE_MISSING: '基线未包含' } as Record<string, string>)[item.state] || item.state) },
+            { title: t('说明'), render: (_, item) => [...item.reasons, ...item.missing_facts].join('；') },
+          ]} /></details>}
           {phase === 'implementation' && <Table<Row> rowKey="id" dataSource={implementations.filter(matches)} pagination={{ pageSize: 8 }} locale={{ emptyText: empty }} columns={[
             { title: t('需求编号'), dataIndex: 'requirement_number', width: 110 },
             { title: t('安全需求'), render: (_, row) => <button className="text-link" onClick={() => open(row)}>{row.statement || row.title}</button> },
@@ -353,6 +397,13 @@ export default function App() {
         </section>
       </>}
     </main>
+    <Modal title={t('需求实现检查范围')} open={scopeOpen} onCancel={() => setScopeOpen(false)} onOk={saveScope} confirmLoading={busy} okText={scopeKind === 'all' ? t('保存') : t('预览并保存')} okButtonProps={{ disabled: scopeKind !== 'all' && (!scopeOptions || scopeLoading || !scopeValues.length) }}>
+      <label className="field-label">{t('检查目标')}</label><Select style={{ width: '100%' }} value={scopeKind} onChange={value => { setScopeKind(value); setScopeValues([]); }} options={[{ value: 'all', label: t('全部需求') }, { value: 'facets', label: t('标准章节或条款') }, { value: 'controls', label: t('指定标准控制') }]} />
+      {scopeKind !== 'all' && <><label className="field-label">{t('标准版本')}</label><Select style={{ width: '100%' }} value={scopeCatalog} onChange={value => { setScopeCatalog(value); setScopeValues([]); }} options={scopeCatalogs.map(c => ({ value: c.catalog_id, label: `PCI DSS ${c.version} · ${c.catalog_id.slice(0, 8)}` }))} />
+      <label className="field-label">{scopeKind === 'facets' ? t('章节或条款') : t('标准控制')}</label><Select mode="multiple" showSearch optionFilterProp="label" loading={scopeLoading} style={{ width: '100%' }} value={scopeValues} onChange={setScopeValues} options={scopeKind === 'facets' ? scopeOptions?.nodes.map(n => ({ value: n.id, label: `${n.id} · ${n.control_count}` })) : scopeOptions?.controls.map(c => ({ value: c.id, label: `${c.clause_id} · ${c.titles[language]} · ${c.id}` }))} />
+      {!scopeCatalogs.length && <p>{t('请先准备标准控制目录')}</p>}</>}
+      <p>{t('威胁建模和独立审计沿用原代码范围')}</p>
+    </Modal>
     <Modal title={t('系统设置')} open={settingsOpen} onCancel={() => setSettingsOpen(false)} okText={t('保存')} confirmLoading={busy} onOk={() => action(async () => {
       const changed = await api<typeof settings>('/settings', { ...post({ language: editedLanguage }), method: 'PUT' });
       setSettings(changed); setLanguage(editedLanguage); setSettingsOpen(false);

@@ -22,6 +22,7 @@ from .skills import digest
 from .store import Store
 from .localization import tr, policy_hashes
 from .provider import MESSAGES
+from .scope_policy import ScopeRequest
 
 
 class ProjectRequest(StrictModel):
@@ -42,6 +43,7 @@ class RunRequest(StrictModel):
     repository_id: str | None = None
     baseline_run_id: str | None = None
     budget: BudgetRequest | None = None
+    requirement_check_scope: ScopeRequest | None = None
 
 
 def create_app(settings: Settings | None = None, executor=None, mantis_executor=None) -> FastAPI:
@@ -119,6 +121,8 @@ def create_app(settings: Settings | None = None, executor=None, mantis_executor=
 
     def snapshot(project_id: str, request: RunRequest) -> dict:
         continuation = request.mode == 'implementation_only'
+        if request.requirement_check_scope and request.mode not in {'full', 'implementation_only'}:
+            raise ValueError('当前运行模式不支持需求实现检查范围')
         if bool(request.baseline_run_id) != continuation:
             raise ValueError('实现检查需要选择需求来源运行；其他模式不得指定需求来源')
         assets = [] if request.mode == "code_only" or continuation else store.rows(
@@ -166,13 +170,50 @@ def create_app(settings: Settings | None = None, executor=None, mantis_executor=
                     raise ValueError('本地重排模型与标准目录版本不一致，请先显式重建标准目录')
             from .standard_library import import_library
             result["standard"]["library_id"] = import_library(store, result["standard"])
+        if request.requirement_check_scope:
+            from .scope_policy import preview
+            if not request.requirement_check_scope.preview_hash:
+                raise ValueError('请先预览需求检查范围')
+            frozen = preview(store, request.requirement_check_scope)
+            if continuation:
+                catalogs = {r.get('standard_catalog_id') for r in result['baseline']['records']
+                            if r['kind'] == 'requirement' and r.get('standard_catalog_id')}
+                if frozen['catalog_id'] not in catalogs:
+                    raise ValueError('所选标准目录不属于需求来源基线')
+            elif (result.get('standard') or {}).get('prepared', {}).get('catalog_id') != frozen['catalog_id']:
+                raise ValueError('所选标准目录与当前分析固定版本不一致')
+            result['requirement_check_scope'] = frozen
         return result
 
     @app.get('/api/v1/standards')
     def standards():
-        return {'items': store.rows('SELECT v.id,v.standard_id,v.version,v.clause_count,v.context_count,'
+        active = None
+        if settings.standard_pack:
+            manifest = standard_manifest(Path(settings.standard_pack))
+            if manifest.get('prepared'):
+                from .standard_library import import_library
+                import_library(store, manifest)
+                active = manifest['prepared']['catalog_id']
+        return {'configured_catalog_id': active, 'items': store.rows('SELECT v.id,v.standard_id,v.version,v.clause_count,v.context_count,'
                                    'c.catalog_id,c.control_count,c.vector_count FROM standard_versions v '
                                    'LEFT JOIN standard_catalogs c ON c.library_id=v.id ORDER BY v.version,v.id,c.catalog_id')}
+
+    @app.get('/api/v1/standards/{catalog_id}/scope-options')
+    def standard_scope_options(catalog_id: str):
+        from .scope_policy import scope_options
+        return scope_options(store, catalog_id)
+
+    @app.post('/api/v1/projects/{project_id}/requirement-check-scope-preview')
+    def preview_requirement_scope(project_id: str, body: ScopeRequest):
+        store.project(project_id)
+        from .scope_policy import preview
+        return preview(store, body)
+
+    @app.get('/api/v1/projects/{project_id}/runs/{run_id}/requirement-check-scope')
+    def requirement_scope(project_id: str, run_id: str):
+        scoped_run(project_id, run_id)
+        from .scope_resolution import summary
+        return summary(store, run_id)
 
     @app.get("/api/v1/health")
     def health():
@@ -368,6 +409,16 @@ def create_app(settings: Settings | None = None, executor=None, mantis_executor=
             matrix = result_matrix(store, run_id)
             writer.writerow([label(s) for s in ["输出物", "需求编号", "标题", "结果", "说明"]])
             rows = []
+            scope = matrix.get('requirement_check_scope', {})
+            if scope.get('selection') == 'SELECTED':
+                request = scope['request']
+                rows.append([label('本次需求检查范围'), '', ', '.join(request['selector']['standard_node_ids'] or request['selector']['control_ids']),
+                             request['catalog_id'], label('威胁建模和独立审计沿用原代码范围')])
+                for item in (scope.get('resolution') or {}).get('inventory', []):
+                    rows.append([label('范围控制处理情况'), '', item['control_id'],
+                                 label({'RELATED': '相关', 'EXCLUDED': '不相关已排除', 'UNDETERMINED': '待确定',
+                                        'BASELINE_MISSING': '基线未包含'}[item['state']]),
+                                 '；'.join([*item['reasons'], *item['missing_facts']])])
             for req in matrix["requirements"]:
                 detail = '；'.join([req['rationale'], *[r['rationale'] for r in req['requirement_reviews']]])
                 rows.append([label("安全需求"), req["requirement_number"], req["statement"],

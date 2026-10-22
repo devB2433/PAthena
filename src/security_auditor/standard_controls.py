@@ -78,24 +78,33 @@ def preparation(root: Path, embedder=None, reranker_model=None) -> dict:
                 'contexts_hash': manifest.get('contexts_hash'), 'clauses_hash': manifest['clauses_hash'],
                 'controls_hash': controls_hash, 'profile': embedder.profile}
     target = root / 'prepared.json'
+    reusable = {}
     if target.exists():
         old = json.loads(target.read_text())
+        from .config import contained_file
+        old_raw = contained_file(root, old['vectors_file']).read_bytes()
+        if digest(old_raw) != old['vectors_hash']:
+            raise ValueError('预计算向量被修改')
         if all(old.get(k) == v for k, v in identity.items()):
             if digest((root / old['vectors_file']).read_bytes()) != old['vectors_hash']:
                 raise ValueError('预计算向量被修改')
             return old
+        if old.get('profile') == embedder.profile and old.get('schema_version') == 2:
+            for row in (json.loads(line) for line in old_raw.decode().splitlines() if line.strip()):
+                reusable[(row['item_type'], row['text_hash'])] = validate_vector(row['vector'], embedder.profile['dimensions'])
     # Versioned vector files keep previous catalog revisions intact.
     items = catalog_items(clauses, controls)
-    vectors = []
-    for start in range(0, len(items), 16):
-        batch = items[start:start + 16]
+    missing = [item for item in items if (item['item_type'], digest(item['text'].encode())) not in reusable]
+    for start in range(0, len(missing), 16):
+        batch = missing[start:start + 16]
         encoded = embedder.encode([c['text'] for c in batch], purpose='passage')
         if len(encoded) != len(batch):
             raise ValueError('向量模型返回库存不完整')
         for item, vector in zip(batch, encoded):
-            vectors.append({'item_type': item['item_type'], 'item_id': item['item_id'],
-                            'text_hash': digest(item['text'].encode()),
-                            'vector': validate_vector(vector, embedder.profile['dimensions'])})
+            reusable[(item['item_type'], digest(item['text'].encode()))] = validate_vector(vector, embedder.profile['dimensions'])
+    vectors = [{'item_type': item['item_type'], 'item_id': item['item_id'],
+                'text_hash': digest(item['text'].encode()),
+                'vector': reusable[(item['item_type'], digest(item['text'].encode()))]} for item in items]
     raw = ''.join(json.dumps(v, sort_keys=True) + '\n' for v in vectors).encode()
     name = 'vectors-' + digest(raw)[:16] + '.jsonl'
     (root / name).write_bytes(raw)

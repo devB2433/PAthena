@@ -269,7 +269,7 @@ class AdkExecutor:
                 elif 'implementation_status' in fields:
                     fields['implementation_status']['enum'] = [s for s in fields['implementation_status']['enum']
                                                               if s != 'EXTERNAL_EVIDENCE_REQUIRED']
-                if bundle.skill_id == 'pci_mapper' and task['scope'].get('compliance_scope_policy') in {'code_related_v2', 'precomputed_controls_v3'}:
+                if bundle.skill_id == 'pci_mapper' and task['scope'].get('compliance_scope_policy') in {'code_related_v2', 'precomputed_controls_v3', 'selected_controls_v1'}:
                     if 'control_scope' in fields:
                         fields['control_scope'] = {'type': 'string', 'enum': ['CODE_RELATED', 'NON_CODE', 'UNKNOWN']}
                         required = definition.setdefault('required', [])
@@ -649,6 +649,8 @@ class AdkExecutor:
                 'Use read_upstream_records for full original statements, rationale and missing scope facts. '
                 'Only the original sources delivered in design_materials/target_materials or explicitly '
                 'read through source tools can be cited; upstream records are analysis leads.')
+            if task['scope'].get('control_id'):
+                context['selected_control'] = read_standard_control(task['scope']['control_id'])
         context = {**context, 'required_document_reads': sorted(required_reads)}
         message = json.dumps(references.encode(context), ensure_ascii=False)
         limit = 160000 if bundle.skill_id in {'pci_mapper', 'pci_requirement_generator'} else 80000

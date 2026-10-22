@@ -38,10 +38,18 @@ def lexical_ranking(store, catalog_id: str, query: str, by_clause: dict) -> list
     if not tokens:
         return []
     expression = ' OR '.join('"' + t + '"' for t in tokens)
-    rows = store.rows(f'SELECT item_type,item_id,bm25({table}) AS score FROM {table} WHERE {table} MATCH ? ORDER BY score,rowid', (expression,))
+    eligible = {cid for ids in by_clause.values() for cid in ids}
+    if not eligible:
+        return []
+    clauses, controls = sorted(by_clause), sorted(eligible)
+    clause_slots, control_slots = ','.join('?' for _ in clauses), ','.join('?' for _ in controls)
+    rows = store.rows(f'SELECT item_type,item_id,bm25({table}) AS score FROM {table} WHERE {table} MATCH ? '
+                      f'AND ((item_type=\'clause\' AND item_id IN ({clause_slots})) '
+                      f'OR (item_type!=\'clause\' AND item_id IN ({control_slots}))) ORDER BY score,rowid',
+                      (expression, *clauses, *controls))
     scores = {}
     for row in rows:
-        ids = [row['item_id']] if row['item_type'].startswith('control') else by_clause[row['item_id']]
+        ids = ([row['item_id']] if row['item_id'] in eligible else []) if row['item_type'].startswith('control') else by_clause.get(row['item_id'], [])
         for control_id in ids:
             scores[control_id] = max(-row['score'], scores.get(control_id, -float('inf')))
     return sorted(scores, key=lambda c: (-scores[c], c))
