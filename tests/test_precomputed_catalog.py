@@ -321,7 +321,7 @@ async def test_real_adk_selects_read_precomputed_controls_without_generating_req
             else:
                 declaration = next(d for tool in llm_request.config.tools for d in tool.function_declarations
                                    if d.name == 'set_model_response')
-                props = declaration.parameters_json_schema['$defs']['Applicability']['properties']
+                props = declaration.parameters_json_schema['$defs']['ScopedApplicability']['properties']
                 assert props['control_ids']['items']['enum'] == ['control_8_3_1']
                 eid = store.evidence(run['id'], 'standard')[0]['id']
                 result = Applicability(title='Identity control', clause_id='8.3.1', status='APPLICABLE',

@@ -37,3 +37,26 @@ def test_invalid_operating_limits_fail_at_startup(settings):
     for options in [{"concurrency": 0}, {"max_requests": -1}, {"max_tokens": -1}]:
         with pytest.raises(ValueError):
             replace(settings, **options)
+
+
+async def test_deterministic_validation_error_is_archived_without_echoing_source(settings,store,sample_run):
+    import json
+    _,run,eid=sample_run
+    class InvalidExecutor:
+        calls=0
+        async def execute(self,task,bundle,context):
+            self.calls+=1
+            store.note_read(task['id'],eid)
+            return StageOutput(records=[Fact(title='Invalid observed fact',module='api',fact_type='BOUNDARY',
+                basis='OBSERVED',evidence_ids=[eid],rationale='Fixture')],summary='Invalid fixture')
+    executor=InvalidExecutor()
+    scheduler=Scheduler(settings,store,executor)
+    parent=store.add_task(run['id'],'design_model',{},wave='stage')
+    node={'id':'design_model','role':'design_analyst','skill_id':'design_analyst','skill_version':'0.6.0'}
+    with pytest.raises(OutputContractError):
+        await scheduler.child(run['id'],node,parent,{'evidence_ids':[eid]})
+    outputs=[json.loads(r['content']) for r in store.rows('SELECT content FROM model_outputs')]
+    failure=next(r for r in outputs if r.get('transport')=='output_validation_failure_v1')
+    assert failure['error_type']=='ValueError'
+    assert failure['error']=='设计材料不能声明代码观察事实'
+    assert executor.calls==1 and not store.records(run['id'])

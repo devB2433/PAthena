@@ -308,7 +308,13 @@ class Scheduler:
             except OutputContractError as exc:
                 self.store.fail_task(tid, str(exc))
                 raise
-            except ValueError:
+            except ValueError as exc:
+                # Archive the deterministic contract failure, not another model
+                # interpretation. Pydantic errors may echo source contents, so
+                # keep only their class; built-in ValueErrors name our gates.
+                self.store.save_model_output(tid, json.dumps({
+                    'transport': 'output_validation_failure_v1', 'error_type': type(exc).__name__,
+                    'error': str(exc) if type(exc) is ValueError else 'schema_validation_failed'}, ensure_ascii=False))
                 reason = '模型产物未通过结构、来源引用或需求对应校验，阶段未完成'
                 self.store.fail_task(tid, reason)
                 raise OutputContractError(reason) from None

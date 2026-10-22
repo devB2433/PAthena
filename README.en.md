@@ -657,6 +657,8 @@ The API adds `requirement_check_scope` to existing modes: obtain options from `/
 
 Isolated automated checks use scripted models to verify inventories, dispatch, and exports, plus the actual ADK runner with checked-in skills for submission-contract testing. They do not establish real-model analytical accuracy or measured token savings. Expected savings primarily concern implementation checks; modeling and independent auditing retain their original work.
 
+For requirement-driven standard matching, the task owns the evaluated requirement ID. The model need not repeat it, including for unrelated decisions. This link identifies the evaluated subject; it does not establish relevance or applicability. The program applies the declared task association and rejects conflicting IDs without changing the model's analytical fields.
+
 ### Fact inventory and original-source reads
 
 Requirement generation and standard matching receive the complete fact navigation inventory (ID, title, module, type, and source references), without repeating every quote and source obligation in the initial context. Full fact records remain unchanged and available through `read_upstream_records`. Requirement generation must still read every assigned original design block before submission. This preserves the skill, fact inventory, and original documents; it does not enlarge the model context window.

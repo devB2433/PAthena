@@ -116,6 +116,18 @@ def scoped_checker_submission_model(requirement_id: str):
 
 
 @lru_cache
+def scoped_mapping_submission_model(requirement_id: str):
+    """The evaluated requirement is task identity, including unrelated decisions."""
+    from .domain import Applicability
+    record = create_model('ScopedApplicability', __base__=StrictModel, **{
+        **{key: (field.annotation, field) for key, field in Applicability.model_fields.items()
+           if key != 'requirement_ids'},
+        'requirement_ids': (list[Literal[requirement_id]] | None, Field(default=None, min_length=1, max_length=1))})
+    return create_model('ScopedMappingSubmission', __base__=ModelStageOutput,
+                        records=(list[record], Field(description='Every decision evaluates this task requirement')))
+
+
+@lru_cache
 def scoped_review_submission_model(subject_id: str, criterion_count: int):
     from .domain import Review, ClaimReview, LogicComparison
     entry = create_model('ScopedClaimReview', __base__=StrictModel, **{
@@ -168,7 +180,9 @@ class AdkExecutor:
                             and len(task['scope'].get('clause_ids', []))==1
                             and (self.store.run(run_id)['snapshot'].get('standard') or {}).get('library_id') else None)
         owned_check = task['scope']['requirement_id'] if bundle.skill_id=='requirement_checker' else None
+        owned_mapping = task['scope'].get('requirement_id') if bundle.skill_id == 'pci_mapper' else None
         schema = (scoped_checker_submission_model(owned_check) if owned_check else
+                  scoped_mapping_submission_model(owned_mapping) if owned_mapping else
                   scoped_pci_submission_model(owned_provenance['clause_ids'][0]) if owned_provenance else
                   submission_model(bundle.skill_id, structured_sources=structured_sources))
         if bundle.skill_id == 'requirement_reviewer' and structured_sources:
@@ -264,6 +278,9 @@ class AdkExecutor:
                 if owned_check:
                     fields.pop('requirement_id',None)
                     fields.pop('requirement_ids',None)
+                if owned_mapping:
+                    fields.pop('requirement_ids', None)
+                    definition['required'] = [key for key in definition.get('required', []) if key in fields]
                 if 'implementation_status' in fields and not code_ready:
                     fields['implementation_status']['enum'] = ['UNKNOWN','NOT_CODE_VERIFIABLE']
                 elif 'implementation_status' in fields:
@@ -563,6 +580,15 @@ class AdkExecutor:
                 'Every such assessment must include an actual original code source handle in evidence_ids. '
                 'Design documents, standards, upstream records and the Mantis model are not code evidence. '
                 'The allowed status enum is rebound after actual code reads; a search hit alone does not unlock it.')
+        if owned_mapping:
+            instruction += ('\nThis invocation uses task_owned_mapping_provenance_v1. Every applicability record '
+                'evaluates the task requirement '+owned_mapping+'. Omit requirement_ids; the program supplies '
+                'only that declared task association, including for UNRELATED, UNKNOWN or excluded decisions. '
+                'This association identifies the evaluated subject, not a finding of relevance or applicability. '
+                'An exact echo is compatible; any conflicting association is rejected, never replaced. '
+                'This transport rule overrides generic descriptions of the complete stored Applicability. '
+                'All analytical fields, control IDs, conditions, verdicts and original source references '
+                'must still be returned unchanged by the model.')
         if len(ALLOWED_KINDS[bundle.skill_id]) > 1:
             instruction += ('\nFinal transport: records is an object with separate lists named '
                             + ', '.join(sorted(ALLOWED_KINDS[bundle.skill_id]))
@@ -693,6 +719,11 @@ class AdkExecutor:
                     for record in payload['records']['finding']:
                         record['requirement_ids'] = [owned_check]
                     parsed = parse_submission(bundle.skill_id,payload)
+                elif owned_mapping:
+                    payload = schema.model_validate_json(final).model_dump()
+                    for record in payload['records']:
+                        record['requirement_ids'] = [owned_mapping]
+                    parsed = stage_schema(bundle.skill_id).model_validate(payload)
                 elif owned_provenance:
                     parsed = schema.model_validate_json(final)
                     payload = parsed.model_dump()
@@ -718,6 +749,10 @@ class AdkExecutor:
             except ValueError:
                 raise OutputContractError("模型最终结果未通过结构化校验，原始返回已保存") from None
         finally:
+            if owned_mapping:
+                self.store.save_model_output(task['id'], json.dumps(
+                    {'transport': 'task_owned_mapping_provenance_v1', 'task_id': task['id'],
+                     'requirement_ids': [owned_mapping]}, ensure_ascii=False))
             if owned_check:
                 self.store.save_model_output(task['id'],json.dumps(
                     {'transport':'task_owned_check_provenance_v1','task_id':task['id'],

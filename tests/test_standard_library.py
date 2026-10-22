@@ -179,7 +179,7 @@ async def test_real_adk_reads_catalog_and_directly_commits_requirement_clause_ma
             self._calls+=1
             declaration = next(d for tool in llm_request.config.tools for d in tool.function_declarations
                                if d.name == 'set_model_response')
-            fields = declaration.parameters_json_schema['$defs']['Applicability']
+            fields = declaration.parameters_json_schema['$defs']['ScopedApplicability']
             assert 'control_scope' in fields['required']
             assert fields['properties']['control_scope']['enum'] == ['CODE_RELATED', 'NON_CODE', 'UNKNOWN']
             if self._calls==1:
